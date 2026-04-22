@@ -65,8 +65,8 @@
                             <div class="w-full sm:w-32 bg-slate-100 border-b sm:border-b-0 sm:border-r border-slate-200 p-2 flex items-center justify-center shrink-0 h-32 sm:h-auto">
                                 {% if r.imagen %}
                                     {% set imagenes = r.imagen.split(',') %}
-                                    <a href="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
-                                        <img src="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-200 shadow-sm">
+                                    <a href="{{ url_for('ver_imagen', filename=imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
+                                        <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-200 shadow-sm">
                                         {% if imagenes|length > 1 %}
                                             <span class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] font-bold px-1.5 rounded">+{{ imagenes|length - 1 }}</span>
                                         {% endif %}

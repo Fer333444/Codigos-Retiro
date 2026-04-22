@@ -467,7 +467,8 @@ def procesar_formulario_retiro(req, lista_usuarios):
         historial_inicial = [f"[{hora_actual}] Creado por Cliente{nota_multi}"]
         
         if sistema_config['auto_asignar']:
-            cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador']
+            # NUEVA LÓGICA: INCLUYE A LOS QUE TIENEN PERMISO DE PROCESAR
+            cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
             if cobradores:
                 cargas = {c: 0 for c in cobradores}
                 for r in registros:
@@ -551,7 +552,10 @@ def admin():
     if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_retiros' not in mis_permisos: return redirect(url_for('login'))
     
     activos = [r for r in registros if r['estado'] == 'activo']
-    cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador']
+    
+    # NUEVA LÓGICA: INCLUYE A LOS QUE TIENEN PERMISO DE PROCESAR
+    cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
+    
     hoy_ecuador = hora_ecuador().strftime("%d/%m/%Y")
     stats_cobradores = {}
     
@@ -566,7 +570,6 @@ def admin():
                 try: stats_cobradores[asignado]['asignados_valor'] += float(r['monto'])
                 except: pass
                 
-            # AQUI SE APLICA LA REGLA: Si ya fue liquidado (cobrado por recaudador), ya no suma en 'total_dia' ni 'fallidos' de esta pantalla
             if r['fecha'].startswith(hoy_ecuador) and not r.get('liquidado', False):
                 if r['estado'] == 'retirado':
                     try: stats_cobradores[asignado]['total_dia'] += float(r['monto'])
@@ -588,7 +591,8 @@ def toggle_auto():
     sistema_config['auto_asignar'] = not sistema_config['auto_asignar']
     hora_actual = hora_ecuador().strftime('%H:%M')
     if sistema_config['auto_asignar']:
-        cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador']
+        # NUEVA LÓGICA: INCLUYE A LOS QUE TIENEN PERMISO DE PROCESAR
+        cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
         if cobradores:
             for r in registros:
                 if r['estado'] == 'activo' and r['asignado_a'] is None:
@@ -1023,7 +1027,8 @@ def vista_reporte_diario():
     mis_permisos = session.get('permisos', [])
     if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_reporte_diario' not in mis_permisos: return redirect(url_for('login'))
     
-    cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador']
+    # NUEVA LÓGICA: INCLUYE A LOS QUE TIENEN PERMISO DE PROCESAR
+    cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
     reporte = []
     
     for c in cobradores:
@@ -1193,7 +1198,8 @@ def vista_reportes():
         if user not in deudas_agrupadas: deudas_agrupadas[user] = []
         deudas_agrupadas[user].append(r)
         
-    cobradores_activos = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador']
+    # NUEVA LÓGICA: INCLUYE A LOS QUE TIENEN PERMISO DE PROCESAR
+    cobradores_activos = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
     cobradores_mostrar = [filtro_cobrador] if filtro_cobrador in cobradores_activos else cobradores_activos
     stats_cobradores = {}
     for c in cobradores_mostrar:

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mis Grupos | Flujo ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
+
+    <datalist id="listaClientesDB">
+        {% for u in todos_los_usuarios %}
+            <option value="{{ u }}"></option>
+        {% endfor %}
+    </datalist>
+
+    <form id="formRenombrar" action="/renombrar_grupo" method="POST" class="hidden">
+        <input type="hidden" id="viejoNombreInput" name="viejo_nombre">
+        <input type="hidden" id="nuevoNombreInput" name="nuevo_nombre">
+    </form>
+
+    <header class="md:hidden fixed top-0 w-full h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-40 shadow-sm">
+        <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+        <button id="btnMenuMovil" class="text-slate-600 hover:text-green-600 text-2xl focus:outline-none"><i class="fas fa-bars"></i></button>
+    </header>
+
+    <div id="overlayMenu" class="fixed inset-0 bg-slate-900/50 z-40 hidden md:hidden"></div>
+
+    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-50">
+        <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
+            <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+            <button id="btnCerrarMenu" class="md:hidden text-slate-400 hover:text-red-500 text-xl focus:outline-none"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            {% set mis_permisos = session.get('permisos', []) %}
+            
+            {% if rol == 'supremo' or 'crear_links' in mis_permisos %}
+                <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-link w-5"></i> Links de Clientes</a>
+            {% endif %}
+            
+            {% if rol == 'supremo' or 'gestionar_grupos' in mis_permisos %}
+                <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg transition-colors"><i class="fas fa-folder w-5"></i> Mis Grupos</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
+                <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-home w-5"></i> Retiros Activos</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'recaudador'] or 'ver_reporte_diario' in mis_permisos %}
+                <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
+            {% endif %}
+            
+            {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
+                <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
+            <div class="relative">
+                <button type="button" onclick="toggleSubmenu('submenu-rep-1', 'icon-rep-1')" class="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors focus:outline-none">
+                    <div class="flex items-center gap-3"><i class="fas fa-chart-line w-5"></i> Reportes</div>
+                    <i id="icon-rep-1" class="fas fa-chevron-down text-[10px] transition-transform duration-300"></i>
+                </button>
+                <div id="submenu-rep-1" class="hidden flex-col pl-11 pr-2 py-1 space-y-1">
+                    <a href="/reportes?vista=completados" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-emerald-600 transition-colors"><i class="fas fa-check-circle w-4"></i> Completados</a>
+                    <a href="/reportes?vista=historial" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-rose-600 transition-colors"><i class="fas fa-history w-4"></i> Historial y Deudas</a>
+                    <a href="/reportes?vista=cobradores" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"><i class="fas fa-user-tie w-4"></i> Por Cobrador</a>
+                    <a href="/reportes?vista=valor" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"><i class="fas fa-dollar-sign w-4"></i> Por Valor</a>
+                    <a href="/reportes?vista=usuario" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"><i class="fas fa-user w-4"></i> Por Usuario</a>
+                    <a href="/reportes?vista=estado" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"><i class="fas fa-info-circle w-4"></i> Por Estado</a>
+                    <a href="/reportes?vista=sucursal" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"><i class="fas fa-building w-4"></i> Por Forma Pago</a>
+                </div>
+            </div>
+            {% endif %}
+        </nav>
+
+        <div class="p-4 border-t border-slate-200 shrink-0">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-slate-600 uppercase truncate">{{ mi_usuario }}</span>
+                <a href="/logout" class="text-xs font-medium text-red-500 hover:underline"><i class="fas fa-sign-out-alt"></i> Salir</a>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative w-full">
+        <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm relative z-10 shrink-0">
+            <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }}</span>
+                <a href="/logout" class="text-sm font-medium text-red-500 hover:underline">Cerrar sesión</a>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-auto p-4 md:p-8 bg-slate-50 relative">
+            <div class="max-w-7xl mx-auto">
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                      {% for category, message in messages %}
+                        <div class="mb-6 p-4 rounded-xl font-bold text-sm shadow-sm {% if category == 'error' %}bg-rose-50 text-rose-600 border border-rose-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
+                            {{ message }}
+                        </div>
+                      {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <div class="flex flex-col md:flex-row md:justify-between md:items-end mb-6 md:mb-8 gap-4">
+                    <div>
+                        <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Grupos de Clientes</h2>
+                        <p class="text-slate-500 text-xs md:text-sm mt-1">Comparte 1 solo enlace por grupo. Añade o quita usuarios libremente.</p>
+                    </div>
+
+                    <form action="/crear_grupo_vacio" method="POST" class="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200 w-full md:w-auto">
+                        <input type="text" name="nombre_grupo" required placeholder="Nuevo nombre de grupo" class="flex-1 md:w-48 border-none outline-none pl-3 text-sm font-bold bg-transparent">
+                        <button type="submit" class="bg-[#108000] hover:bg-[#0c6600] text-white px-4 py-2 rounded-lg text-sm font-bold shadow transition-colors shrink-0"><i class="fas fa-plus mr-1"></i> Crear</button>
+                    </form>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
+                    {% for grupo in grupos %}
+                    <div class="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
+                        
+                        <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 border-b border-slate-100 pb-3 gap-3">
+                            
+                            <h3 class="text-lg md:text-xl font-black text-slate-800 flex items-center group/titulo truncate">
+                                <i class="fas fa-folder-open text-blue-500 mr-2 text-xl md:text-2xl"></i>
+                                <span class="truncate">{{ grupo }}</span>
+                                <button onclick="renombrarGrupo('{{ grupo }}')" class="ml-2 text-slate-300 hover:text-blue-600 transition-colors opacity-100 sm:opacity-0 sm:group-hover/titulo:opacity-100 shrink-0" title="Renombrar carpeta">
+                                    <i class="fas fa-edit text-sm"></i>
+                                </button>
+                            </h3>
+                            
+                            <button onclick="copiarLink('{{ base_url }}retiro_grupo/{{ grupo }}')" class="w-full sm:w-auto bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white px-3 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-wide transition-colors shadow-sm flex items-center justify-center gap-2 shrink-0">
+                                <i class="fas fa-link"></i> Copiar Link
+                            </button>
+                        </div>
+
+                        <div class="flex-1 max-h-48 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+                            {% if not usuarios_por_grupo[grupo] %}
+                                <div class="h-full flex flex-col items-center justify-center py-6 text-slate-300">
+                                    <i class="fas fa-users-slash text-3xl mb-2"></i>
+                                    <p class="text-[10px] md:text-xs font-bold uppercase tracking-widest">Sin usuarios</p>
+                                </div>
+                            {% else %}
+                                {% for item in usuarios_por_grupo[grupo] %}
+                                <div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100 group/item hover:bg-red-50 hover:border-red-100 transition-colors">
+                                    <span class="text-xs md:text-sm font-bold text-slate-700 truncate w-4/5"><i class="fas fa-user-circle text-slate-300 mr-2 group-hover/item:text-red-300 transition-colors"></i>{{ item.data.usuario }}</span>
+                                    
+                                    <form action="/quitar_de_grupo" method="POST" class="m-0 shrink-0">
+                                        <input type="hidden" name="token" value="{{ item.token }}">
+                                        <button type="submit" class="text-slate-300 hover:text-red-600 transition-colors px-2 opacity-100 sm:opacity-0 sm:group-hover/item:opacity-100" title="Quitar del grupo">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t border-slate-100">
+                            <form action="/quick_add_grupo" method="POST" class="flex gap-2">
+                                <input type="hidden" name="grupo" value="{{ grupo }}">
+                                <input type="text" name="usuario" list="listaClientesDB" autocomplete="off" placeholder="Buscar / Añadir..." required class="flex-1 border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-xs md:text-sm outline-none focus:border-blue-500 font-medium min-w-0">
+                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors shrink-0" title="Añadir a {{ grupo }}">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </form>
+                        </div>
+
+                    </div>
+                    {% endfor %}
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function copiarLink(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert('✅ Link MAESTRO del grupo copiado:\n\n' + url + '\n\nEnvíalo al grupo. Los clientes seleccionarán su nombre de la lista al entrar.');
+            }).catch(err => {
+                // Fallback para navegadores móviles antiguos
+                prompt("Copia este link y envíalo al grupo:", url);
+            });
+        }
+
+        function renombrarGrupo(viejoNombre) {
+            let nuevoNombre = prompt("Ingresa el nuevo nombre para la carpeta:", viejoNombre);
+            if (nuevoNombre !== null && nuevoNombre.trim() !== "" && nuevoNombre.trim() !== viejoNombre) {
+                document.getElementById('viejoNombreInput').value = viejoNombre;
+                document.getElementById('nuevoNombreInput').value = nuevoNombre.trim();
+                document.getElementById('formRenombrar').submit();
+            }
+        }
+
+        // --- SCRIPTS DEL MENÚ MÓVIL ---
+        function toggleSubmenu(menuId, iconId) {
+            const menu = document.getElementById(menuId);
+            const icon = document.getElementById(iconId);
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                menu.classList.add('flex');
+                icon.classList.add('rotate-180');
+            } else {
+                menu.classList.add('hidden');
+                menu.classList.remove('flex');
+                icon.classList.remove('rotate-180');
+            }
+        }
+
+        const btnMenuMovil = document.getElementById('btnMenuMovil');
+        const btnCerrarMenu = document.getElementById('btnCerrarMenu');
+        const sidebar = document.getElementById('sidebar');
+        const overlayMenu = document.getElementById('overlayMenu');
+
+        function toggleMenu() {
+            sidebar.classList.toggle('-translate-x-full');
+            overlayMenu.classList.toggle('hidden');
+        }
+
+        if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);
+        if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
+        if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
+    </script>
+</body>
+</html>

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Crear Usuario | Flujo ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .permisos-drawer {
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease-in-out, margin 0.4s ease-in-out;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            margin-top: 0;
+        }
+        .permisos-drawer.open {
+            max-height: 800px;
+            opacity: 1;
+            margin-top: 1.25rem;
+        }
+        .checkbox-card input:checked + div {
+            border-color: #16a34a; 
+            background-color: #f0fdf4; 
+        }
+        .checkbox-card input:checked + div i {
+            color: #16a34a;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
+
+    <header class="md:hidden fixed top-0 w-full h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-40 shadow-sm">
+        <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+        <button id="btnMenuMovil" class="text-slate-600 hover:text-green-600 text-2xl focus:outline-none"><i class="fas fa-bars"></i></button>
+    </header>
+
+    <div id="overlayMenu" class="fixed inset-0 bg-slate-900/50 z-40 hidden md:hidden"></div>
+
+    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-50">
+        <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
+            <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+            <button id="btnCerrarMenu" class="md:hidden text-slate-400 hover:text-red-500 text-xl focus:outline-none"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            {% set mis_permisos = session.get('permisos', []) %}
+            
+            {% if rol == 'supremo' or 'crear_links' in mis_permisos %}
+                <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-link w-5"></i> Links de Clientes</a>
+            {% endif %}
+            
+            {% if rol == 'supremo' or 'gestionar_grupos' in mis_permisos %}
+                <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-folder w-5"></i> Mis Grupos</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
+                <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'recaudador'] or 'ver_reporte_diario' in mis_permisos %}
+                <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
+            {% endif %}
+            
+            {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
+                <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
+            <div class="relative">
+                <button type="button" onclick="toggleSubmenu('submenu-rep-1', 'icon-rep-1')" class="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors focus:outline-none">
+                    <div class="flex items-center gap-3"><i class="fas fa-chart-line w-5"></i> Reportes</div>
+                    <i id="icon-rep-1" class="fas fa-chevron-down text-[10px] transition-transform duration-300"></i>
+                </button>
+                <div id="submenu-rep-1" class="hidden flex-col pl-11 pr-2 py-1 space-y-1">
+                    <a href="/reportes?vista=completados" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-emerald-600 transition-colors">Retiros Completados</a>
+                    <a href="/reportes?vista=historial" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-rose-600 transition-colors">Historial y Deudas</a>
+                    <a href="/reportes?vista=cobradores" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Cobrador</a>
+                    <a href="/reportes?vista=valor" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Valor</a>
+                    <a href="/reportes?vista=usuario" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Usuario</a>
+                    <a href="/reportes?vista=estado" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Estado</a>
+                    <a href="/reportes?vista=sucursal" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Forma Pago</a>
+                </div>
+            </div>
+            {% endif %}
+        </nav>
+
+        <div class="p-4 border-t border-slate-200 shrink-0">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-slate-600 uppercase truncate">{{ mi_usuario }}</span>
+                <a href="/logout" class="text-xs font-medium text-red-500 hover:underline"><i class="fas fa-sign-out-alt"></i> Salir</a>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-auto pt-16 md:pt-0 relative w-full">
+        <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm relative z-10 w-full shrink-0">
+            <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }}</span>
+                <a href="/logout" class="text-sm font-medium text-red-500 hover:underline">Cerrar sesión</a>
+            </div>
+        </header>
+
+        <div class="flex-1 p-4 md:p-8 bg-slate-50 flex justify-center items-start">
+            
+            <div class="w-full max-w-3xl">
+                
+                <div class="flex items-center gap-4 mb-6">
+                    <a href="/usuarios" class="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-500 hover:text-green-600 hover:border-green-300 transition-colors shadow-sm">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-800 tracking-tight">Crear Nuevo Usuario</h2>
+                        <p class="text-xs font-medium text-slate-500 mt-1">Añade a alguien a tu equipo y configura sus accesos.</p>
+                    </div>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="mb-6 p-4 rounded-xl font-bold text-sm shadow-sm {% if category == 'error' %}bg-rose-50 text-rose-600 border border-rose-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
+                          {{ message }}
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <form action="/usuarios/crear" method="POST" class="space-y-6">
+                    
+                    <div class="bg-white rounded-2xl border border-slate-200 p-5 md:p-7 shadow-sm">
+                        <h3 class="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2 border-b border-slate-100 pb-3">
+                            <span class="bg-green-100 text-green-700 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black">1</span> 
+                            Credenciales de acceso
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Nombre Mostrar</label>
+                                <input type="text" name="nombre" required placeholder="Ej. Juan P." class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl p-3 outline-none font-bold focus:bg-white focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Usuario de Acceso</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-3 text-slate-400 font-bold">@</span>
+                                    <input type="text" name="username" required placeholder="jperez" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl pl-8 pr-3 py-3 outline-none font-bold focus:bg-white focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all">
+                                </div>
+                            </div>
+                            <div class="md:col-span-2 lg:col-span-1">
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Contraseña</label>
+                                <input type="text" name="password" required placeholder="Contraseña temporal" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl p-3 outline-none font-bold focus:bg-white focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200 p-5 md:p-7 shadow-sm">
+                        <h3 class="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2 border-b border-slate-100 pb-3">
+                            <span class="bg-green-100 text-green-700 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black">2</span> 
+                            Asignar rol y permisos
+                        </h3>
+                        
+                        <div class="w-full md:w-1/2 relative">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Rol del sistema</label>
+                            <select name="rol" id="rolSelect" required class="w-full bg-white border-2 border-slate-200 text-slate-700 text-sm font-bold rounded-xl p-3.5 outline-none focus:border-green-500 focus:text-green-700 transition-colors cursor-pointer shadow-sm appearance-none">
+                                <option value="" disabled selected>-- Selecciona un rol --</option>
+                                <option value="cobrador">Cobrador</option>
+                                <option value="recaudador">Recaudador</option>
+                                <option value="reportes">Reportes</option>
+                                <option value="supremo">Supremo (Admin)</option>
+                            </select>
+                            <i class="fas fa-chevron-down absolute right-4 top-[38px] text-slate-400 pointer-events-none text-xs"></i>
+                        </div>
+                        
+                        <div id="contenedorPermisos" class="permisos-drawer bg-slate-50 rounded-xl border border-slate-200 p-5">
+                            <div class="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
+                                <p class="text-xs font-bold text-slate-500 uppercase tracking-widest"><i class="fas fa-sliders-h mr-1"></i> Permisos Asignados</p>
+                                <span class="text-[9px] text-slate-400 font-medium uppercase bg-white px-2 py-1 rounded border border-slate-200">Ajustables</span>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                
+                                <label class="checkbox-card relative cursor-pointer group">
+                                    <input type="checkbox" name="permisos" value="ver_retiros" id="chk_ver_retiros" class="peer sr-only">
+                                    <div class="p-3 bg-white rounded-lg border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors group-hover:bg-slate-200">
+                                            <i class="fas fa-eye text-slate-400 transition-colors"></i>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-700">Ver Bandeja Activos</span>
+                                    </div>
+                                </label>
+                                
+                                <label class="checkbox-card relative cursor-pointer group">
+                                    <input type="checkbox" name="permisos" value="procesar_retiros" id="chk_procesar_retiros" class="peer sr-only">
+                                    <div class="p-3 bg-white rounded-lg border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors group-hover:bg-slate-200">
+                                            <i class="fas fa-check-double text-slate-400 transition-colors"></i>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-700">Procesar/Cobrar Retiros</span>
+                                    </div>
+                                </label>
+                                
+                                <label class="checkbox-card relative cursor-pointer group">
+                                    <input type="checkbox" name="permisos" value="ver_reportes" id="chk_ver_reportes" class="peer sr-only">
+                                    <div class="p-3 bg-white rounded-lg border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors group-hover:bg-slate-200">
+                                            <i class="fas fa-chart-pie text-slate-400 transition-colors"></i>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-700">Acceso a Reportes</span>
+                                    </div>
+                                </label>
+
+                                <label class="checkbox-card relative cursor-pointer group">
+                                    <input type="checkbox" name="permisos" value="gestionar_usuarios" id="chk_gestionar_usuarios" class="peer sr-only">
+                                    <div class="p-3 bg-white rounded-lg border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors group-hover:bg-slate-200">
+                                            <i class="fas fa-users-cog text-slate-400 transition-colors"></i>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-700">Gestionar Usuarios</span>
+                                    </div>
+                                </label>
+
+                                <label class="checkbox-card relative cursor-pointer group">
+                                    <input type="checkbox" name="permisos" value="crear_links" id="chk_crear_links" class="peer sr-only">
+                                    <div class="p-3 bg-white rounded-lg border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors group-hover:bg-slate-200">
+                                            <i class="fas fa-link text-slate-400 transition-colors"></i>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-700">Crear Links</span>
+                                    </div>
+                                </label>
+
+                                <label class="checkbox-card relative cursor-pointer group">
+                                    <input type="checkbox" name="permisos" value="gestionar_grupos" id="chk_gestionar_grupos" class="peer sr-only">
+                                    <div class="p-3 bg-white rounded-lg border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors group-hover:bg-slate-200">
+                                            <i class="fas fa-folder text-slate-400 transition-colors"></i>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-700">Gestionar Grupos</span>
+                                    </div>
+                                </label>
+
+                                <label class="checkbox-card relative cursor-pointer group">
+                                    <input type="checkbox" name="permisos" value="ver_reporte_diario" id="chk_ver_reporte_diario" class="peer sr-only">
+                                    <div class="p-3 bg-white rounded-lg border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors group-hover:bg-slate-200">
+                                            <i class="fas fa-cash-register text-slate-400 transition-colors"></i>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-700">Ver Reporte Diario</span>
+                                    </div>
+                                </label>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-2">
+                        <button type="submit" id="btnGuardar" class="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-black py-4 rounded-xl shadow-lg shadow-green-600/30 transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-sm">
+                            <i class="fas fa-user-plus text-lg"></i> Crear Usuario
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const rolSelect = document.getElementById('rolSelect');
+        const drawerPermisos = document.getElementById('contenedorPermisos');
+        
+        // Elementos de Checkboxes (Cuentan todos ahora)
+        const chks = {
+            'ver_retiros': document.getElementById('chk_ver_retiros'),
+            'procesar_retiros': document.getElementById('chk_procesar_retiros'),
+            'ver_reportes': document.getElementById('chk_ver_reportes'),
+            'gestionar_usuarios': document.getElementById('chk_gestionar_usuarios'),
+            'crear_links': document.getElementById('chk_crear_links'),
+            'gestionar_grupos': document.getElementById('chk_gestionar_grupos'),
+            'ver_reporte_diario': document.getElementById('chk_ver_reporte_diario')
+        };
+
+        function actualizarPermisosSugeridos() {
+            const rol = rolSelect.value;
+
+            if (!rol) {
+                drawerPermisos.classList.remove('open');
+                return;
+            }
+
+            drawerPermisos.classList.add('open');
+
+            // Limpiar todos
+            Object.values(chks).forEach(c => c.checked = false);
+
+            // Asignar recomendados
+            if(rol === 'cobrador') {
+                chks.ver_retiros.checked = true;
+                chks.procesar_retiros.checked = true;
+            } else if(rol === 'recaudador') {
+                chks.ver_retiros.checked = true;
+                chks.ver_reporte_diario.checked = true;
+            } else if(rol === 'reportes') {
+                chks.ver_reportes.checked = true;
+                chks.ver_reporte_diario.checked = true;
+            } else if(rol === 'supremo') {
+                Object.values(chks).forEach(c => c.checked = true);
+            }
+        }
+
+        rolSelect.addEventListener('change', actualizarPermisosSugeridos);
+
+        // Menú Móvil
+        function toggleSubmenu(menuId, iconId) {
+            const menu = document.getElementById(menuId);
+            const icon = document.getElementById(iconId);
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                menu.classList.add('flex');
+                icon.classList.add('rotate-180');
+            } else {
+                menu.classList.add('hidden');
+                menu.classList.remove('flex');
+                icon.classList.remove('rotate-180');
+            }
+        }
+
+        const btnMenuMovil = document.getElementById('btnMenuMovil');
+        const btnCerrarMenu = document.getElementById('btnCerrarMenu');
+        const sidebar = document.getElementById('sidebar');
+        const overlayMenu = document.getElementById('overlayMenu');
+
+        function toggleMenu() {
+            sidebar.classList.toggle('-translate-x-full');
+            overlayMenu.classList.toggle('hidden');
+        }
+
+        if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);
+        if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
+        if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
+    </script>
+</body>
+</html>

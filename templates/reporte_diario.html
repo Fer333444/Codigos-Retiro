@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Reporte Diario de Caja | Flujo ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .drawer-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 0; opacity: 0; overflow: hidden; }
+        .drawer-content.open { max-height: 1000px; opacity: 1; overflow: visible; }
+        .chevron-icon { transition: transform 0.3s ease-in-out; }
+        .chevron-icon.open { transform: rotate(180deg); }
+    </style>
+</head>
+<body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
+
+    <header class="md:hidden fixed top-0 w-full h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-40 shadow-sm">
+        <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+        <button id="btnMenuMovil" class="text-slate-600 hover:text-green-600 text-2xl focus:outline-none"><i class="fas fa-bars"></i></button>
+    </header>
+
+    <div id="overlayMenu" class="fixed inset-0 bg-slate-900/50 z-40 hidden md:hidden"></div>
+
+    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-50">
+        <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
+            <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+            <button id="btnCerrarMenu" class="md:hidden text-slate-400 hover:text-red-500 text-xl focus:outline-none"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            {% if rol == 'supremo' %}
+                <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-link w-5"></i> Links de Clientes</a>
+                <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-folder w-5"></i> Mis Grupos</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'recaudador'] %}
+                <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
+                <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
+            {% endif %}
+            
+            {% if rol == 'supremo' %}
+                <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'reportes'] %}
+            <div class="relative">
+                <button type="button" onclick="toggleSubmenu('submenu-rep-1', 'icon-rep-1')" class="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors focus:outline-none">
+                    <div class="flex items-center gap-3"><i class="fas fa-chart-line w-5"></i> Reportes</div>
+                    <i id="icon-rep-1" class="fas fa-chevron-down text-[10px] transition-transform duration-300"></i>
+                </button>
+                <div id="submenu-rep-1" class="hidden flex-col pl-11 pr-2 py-1 space-y-1">
+                    <a href="/reportes?vista=completados" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-emerald-600 transition-colors">Retiros Completados</a>
+                    <a href="/reportes?vista=historial" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-rose-600 transition-colors">Historial y Deudas</a>
+                    <a href="/reportes?vista=cobradores" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Cobrador</a>
+                    <a href="/reportes?vista=valor" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Valor</a>
+                    <a href="/reportes?vista=usuario" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Usuario</a>
+                    <a href="/reportes?vista=estado" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Estado</a>
+                    <a href="/reportes?vista=sucursal" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Sucursal</a>
+                </div>
+            </div>
+            {% endif %}
+        </nav>
+
+        <div class="p-4 border-t border-slate-200 shrink-0">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-slate-600 uppercase truncate">{{ mi_usuario }}</span>
+                <a href="/logout" class="text-xs font-medium text-red-500 hover:underline"><i class="fas fa-sign-out-alt"></i> Salir</a>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative w-full">
+        <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm relative z-10 w-full shrink-0">
+            <h1 class="text-lg font-semibold text-slate-800">Caja y Recaudación</h1>
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }} ({{ rol }})</span>
+                <a href="/logout" class="text-sm font-medium text-red-500 hover:underline">Cerrar sesión</a>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-auto p-4 md:p-8 bg-slate-50">
+            <div class="max-w-5xl mx-auto">
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="mb-6 p-4 rounded-xl font-bold text-sm shadow-sm {% if category == 'error' %}bg-rose-50 text-rose-600 border border-rose-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
+                          {{ message }}
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                    <div>
+                        <h2 class="text-2xl font-black text-slate-800 tracking-tight">Cierre de Caja Automático</h2>
+                        <p class="text-slate-500 text-sm mt-1 font-medium">El sistema acumula el dinero pendiente de liquidar de cada cobrador de forma automática.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for rec in reporte %}
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col relative">
+                        
+                        <button onclick="abrirHistorial('{{ rec.cobrador }}')" class="absolute top-4 right-4 w-12 h-12 bg-white border-2 border-yellow-400 text-yellow-500 rounded-full hover:bg-yellow-50 hover:scale-105 transition-all flex items-center justify-center shadow-md z-10" title="Ver Historial de Fallos">
+                            <i class="fas fa-history text-xl"></i>
+                            {% if rec.fallidos|length > 0 %}
+                                <span class="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">{{ rec.fallidos|length }}</span>
+                            {% endif %}
+                        </button>
+
+                        <div class="p-6 border-b border-slate-100 flex flex-col items-center justify-center text-center bg-gradient-to-b from-slate-50 to-white">
+                            <div class="w-16 h-16 bg-indigo-100 text-indigo-500 rounded-full flex items-center justify-center text-2xl mb-3 shadow-inner">
+                                <i class="fas fa-user-tie"></i>
+                            </div>
+                            <h3 class="text-lg font-black text-slate-800 uppercase tracking-widest">{{ rec.cobrador }}</h3>
+                            
+                            {% if rec.tiene_pendientes %}
+                                <div class="mt-2 mb-3 bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 inline-block shadow-inner">
+                                    <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Dinero Acumulado</p>
+                                    {% if rec.fecha_desde == rec.fecha_hasta %}
+                                        <p class="text-xs font-black text-indigo-700">De Hoy: {{ rec.fecha_desde }}</p>
+                                    {% else %}
+                                        <p class="text-xs font-black text-indigo-700">{{ rec.fecha_desde }} <i class="fas fa-arrow-right mx-1 text-slate-400"></i> {{ rec.fecha_hasta }}</p>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="mt-2 mb-3 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 inline-block">
+                                    <p class="text-[10px] font-black text-emerald-600 uppercase tracking-wider"><i class="fas fa-check-circle mr-1"></i> Caja Auditada al día</p>
+                                </div>
+                            {% endif %}
+
+                            <p class="text-[10px] font-bold text-slate-400 uppercase mt-1">Efectivo por cobrar</p>
+                            <p class="text-4xl font-black text-emerald-600 mt-1">${{ "%.2f"|format(rec.total) }}</p>
+                        </div>
+
+                        <div class="p-5 bg-white mt-auto border-t border-slate-50">
+                            {% if rec.tiene_pendientes %}
+                                <form action="/marcar_recibido" method="POST" class="m-0" onsubmit="return confirm('¿Confirmas que has recibido el dinero y auditado los fallos de {{ rec.cobrador|capitalize }}?\n\nEsto dejará su caja en $0.00 para empezar de nuevo.');">
+                                    <input type="hidden" name="cobrador" value="{{ rec.cobrador }}">
+                                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-blue-500/30 uppercase tracking-widest text-sm flex items-center justify-center gap-2">
+                                        <i class="fas fa-hand-holding-usd text-lg"></i> Marcar como Recibido
+                                    </button>
+                                </form>
+                            {% else %}
+                                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center text-slate-400">
+                                    <p class="text-xs font-black uppercase tracking-widest"><i class="fas fa-bed mr-1"></i> Sin cobros pendientes</p>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                    {% endfor %}
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    {% for rec in reporte %}
+    <div id="modal-historial-{{ rec.cobrador }}" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex justify-center items-center p-4 md:p-8 transition-opacity">
+        <div class="bg-white rounded-2xl w-full max-w-3xl max-h-full shadow-2xl flex flex-col overflow-hidden transform scale-95 transition-transform" id="modal-box-{{ rec.cobrador }}">
+            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center text-lg shadow-inner"><i class="fas fa-history"></i></div>
+                    <div>
+                        <h3 class="text-lg font-black text-slate-800 uppercase tracking-tight">Historial de Fallos / Deudas</h3>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase">Cobrador: {{ rec.cobrador }}</p>
+                    </div>
+                </div>
+                <button onclick="cerrarHistorial('{{ rec.cobrador }}')" class="text-slate-400 hover:text-rose-500 transition-colors text-3xl focus:outline-none"><i class="fas fa-times-circle"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto bg-slate-50/50 flex-1 custom-scroll">
+                {% if not rec.fallidos %}
+                    <div class="text-center py-12">
+                        <i class="fas fa-check-circle text-5xl text-slate-300 mb-4 shadow-sm rounded-full"></i>
+                        <p class="text-slate-500 font-bold uppercase tracking-widest text-sm">No hay registros fallidos pendientes a liquidar.</p>
+                    </div>
+                {% else %}
+                    <div class="grid grid-cols-1 gap-4">
+                        {% for f in rec.fallidos %}
+                            <div class="bg-white border-l-4 {% if f.estado == 'fallido' %}border-rose-500{% elif f.estado == 'fallido_revision' %}border-yellow-400{% else %}border-orange-400{% endif %} rounded-xl p-4 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-start md:items-center hover:shadow-md transition-shadow">
+                                <div class="flex-1 w-full">
+                                    <div class="flex items-center gap-3 mb-2 flex-wrap">
+                                        <span class="font-black text-slate-800 text-xl">${{ f.monto }}</span>
+                                        <span class="text-xs font-bold text-slate-500 uppercase bg-slate-100 px-2 py-0.5 rounded">{{ f.usuario }}</span>
+                                        <span class="text-[9px] px-2 py-1 rounded font-black uppercase tracking-wider {% if f.estado == 'fallido' %}bg-rose-100 text-rose-700{% elif f.estado == 'fallido_revision' %}bg-yellow-100 text-yellow-700{% else %}bg-orange-100 text-orange-700{% endif %}">{{ f.estado }}</span>
+                                    </div>
+                                    <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 mt-2 shadow-inner">
+                                        <p class="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1"><i class="fas fa-comment-dots text-slate-400 mr-1"></i> Motivo del fallo:</p>
+                                        <p class="text-xs font-mono text-slate-700 font-medium">{{ f.motivo }}</p>
+                                    </div>
+                                </div>
+                                <div class="text-left md:text-right w-full md:w-auto bg-slate-50 md:bg-transparent p-2 md:p-0 rounded border border-slate-100 md:border-none">
+                                    <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Banco: <span class="text-slate-600">{{ f.banco }}</span></p>
+                                    <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Fecha: <span class="text-slate-600">{{ f.fecha }}</span></p>
+                                    <p class="text-[10px] text-slate-400 font-bold uppercase">ID Ref: <span class="text-slate-600">#{{ f.id }}</span></p>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <script>
+        function abrirHistorial(cobrador) {
+            const modal = document.getElementById('modal-historial-' + cobrador);
+            const box = document.getElementById('modal-box-' + cobrador);
+            modal.classList.remove('hidden');
+            setTimeout(() => { box.classList.remove('scale-95'); box.classList.add('scale-100'); }, 10);
+        }
+
+        function cerrarHistorial(cobrador) {
+            const modal = document.getElementById('modal-historial-' + cobrador);
+            const box = document.getElementById('modal-box-' + cobrador);
+            box.classList.remove('scale-100');
+            box.classList.add('scale-95');
+            setTimeout(() => { modal.classList.add('hidden'); }, 150);
+        }
+
+        function toggleSubmenu(menuId, iconId) {
+            const menu = document.getElementById(menuId);
+            const icon = document.getElementById(iconId);
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                menu.classList.add('flex');
+                icon.classList.add('rotate-180');
+            } else {
+                menu.classList.add('hidden');
+                menu.classList.remove('flex');
+                icon.classList.remove('rotate-180');
+            }
+        }
+        
+        const btnMenuMovil = document.getElementById('btnMenuMovil');
+        const btnCerrarMenu = document.getElementById('btnCerrarMenu');
+        const sidebar = document.getElementById('sidebar');
+        const overlayMenu = document.getElementById('overlayMenu');
+
+        function toggleMenu() {
+            sidebar.classList.toggle('-translate-x-full');
+            overlayMenu.classList.toggle('hidden');
+        }
+
+        if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);
+        if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
+        if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
+    </script>
+</body>
+</html>

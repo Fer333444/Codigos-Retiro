@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Sistema</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-sm w-full bg-white rounded-3xl shadow-xl p-8 border border-slate-100">
+        
+        <div class="text-center mb-8">
+            <h1 class="text-2xl font-black text-slate-800 uppercase tracking-tighter">Acceso Personal</h1>
+            <p class="text-sm text-slate-500 mt-1">Ingresa tus credenciales para continuar</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="mb-6 p-3 rounded-xl bg-red-50 text-red-600 text-sm font-bold text-center border border-red-200">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="/login" class="space-y-5">
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Usuario</label>
+                <input type="text" name="username" placeholder="Ej. admin, cris, jenny" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Contraseña</label>
+                <input type="password" name="password" placeholder="••••••••" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3.5 px-4 rounded-xl transition-all shadow-md mt-4">
+                ENTRAR AL SISTEMA
+            </button>
+        </form>
+    </div>
+</body>
+</html>

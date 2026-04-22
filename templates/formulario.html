@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Enviar Código de Retiro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        .glow-border { box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .box-usuarios::-webkit-scrollbar { width: 6px; }
+        .box-usuarios::-webkit-scrollbar-track { background: #0f172a; border-radius: 10px; }
+        .box-usuarios::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        #formularioCompleto { transition: all 0.5s ease-in-out; opacity: 0; max-height: 0; overflow: hidden; }
+        #formularioCompleto.visible { opacity: 1; max-height: 1500px; overflow: visible; }
+    </style>
+</head>
+<body class="bg-[#0f172a] min-h-screen flex items-center justify-center p-4 font-sans">
+
+    {% if recibo %}
+    <div class="w-full max-w-sm mx-auto animate-fade-in-up">
+        
+        <div id="ticketRecibo" class="bg-white rounded-xl p-6 text-center shadow-[0_0_20px_rgba(0,0,0,0.5)] relative overflow-hidden pb-8">
+            <div class="absolute top-0 left-0 w-full h-3 bg-blue-500"></div>
+            
+            <i class="fas fa-check-circle text-6xl text-emerald-500 mb-4 mt-2"></i>
+            <h2 class="text-xl font-black text-slate-800 uppercase tracking-widest mb-1">Retiro Enviado</h2>
+            <p class="text-xs text-slate-500 mb-6 font-bold">{{ recibo.fecha }}</p>
+            
+            <div class="bg-slate-50 rounded-xl p-5 mb-4 border border-slate-200 shadow-inner">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Monto a Retirar</p>
+                <p class="text-5xl font-black text-blue-600 mb-4">${{ recibo.monto }}</p>
+                
+                <div class="flex justify-between items-start text-left border-t border-slate-200 pt-4 mt-2 gap-2">
+                    <div class="w-1/2">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Banco</p>
+                        <p class="text-sm font-black text-slate-700">{{ recibo.banco }}</p>
+                    </div>
+                    <div class="w-1/2 text-right">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Usuario</p>
+                        <p class="text-sm font-black text-slate-700 break-words pb-1">{{ recibo.usuario }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-4">Flujo ERP - Comprobante Digital</p>
+        </div>
+
+        <div class="flex gap-3 mt-6">
+            <button id="btnCompartirMaestro" onclick="compartirImagenNativa()" class="w-full bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-black py-4 rounded-xl shadow-lg flex justify-center items-center gap-2 transition-colors uppercase tracking-widest text-sm">
+                <i class="fas fa-share-square text-lg"></i> Compartir / Descargar
+            </button>
+        </div>
+        
+        <div class="mt-6 text-center">
+            <a href="{{ form_action }}" class="text-slate-400 hover:text-white text-xs font-bold underline decoration-slate-600 underline-offset-4 transition-colors">Volver a la bandeja inicial</a>
+        </div>
+    </div>
+
+    <script>
+        async function generarImagen() {
+            const ticket = document.getElementById('ticketRecibo');
+            return await html2canvas(ticket, { scale: 3, backgroundColor: '#ffffff', useCORS: true }); 
+        }
+
+        async function compartirImagenNativa() {
+            const btn = document.getElementById('btnCompartirMaestro');
+            const btnOriginalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+            btn.disabled = true;
+
+            try {
+                const canvas = await generarImagen();
+                canvas.toBlob(async (blob) => {
+                    const file = new File([blob], "Comprobante_FlujoERP.jpg", { type: "image/jpeg" });
+                    
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            await navigator.share({
+                                title: 'Comprobante de Retiro',
+                                text: 'Comprobante generado desde Flujo ERP',
+                                files: [file]
+                            });
+                        } catch (err) {
+                            descargarTradicional(canvas);
+                        }
+                    } else {
+                        descargarTradicional(canvas);
+                    }
+                    restaurarBoton(btn, btnOriginalHtml);
+                }, 'image/jpeg', 0.95);
+            } catch (error) {
+                console.error("Error al procesar", error);
+                alert("Hubo un error al preparar la imagen.");
+                restaurarBoton(btn, btnOriginalHtml);
+            }
+        }
+
+        function descargarTradicional(canvas) {
+            const link = document.createElement('a');
+            link.download = 'Comprobante_FlujoERP.jpg';
+            link.href = canvas.toDataURL('image/jpeg', 0.95);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function restaurarBoton(btn, html) {
+            btn.innerHTML = html;
+            btn.disabled = false;
+        }
+    </script>
+    
+    {% else %}
+    <div id="pantallaEnvio" class="hidden fixed inset-0 bg-[#0f172a]/95 backdrop-blur-md z-[100] flex flex-col justify-center items-center">
+        <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <h2 class="text-white font-black tracking-widest uppercase text-xl mb-2" id="textoCargaPrincipal">Enviando Datos</h2>
+        <p class="text-emerald-400 text-sm font-bold animate-pulse text-center px-6" id="textoCargaSecundario">Subiendo comprobante seguro...<br>Por favor no cierres la ventana.</p>
+    </div>
+
+    <div class="w-full max-w-md bg-[#1e293b] rounded-2xl p-6 glow-border relative shadow-2xl mt-2 mb-2">
+        
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-black text-white tracking-tight">Código de Retiro</h2>
+            {% if es_grupo %}
+                <span class="bg-blue-900/50 text-blue-400 text-[10px] uppercase font-black px-3 py-1 rounded-full border border-blue-700/50"><i class="fas fa-users mr-1"></i> {{ nombre_grupo }}</span>
+            {% else %}
+                <i class="fas fa-robot text-blue-400 text-lg animate-pulse" title="Asistente de IA Activado"></i>
+            {% endif %}
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <div class="mb-6 p-4 rounded-xl text-center font-bold text-sm {% if category == 'error' %}bg-red-500/10 text-red-400 border border-red-500/20{% else %}bg-[#064e3b] text-emerald-400 border border-emerald-600/50{% endif %}">
+                    {{ message }}
+                </div>
+              {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div id="zonaSubidaFoto" class="mb-6">
+            <label class="block text-xs font-bold text-slate-400 mb-3 uppercase tracking-widest text-center">Sube tus capturas (App y SMS)</label>
+            
+            <div class="flex items-center justify-center w-full">
+                <label for="comprobanteInput" class="flex flex-col items-center justify-center w-full h-40 border-2 border-blue-500/50 border-dashed rounded-xl cursor-pointer bg-blue-900/10 hover:bg-blue-900/20 hover:border-blue-400 transition-all group relative overflow-hidden">
+                    <div class="flex flex-col items-center justify-center pt-5 pb-6 pointer-events-none z-10" id="estadoCargaFoto">
+                        <div class="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                            <i class="fas fa-camera text-2xl text-blue-400"></i>
+                        </div>
+                        <p class="mb-1 text-sm text-slate-300 font-medium"><span class="font-bold text-blue-400">Toca aquí</span> para subir imagen</p>
+                        <p class="text-xs text-emerald-400/80 font-bold mt-1"><i class="fas fa-magic"></i> Selecciona varias si es Produbanco</p>
+                    </div>
+                </label>
+            </div>
+            
+            <div id="previewContainer" class="flex flex-wrap justify-center gap-3 mt-4"></div>
+            
+            <div class="text-center mt-6">
+                <button type="button" onclick="mostrarFormularioManual()" class="text-slate-500 text-xs font-bold hover:text-slate-300 transition-colors underline decoration-slate-600 underline-offset-4">
+                    No tengo foto, llenar datos manualmente
+                </button>
+            </div>
+        </div>
+
+        <form action="{{ form_action }}" method="POST" enctype="multipart/form-data" id="formularioCompleto" onsubmit="return validarYEnviar()">
+            
+            <input id="comprobanteInput" name="comprobante" type="file" accept="image/jpeg, image/png, image/jpg, .jpg, .jpeg, .png" multiple class="hidden" onchange="procesarFotoConIA(this)" />
+
+            <div class="space-y-5 bg-[#0f172a]/30 p-5 rounded-xl border border-slate-700/50">
+                
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-white font-black text-sm uppercase tracking-wider"><i class="fas fa-file-invoice-dollar text-blue-500 mr-2"></i> Verifica tus datos</h3>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-2">Selecciona tu Banco</label>
+                    <select name="banco" id="bancoSelect" required class="w-full bg-[#0f172a] border border-slate-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-3 appearance-none outline-none transition-colors">
+                        <option value="" disabled selected>-- Toca para elegir --</option>
+                        <option value="pichincha">Banco Pichincha</option>
+                        <option value="guayaquil">Banco Guayaquil</option>
+                        <option value="produbanco">Produbanco</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 mb-1">Monto ($)</label>
+                        <input type="number" name="monto" id="inputMonto" required step="0.01" class="w-full bg-[#0f172a] border border-slate-600 text-emerald-400 font-black rounded-lg p-3 outline-none focus:border-emerald-500 transition-colors" placeholder="Ej. 15">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 mb-1">Hora Límite</label>
+                        <input type="time" name="hora_retiro" id="inputHora" value="{{ hora_sugerida }}" required class="w-full bg-[#0f172a] border border-slate-600 text-white rounded-lg p-3 outline-none focus:border-blue-500 transition-colors font-bold">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Celular (Ecuador)</label>
+                    <input type="text" name="celular" id="inputCelular" required maxlength="10" onkeyup="validarFormularioLive()" class="w-full bg-[#0f172a] border border-slate-600 text-slate-400 font-bold rounded-lg p-3 outline-none focus:border-blue-500 transition-colors" placeholder="09...">
+                    <p id="errorCelular" class="text-rose-500 text-[10px] font-bold mt-1 hidden"><i class="fas fa-exclamation-triangle"></i> Debe empezar con 09 y tener 10 dígitos.</p>
+                </div>
+
+                <div id="divCedula" class="hidden">
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Cédula o C.I.</label>
+                    <input type="text" name="cedula" id="inputCedula" maxlength="10" onkeyup="validarFormularioLive()" class="w-full bg-[#0f172a] border border-slate-600 text-slate-400 font-bold rounded-lg p-3 outline-none focus:border-blue-500 transition-colors" placeholder="Ej. 1714773155">
+                    <p id="errorCedula" class="text-rose-500 text-[10px] font-bold mt-1 hidden"><i class="fas fa-exclamation-triangle"></i> La cédula debe tener exactamente 10 dígitos.</p>
+                </div>
+
+                <div class="bg-[#0f172a]/80 p-4 rounded-lg border border-slate-600">
+                    <label class="block text-xs font-bold text-blue-400 mb-3 uppercase tracking-widest">
+                        {% if es_grupo %}Selecciona los Usuarios a cobrar:{% else %}Usuario Magis:{% endif %}
+                    </label>
+                    
+                    {% if es_grupo %}
+                        <div class="max-h-40 overflow-y-auto box-usuarios space-y-2 pr-2">
+                            {% for u in usuarios_grupo %}
+                            <label class="flex items-center space-x-3 p-2 rounded hover:bg-slate-800 transition-colors cursor-pointer border border-transparent hover:border-slate-700">
+                                <input type="checkbox" name="usuarios_magis" value="{{ u }}" class="w-6 h-6 md:w-5 md:h-5 rounded border-slate-600 text-blue-600 focus:ring-blue-600 focus:ring-offset-slate-900 bg-slate-700">
+                                <span class="text-white font-bold text-sm">{{ u }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <input type="text" name="usuarios_magis" value="{{ usuario_pre }}" readonly class="w-full bg-[#0f172a] border border-slate-600 text-white font-bold rounded-lg p-3 outline-none opacity-80 cursor-not-allowed">
+                    {% endif %}
+                </div>
+
+                <div id="camposDinamicos" class="hidden bg-[#0f172a]/80 p-4 rounded-lg border border-slate-600 mt-4 space-y-4">
+                    <div id="divPichinchaProdubanco" class="hidden">
+                        <label class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-widest" id="lblCodigoUnico">Código de Retiro</label>
+                        <input type="text" name="codigo_recibido" id="inputClaveUnica" maxlength="6" class="w-full bg-[#0f172a] border-2 border-blue-500 text-white rounded-lg p-3 outline-none focus:border-blue-400 font-mono tracking-widest text-center text-xl transition-colors shadow-[0_0_10px_rgba(59,130,246,0.3)]">
+                    </div>
+                    
+                    <div id="divGuayaquil" class="hidden grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-widest">Código Retiro</label>
+                            <input type="text" name="clave_retiro" id="inputClaveRetiro" class="w-full bg-[#0f172a] border-2 border-blue-500 text-white rounded-lg p-3 outline-none focus:border-blue-400 font-mono text-center text-lg transition-colors shadow-[0_0_10px_rgba(59,130,246,0.3)]">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-widest">Código Envío</label>
+                            <input type="text" name="clave_envio" id="inputClaveEnvio" class="w-full bg-[#0f172a] border-2 border-blue-500 text-white rounded-lg p-3 outline-none focus:border-blue-400 font-mono text-center text-lg transition-colors shadow-[0_0_10px_rgba(59,130,246,0.3)]">
+                        </div>
+                    </div>
+                    
+                    <div id="divGenerico" class="hidden">
+                        <label class="block text-xs font-bold text-slate-400 mb-1">Código de Seguridad</label>
+                        <input type="text" name="codigo_seguridad" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded-lg p-3 outline-none focus:border-blue-500 font-mono text-center transition-colors">
+                    </div>
+                </div>
+
+                <div class="pt-4 relative z-20">
+                    <button type="submit" id="btnSubmit" class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-blue-500/30 uppercase tracking-widest text-sm flex justify-center items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-paper-plane mr-2"></i> ENVIAR DATOS
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const select = document.getElementById('bancoSelect');
+        const boxDinamica = document.getElementById('camposDinamicos');
+        const divPichinchaProdubanco = document.getElementById('divPichinchaProdubanco');
+        const divGuayaquil = document.getElementById('divGuayaquil');
+        const divGenerico = document.getElementById('divGenerico');
+        const formCompleto = document.getElementById('formularioCompleto');
+        const inputCelular = document.getElementById('inputCelular');
+        const errorCelular = document.getElementById('errorCelular');
+        
+        // Elementos de la cédula
+        const divCedula = document.getElementById('divCedula');
+        const inputCedula = document.getElementById('inputCedula');
+        const errorCedula = document.getElementById('errorCedula');
+        
+        const btnSubmit = document.getElementById('btnSubmit');
+
+        function actualizarCamposBanco(bancoValue) {
+            // Ocultar todo primero
+            boxDinamica.classList.remove('hidden');
+            divPichinchaProdubanco.classList.add('hidden');
+            divGuayaquil.classList.add('hidden');
+            divGenerico.classList.add('hidden');
+            
+            // Lógica de Cédula: Solo visible y obligatoria en Produbanco
+            if (bancoValue === 'produbanco') {
+                divCedula.classList.remove('hidden');
+                inputCedula.setAttribute('required', 'required');
+            } else {
+                divCedula.classList.add('hidden');
+                inputCedula.removeAttribute('required');
+                inputCedula.value = ''; // Limpiamos para evitar basura en otros bancos
+            }
+
+            if(bancoValue === 'pichincha' || bancoValue === 'produbanco') {
+                document.getElementById('lblCodigoUnico').innerText = bancoValue === 'pichincha' ? 'Código Pichincha' : 'Código Produbanco';
+                divPichinchaProdubanco.classList.remove('hidden');
+            } else if(bancoValue === 'guayaquil') {
+                divGuayaquil.classList.remove('hidden');
+            } else if(bancoValue) {
+                divGenerico.classList.remove('hidden');
+            }
+            
+            // Re-validamos el form para actualizar el botón ENVIAR
+            validarFormularioLive();
+        }
+
+        select.addEventListener('change', function() {
+            actualizarCamposBanco(this.value);
+        });
+
+        function mostrarFormularioManual() {
+            document.getElementById('zonaSubidaFoto').classList.add('hidden');
+            formCompleto.classList.add('visible');
+        }
+
+        function validarFormularioLive() {
+            let esValido = true;
+
+            // Validación de Celular
+            inputCelular.value = inputCelular.value.replace(/[^0-9]/g, '');
+            const celular = inputCelular.value;
+            
+            if (celular.length > 0 || inputCelular.hasAttribute('required')) {
+                if (!celular.startsWith('09') || celular.length !== 10) {
+                    inputCelular.classList.remove('border-slate-600', 'border-emerald-500');
+                    inputCelular.classList.add('border-rose-500');
+                    errorCelular.classList.remove('hidden');
+                    esValido = false;
+                } else {
+                    inputCelular.classList.remove('border-rose-500', 'border-slate-600');
+                    inputCelular.classList.add('border-emerald-500');
+                    errorCelular.classList.add('hidden');
+                }
+            }
+
+            // Validación de Cédula (Solo si es obligatoria/visible)
+            if (inputCedula.hasAttribute('required')) {
+                inputCedula.value = inputCedula.value.replace(/[^0-9]/g, '');
+                const cedula = inputCedula.value;
+                
+                if (cedula.length > 0 || inputCedula.hasAttribute('required')) {
+                    if (cedula.length !== 10) {
+                        inputCedula.classList.remove('border-slate-600', 'border-emerald-500');
+                        inputCedula.classList.add('border-rose-500');
+                        errorCedula.classList.remove('hidden');
+                        esValido = false;
+                    } else {
+                        inputCedula.classList.remove('border-rose-500', 'border-slate-600');
+                        inputCedula.classList.add('border-emerald-500');
+                        errorCedula.classList.add('hidden');
+                    }
+                }
+            } else {
+                // Si no es requerida, quitamos errores visuales por si acaso
+                inputCedula.classList.remove('border-rose-500', 'border-emerald-500');
+                inputCedula.classList.add('border-slate-600');
+                errorCedula.classList.add('hidden');
+            }
+
+            btnSubmit.disabled = !esValido;
+            return esValido;
+        }
+
+        function procesarFotoConIA(input) {
+            const previewContainer = document.getElementById('previewContainer');
+            previewContainer.innerHTML = ''; 
+
+            if (input.files && input.files.length > 0) {
+                for (let i = 0; i < input.files.length; i++) {
+                    const imgUrl = URL.createObjectURL(input.files[i]);
+                    const imgElement = document.createElement('img');
+                    imgElement.src = imgUrl;
+                    imgElement.className = "w-24 h-24 object-cover rounded-xl border border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.2)]";
+                    previewContainer.appendChild(imgElement);
+                }
+
+                document.getElementById('textoCargaPrincipal').innerHTML = '<i class="fas fa-robot mr-2"></i> Analizando...';
+                document.getElementById('textoCargaSecundario').innerText = 'La Inteligencia Artificial está extrayendo tus códigos...';
+                document.getElementById('pantallaEnvio').classList.remove('hidden');
+
+                const formData = new FormData();
+                for (let i = 0; i < input.files.length; i++) {
+                    formData.append('imagenes', input.files[i]);
+                }
+
+                fetch('/api/procesar_ocr', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('pantallaEnvio').classList.add('hidden');
+                    
+                    if(data.error) {
+                        alert("Hubo un problema leyendo la foto, por favor llena los datos manualmente.");
+                    } else {
+                        if(data.BANCO) {
+                            let b = data.BANCO.toLowerCase();
+                            if(b.includes('pichincha')) { select.value = 'pichincha'; }
+                            else if(b.includes('guayaquil')) { select.value = 'guayaquil'; }
+                            else if(b.includes('produbanco')) { select.value = 'produbanco'; }
+                            actualizarCamposBanco(select.value);
+                        }
+                        
+                        if(data.MONTO) document.getElementById('inputMonto').value = data.MONTO;
+                        if(data.CELULAR) document.getElementById('inputCelular').value = data.CELULAR; 
+                        
+                        // Si es Produbanco, ponemos la cédula
+                        if(data.CEDULA && select.value === 'produbanco') { 
+                            document.getElementById('inputCedula').value = data.CEDULA; 
+                        }
+                        
+                        // Validamos después de llenar todo
+                        validarFormularioLive();
+                        
+                        if((select.value === 'pichincha' || select.value === 'produbanco') && data.CLAVE_RETIRO) {
+                            document.getElementById('inputClaveUnica').value = data.CLAVE_RETIRO;
+                        }
+                        
+                        if(select.value === 'guayaquil') {
+                            if(data.CLAVE_RETIRO) document.getElementById('inputClaveRetiro').value = data.CLAVE_RETIRO;
+                            if(data.CLAVE_ENVIO) document.getElementById('inputClaveEnvio').value = data.CLAVE_ENVIO;
+                        }
+
+                        if(data.HORA_LIMITE && data.HORA_LIMITE.includes(':')) {
+                            document.getElementById('inputHora').value = data.HORA_LIMITE;
+                        }
+                    }
+
+                    document.getElementById('zonaSubidaFoto').classList.add('hidden');
+                    formCompleto.classList.add('visible');
+
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('pantallaEnvio').classList.add('hidden');
+                    alert("Error de conexión. Llena los datos manualmente.");
+                    document.getElementById('zonaSubidaFoto').classList.add('hidden');
+                    formCompleto.classList.add('visible');
+                });
+            }
+        }
+
+        function validarYEnviar() {
+            if (!validarFormularioLive()) {
+                alert("Por favor, verifica que los datos en rojo estén correctos.");
+                return false;
+            }
+            
+            document.getElementById('textoCargaPrincipal').innerText = 'Enviando Datos';
+            document.getElementById('textoCargaSecundario').innerHTML = 'Guardando retiro en la nube...<br>Por favor no cierres la ventana.';
+            document.getElementById('pantallaEnvio').classList.remove('hidden');
+            setTimeout(() => { document.getElementById('btnSubmit').disabled = true; }, 100);
+            return true;
+        }
+    </script>
+    {% endif %}
+</body>
+</html>

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Usuarios | Flujo ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .checkbox-card input:checked + div {
+            border-color: #16a34a; 
+            background-color: #f0fdf4; 
+        }
+        .checkbox-card input:checked + div i {
+            color: #16a34a;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
+
+    <header class="md:hidden fixed top-0 w-full h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-40 shadow-sm">
+        <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+        <button id="btnMenuMovil" class="text-slate-600 hover:text-green-600 text-2xl focus:outline-none"><i class="fas fa-bars"></i></button>
+    </header>
+
+    <div id="overlayMenu" class="fixed inset-0 bg-slate-900/50 z-40 hidden md:hidden"></div>
+
+    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-50">
+        <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
+            <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+            <button id="btnCerrarMenu" class="md:hidden text-slate-400 hover:text-red-500 text-xl focus:outline-none"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            {% set mis_permisos = session.get('permisos', []) %}
+            
+            {% if rol == 'supremo' or 'crear_links' in mis_permisos %}
+                <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-link w-5"></i> Links de Clientes</a>
+            {% endif %}
+            
+            {% if rol == 'supremo' or 'gestionar_grupos' in mis_permisos %}
+                <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-folder w-5"></i> Mis Grupos</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
+                <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'recaudador'] or 'ver_reporte_diario' in mis_permisos %}
+                <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
+            {% endif %}
+            
+            {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
+                <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
+            <div class="relative">
+                <button type="button" onclick="toggleSubmenu('submenu-rep-1', 'icon-rep-1')" class="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors focus:outline-none">
+                    <div class="flex items-center gap-3"><i class="fas fa-chart-line w-5"></i> Reportes</div>
+                    <i id="icon-rep-1" class="fas fa-chevron-down text-[10px] transition-transform duration-300"></i>
+                </button>
+                <div id="submenu-rep-1" class="hidden flex-col pl-11 pr-2 py-1 space-y-1">
+                    <a href="/reportes?vista=completados" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-emerald-600 transition-colors">Retiros Completados</a>
+                    <a href="/reportes?vista=historial" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-rose-600 transition-colors">Historial y Deudas</a>
+                    <a href="/reportes?vista=cobradores" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Cobrador</a>
+                    <a href="/reportes?vista=valor" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Valor</a>
+                    <a href="/reportes?vista=usuario" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Usuario</a>
+                    <a href="/reportes?vista=estado" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Estado</a>
+                    <a href="/reportes?vista=sucursal" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Forma Pago</a>
+                </div>
+            </div>
+            {% endif %}
+        </nav>
+
+        <div class="p-4 border-t border-slate-200 shrink-0">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-slate-600 uppercase truncate">{{ mi_usuario }}</span>
+                <a href="/logout" class="text-xs font-medium text-red-500 hover:underline"><i class="fas fa-sign-out-alt"></i> Salir</a>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative w-full">
+        <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm relative z-10 w-full shrink-0">
+            <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }}</span>
+                <a href="/logout" class="text-sm font-medium text-red-500 hover:underline">Cerrar sesión</a>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-auto p-4 md:p-8 bg-slate-50">
+            <div class="max-w-6xl mx-auto">
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="mb-6 p-4 rounded-xl font-bold text-sm shadow-sm {% if category == 'error' %}bg-rose-50 text-rose-600 border border-rose-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
+                          {{ message }}
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
+                    
+                    <div class="p-6 border-b border-slate-200">
+                        <h2 class="text-xl font-black text-slate-800 tracking-tight mb-4">Administrar usuarios</h2>
+                        
+                        <div class="flex border-b border-slate-200 gap-6 overflow-x-auto">
+                            <button class="pb-3 border-b-2 border-green-600 font-bold text-sm text-green-700 focus:outline-none whitespace-nowrap">Usuarios</button>
+                            <button class="pb-3 border-b-2 border-transparent font-bold text-sm text-slate-400 hover:text-slate-600 focus:outline-none transition-colors whitespace-nowrap">Empresa De Contabilidad</button>
+                        </div>
+                    </div>
+
+                    <div class="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div class="relative w-full max-w-xs">
+                            <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
+                            <input type="text" placeholder="Buscar..." class="w-full border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 font-medium">
+                        </div>
+                        <a href="/usuarios/crear" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition-colors text-sm text-center">
+                            Agregar usuario
+                        </a>
+                    </div>
+
+                    <div class="hidden md:block w-full px-6 pb-6">
+                        <table class="w-full text-left text-sm text-slate-600 border-collapse whitespace-nowrap">
+                            <thead>
+                                <tr class="border-b border-slate-200 text-[10px] uppercase text-slate-500 tracking-widest">
+                                    <th class="py-3 px-2 font-bold w-1/4">Nombre</th>
+                                    <th class="py-3 px-2 font-bold w-1/4">Correo Electrónico</th>
+                                    <th class="py-3 px-2 font-bold">Estado</th>
+                                    <th class="py-3 px-2 font-bold">Rol</th>
+                                    <th class="py-3 px-2 font-bold text-right">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                {% for username, info in usuarios.items() %}
+                                <tr class="hover:bg-slate-50 transition-colors">
+                                    <td class="py-4 px-2">
+                                        <p class="font-bold text-slate-800 text-sm">{{ info.nombre }}</p>
+                                        <p class="text-xs text-slate-400 font-medium">@{{ username }}</p>
+                                    </td>
+                                    <td class="py-4 px-2 font-medium">{{ info.email }}</td>
+                                    <td class="py-4 px-2">
+                                        <span class="px-2.5 py-1 text-[10px] font-bold rounded-full {% if info.estado == 'Activo' %}bg-green-100 text-green-700{% else %}bg-slate-100 text-slate-500{% endif %}">{{ info.estado }}</span>
+                                    </td>
+                                    <td class="py-4 px-2 capitalize font-bold text-slate-500">{{ info.rol }}</td>
+                                    <td class="py-4 px-2 text-right">
+                                        <button onclick='abrirModalEditar("{{ username }}", "{{ info.nombre }}", "{{ info.email }}", "{{ info.rol }}", "{{ info.estado }}", {{ info.permisos | tojson }})' class="border border-slate-300 text-slate-600 font-bold text-xs px-4 py-2 rounded-lg bg-white hover:bg-slate-50 shadow-sm transition-colors">
+                                            Editar <i class="fas fa-edit ml-1"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="md:hidden grid grid-cols-1 gap-4 px-4 pb-6">
+                        {% for username, info in usuarios.items() %}
+                        <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <p class="font-black text-slate-800 text-base">{{ info.nombre }}</p>
+                                    <p class="text-xs text-slate-400 font-medium">@{{ username }}</p>
+                                </div>
+                                <span class="px-2.5 py-1 text-[10px] font-bold rounded-full {% if info.estado == 'Activo' %}bg-green-100 text-green-700{% else %}bg-slate-100 text-slate-500{% endif %}">
+                                    {{ info.estado }}
+                                </span>
+                            </div>
+                            
+                            <div class="space-y-1.5 mb-4">
+                                <p class="text-sm text-slate-600"><i class="fas fa-envelope w-5 text-slate-400"></i> {{ info.email if info.email else 'Sin correo' }}</p>
+                                <p class="text-sm text-slate-600 capitalize font-bold"><i class="fas fa-user-tag w-5 text-slate-400"></i> {{ info.rol }}</p>
+                            </div>
+                            
+                            <button onclick='abrirModalEditar("{{ username }}", "{{ info.nombre }}", "{{ info.email }}", "{{ info.rol }}", "{{ info.estado }}", {{ info.permisos | tojson }})' class="w-full bg-slate-50 border border-slate-300 text-slate-700 font-black text-sm py-2.5 rounded-lg hover:bg-slate-100 transition-colors">
+                                Editar Usuario <i class="fas fa-edit ml-1 text-slate-400"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <div id="modalEditarUsuario" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden animate-fade-in-up max-h-[90vh]">
+            
+            <div class="p-5 border-b border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
+                <h3 class="font-black text-slate-800 text-lg"><i class="fas fa-user-edit text-green-600 mr-2"></i> Editar Usuario</h3>
+                <button onclick="cerrarModalEditar()" class="text-slate-400 hover:text-rose-500 transition-colors focus:outline-none"><i class="fas fa-times-circle text-2xl"></i></button>
+            </div>
+            
+            <div class="p-6 space-y-4 overflow-y-auto">
+                
+                <form id="formEditarUsuario" action="/editar_usuario" method="POST" class="space-y-4">
+                    <input type="hidden" name="username" id="edit_username">
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Usuario (Sistema)</label>
+                            <input type="text" id="edit_username_display" disabled class="w-full bg-slate-100 border border-slate-200 text-slate-500 font-bold text-sm rounded-lg p-2.5 outline-none cursor-not-allowed">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre Mostrar</label>
+                            <input type="text" name="nombre" id="edit_nombre" required class="w-full bg-white border border-slate-300 text-slate-800 font-bold text-sm rounded-lg p-2.5 outline-none focus:border-green-500 transition-colors">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Correo Electrónico</label>
+                            <input type="email" name="email" id="edit_email" class="w-full bg-white border border-slate-300 text-slate-800 font-medium text-sm rounded-lg p-2.5 outline-none focus:border-green-500 transition-colors">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1"><i class="fas fa-key text-rose-500"></i> Nueva Contraseña</label>
+                            <input type="text" name="password" id="edit_password" placeholder="(Opcional)" class="w-full bg-white border border-slate-300 text-slate-800 font-bold text-sm rounded-lg p-2.5 outline-none focus:border-rose-500 transition-colors">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 border-b border-slate-100 pb-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Rol</label>
+                            <select name="rol" id="edit_rol" class="w-full bg-white border border-slate-300 text-slate-800 font-bold text-sm rounded-lg p-2.5 outline-none focus:border-green-500 transition-colors cursor-pointer">
+                                <option value="supremo">Supremo</option>
+                                <option value="recaudador">Recaudador</option>
+                                <option value="cobrador">Cobrador</option>
+                                <option value="reportes">Reportes</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Estado</label>
+                            <select name="estado" id="edit_estado" class="w-full bg-white border border-slate-300 text-slate-800 font-bold text-sm rounded-lg p-2.5 outline-none focus:border-green-500 transition-colors cursor-pointer">
+                                <option value="Activo">Activo</option>
+                                <option value="Inactivo">Inactivo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-3"><i class="fas fa-sliders-h mr-1"></i> Permisos Especiales</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            
+                            <label class="checkbox-card relative cursor-pointer group">
+                                <input type="checkbox" name="permisos" value="ver_retiros" id="edit_chk_ver_retiros" class="peer sr-only">
+                                <div class="p-2.5 bg-white rounded border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-2">
+                                    <i class="fas fa-eye w-5 text-center text-slate-400 transition-colors"></i>
+                                    <span class="text-xs font-bold text-slate-700">Ver Activos</span>
+                                </div>
+                            </label>
+                            
+                            <label class="checkbox-card relative cursor-pointer group">
+                                <input type="checkbox" name="permisos" value="procesar_retiros" id="edit_chk_procesar_retiros" class="peer sr-only">
+                                <div class="p-2.5 bg-white rounded border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-2">
+                                    <i class="fas fa-check-double w-5 text-center text-slate-400 transition-colors"></i>
+                                    <span class="text-xs font-bold text-slate-700">Cobrar Retiros</span>
+                                </div>
+                            </label>
+
+                            <label class="checkbox-card relative cursor-pointer group">
+                                <input type="checkbox" name="permisos" value="ver_reportes" id="edit_chk_ver_reportes" class="peer sr-only">
+                                <div class="p-2.5 bg-white rounded border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-2">
+                                    <i class="fas fa-chart-pie w-5 text-center text-slate-400 transition-colors"></i>
+                                    <span class="text-xs font-bold text-slate-700">Ver Reportes</span>
+                                </div>
+                            </label>
+
+                            <label class="checkbox-card relative cursor-pointer group">
+                                <input type="checkbox" name="permisos" value="gestionar_usuarios" id="edit_chk_gestionar_usuarios" class="peer sr-only">
+                                <div class="p-2.5 bg-white rounded border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-2">
+                                    <i class="fas fa-users-cog w-5 text-center text-slate-400 transition-colors"></i>
+                                    <span class="text-xs font-bold text-slate-700">Admin. Usuarios</span>
+                                </div>
+                            </label>
+
+                            <label class="checkbox-card relative cursor-pointer group">
+                                <input type="checkbox" name="permisos" value="crear_links" id="edit_chk_crear_links" class="peer sr-only">
+                                <div class="p-2.5 bg-white rounded border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-2">
+                                    <i class="fas fa-link w-5 text-center text-slate-400 transition-colors"></i>
+                                    <span class="text-xs font-bold text-slate-700">Crear Links</span>
+                                </div>
+                            </label>
+
+                            <label class="checkbox-card relative cursor-pointer group">
+                                <input type="checkbox" name="permisos" value="gestionar_grupos" id="edit_chk_gestionar_grupos" class="peer sr-only">
+                                <div class="p-2.5 bg-white rounded border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-2">
+                                    <i class="fas fa-folder w-5 text-center text-slate-400 transition-colors"></i>
+                                    <span class="text-xs font-bold text-slate-700">Crear Grupos</span>
+                                </div>
+                            </label>
+
+                            <label class="checkbox-card relative cursor-pointer group">
+                                <input type="checkbox" name="permisos" value="ver_reporte_diario" id="edit_chk_ver_reporte_diario" class="peer sr-only">
+                                <div class="p-2.5 bg-white rounded border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-2">
+                                    <i class="fas fa-cash-register w-5 text-center text-slate-400 transition-colors"></i>
+                                    <span class="text-xs font-bold text-slate-700">Reporte Diario</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="flex gap-2 pt-4 mt-6">
+                    <form action="/eliminar_usuario" method="POST" onsubmit="return confirm('ATENCIÓN: ¿Estás completamente seguro de eliminar este usuario? Esta acción no se puede deshacer.');" class="m-0">
+                        <input type="hidden" name="username" id="delete_username">
+                        <button type="submit" class="bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 font-black px-4 py-3 rounded-lg transition-colors shadow-sm focus:outline-none flex items-center justify-center" title="Eliminar Usuario">
+                            <i class="fas fa-trash-alt text-lg"></i>
+                        </button>
+                    </form>
+
+                    <button type="submit" form="formEditarUsuario" class="flex-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-black py-3 rounded-lg transition-colors shadow-sm uppercase tracking-widest text-sm flex items-center justify-center gap-2">
+                        <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Nota: Añadimos 'permisosList' como parámetro en la función.
+        function abrirModalEditar(username, nombre, email, rol, estado, permisosList) {
+            document.getElementById('edit_username').value = username;
+            document.getElementById('edit_username_display').value = "@" + username;
+            document.getElementById('edit_nombre').value = nombre;
+            document.getElementById('edit_email').value = email;
+            document.getElementById('edit_rol').value = rol.toLowerCase();
+            document.getElementById('edit_estado').value = estado;
+            document.getElementById('edit_password').value = ""; 
+            document.getElementById('delete_username').value = username;
+            
+            // Primero, desmarcamos todos los checkboxes para no arrastrar basura del anterior edit
+            document.querySelectorAll('input[name="permisos"]').forEach(chk => chk.checked = false);
+
+            // Marcamos los que el usuario tiene realmente guardados en la BD
+            if (permisosList && Array.isArray(permisosList)) {
+                permisosList.forEach(permiso => {
+                    const checkbox = document.getElementById('edit_chk_' + permiso);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+            }
+
+            document.getElementById('modalEditarUsuario').classList.remove('hidden');
+        }
+
+        function cerrarModalEditar() {
+            document.getElementById('modalEditarUsuario').classList.add('hidden');
+        }
+
+        function toggleSubmenu(menuId, iconId) {
+            const menu = document.getElementById(menuId);
+            const icon = document.getElementById(iconId);
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                menu.classList.add('flex');
+                icon.classList.add('rotate-180');
+            } else {
+                menu.classList.add('hidden');
+                menu.classList.remove('flex');
+                icon.classList.remove('rotate-180');
+            }
+        }
+
+        const btnMenuMovil = document.getElementById('btnMenuMovil');
+        const btnCerrarMenu = document.getElementById('btnCerrarMenu');
+        const sidebar = document.getElementById('sidebar');
+        const overlayMenu = document.getElementById('overlayMenu');
+
+        function toggleMenu() {
+            sidebar.classList.toggle('-translate-x-full');
+            overlayMenu.classList.toggle('hidden');
+        }
+
+        if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);
+        if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
+        if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
+    </script>
+</body>
+</html>

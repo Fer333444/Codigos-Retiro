@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Links de Clientes | Flujo ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
+
+    <div id="modalEditar" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex justify-center items-center p-4">
+        <div class="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl transform transition-all">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-black text-slate-800"><i class="fas fa-edit text-blue-500 mr-2"></i>Editar Cliente</h3>
+                <button onclick="cerrarModal()" class="text-slate-400 hover:text-red-500 transition-colors text-xl"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <form action="/editar_link" method="POST" onsubmit="return confirm('⚠️ ¿Confirmas que deseas guardar los cambios?\n\nIMPORTANTE: Si cambiaste el Nombre de Usuario, el enlace anterior del cliente dejará de funcionar y tendrás que enviarle el nuevo.');">
+                <input type="hidden" name="token" id="editToken">
+                
+                <div class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Nombre de Usuario</label>
+                        <input type="text" name="usuario" id="editUsuario" required class="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white font-bold transition-all">
+                        <p class="text-[10px] text-slate-400 mt-1"><i class="fas fa-info-circle"></i> Cambiar el nombre actualizará su URL única automáticamente.</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Grupo Actual</label>
+                        <input type="text" name="grupo" id="editGrupo" required class="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white font-bold transition-all">
+                    </div>
+                </div>
+                
+                <div class="mt-8 flex justify-end gap-3">
+                    <button type="button" onclick="cerrarModal()" class="px-5 py-2.5 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-colors">Cancelar</button>
+                    <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-md transition-all flex items-center gap-2">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <header class="md:hidden fixed top-0 w-full h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-40 shadow-sm">
+        <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+        <button id="btnMenuMovil" class="text-slate-600 hover:text-green-600 text-2xl focus:outline-none"><i class="fas fa-bars"></i></button>
+    </header>
+
+    <div id="overlayMenu" class="fixed inset-0 bg-slate-900/50 z-40 hidden md:hidden"></div>
+
+    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-50">
+        <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200">
+            <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+            <button id="btnCerrarMenu" class="md:hidden text-slate-400 hover:text-red-500 text-xl focus:outline-none"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg">
+                <i class="fas fa-link w-5"></i> Links de Clientes
+            </a>
+            <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50">
+                <i class="fas fa-folder w-5"></i> Mis Grupos
+            </a>
+            <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50">
+                <i class="fas fa-home w-5"></i> Retiros Activos
+            </a>
+            <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50">
+                <i class="fas fa-users w-5"></i> Administrar usuarios
+            </a>
+            
+            <div class="relative">
+                <button type="button" onclick="toggleSubmenu('submenu-rep-1', 'icon-rep-1')" class="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors focus:outline-none">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-chart-line w-5"></i> Reportes
+                    </div>
+                    <i id="icon-rep-1" class="fas fa-chevron-down text-[10px] transition-transform duration-300"></i>
+                </button>
+                
+                <div id="submenu-rep-1" class="hidden flex-col pl-11 pr-2 py-1 space-y-1">
+                    <a href="/reportes?vista=completados" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-emerald-600 transition-colors"><i class="fas fa-check-circle mr-1"></i> Retiros Completados</a>
+                    <a href="/reportes?vista=historial" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-rose-600 transition-colors"><i class="fas fa-history mr-1"></i> Historial y Deudas</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="p-4 border-t border-slate-200">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-slate-600 uppercase truncate">{{ mi_usuario }}</span>
+                <a href="/logout" class="text-xs font-medium text-red-500 hover:underline"><i class="fas fa-sign-out-alt"></i> Salir</a>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative w-full">
+        <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm relative z-10 w-full">
+            <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }}</span>
+                <a href="/logout" class="text-sm font-medium text-red-500 hover:underline">Cerrar sesión</a>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 relative w-full">
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                  {% for category, message in messages %}
+                    <div class="mb-4 p-4 font-bold border rounded-xl text-sm shadow-sm {% if category == 'error' %}bg-red-50 text-red-700 border-red-200{% else %}bg-green-50 text-green-700 border-green-200{% endif %}">
+                        {{ message }}
+                    </div>
+                  {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm w-full">
+                <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-slate-800 tracking-tight">Administrar Links de Clientes</h2>
+
+                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
+                    <div class="relative w-full xl:w-72">
+                        <i class="fas fa-search absolute left-4 top-3 text-slate-400"></i>
+                        <input type="text" id="buscadorLinks" placeholder="Buscar por usuario..." class="w-full pl-11 pr-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm transition-all bg-slate-50 focus:bg-white">
+                    </div>
+                    
+                    <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+                        <form id="formImportar" action="/importar_links" method="POST" enctype="multipart/form-data" class="hidden">
+                            <input type="file" id="inputCSV" name="archivo_csv" accept=".csv" onchange="document.getElementById('formImportar').submit();">
+                        </form>
+                        
+                        <button onclick="document.getElementById('inputCSV').click();" class="flex-1 md:flex-none bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-white font-bold py-2.5 px-4 md:px-5 rounded-xl shadow-sm transition-all text-xs md:text-sm flex items-center justify-center gap-2">
+                            <i class="fas fa-file-import"></i> Importar
+                        </button>
+                        
+                        <button onclick="exportarPDF()" class="flex-1 md:flex-none bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold py-2.5 px-4 md:px-5 rounded-xl shadow-sm transition-all text-xs md:text-sm flex items-center justify-center gap-2">
+                            <i class="fas fa-file-pdf"></i> Exportar
+                        </button>
+
+                        <a href="/crear_link" class="w-full md:w-auto bg-[#108000] hover:bg-[#0c6600] active:bg-green-800 text-white font-bold py-2.5 px-4 md:px-6 rounded-xl shadow-sm transition-all text-xs md:text-sm flex items-center justify-center gap-2">
+                            <i class="fas fa-plus"></i> Nuevo Cliente
+                        </a>
+                    </div>
+                </div>
+
+                <form action="/agrupar_bulk" method="POST" id="formBulk">
+                    
+                    <div id="bulkBar" class="hidden bg-indigo-50 border border-indigo-200 p-4 rounded-xl mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 transition-all shadow-sm">
+                        <span class="text-indigo-800 font-black text-sm tracking-wide"><span id="countSelected" class="bg-indigo-600 text-white px-2 py-0.5 rounded-full mr-1">0</span> SELECCIONADOS</span>
+                        <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-center">
+                            <select name="grupo_destino" class="w-full sm:w-auto border border-indigo-200 rounded-lg px-3 py-2 text-sm text-indigo-800 bg-white font-bold outline-none focus:ring-2 focus:ring-indigo-400">
+                                <option value="">-- Mover a Grupo Existente --</option>
+                                {% for g in grupos %}
+                                <option value="{{ g }}">{{ g }}</option>
+                                {% endfor %}
+                            </select>
+                            <span class="hidden sm:inline text-xs text-indigo-400 font-bold uppercase tracking-widest">Ó</span>
+                            <input type="text" name="nuevo_grupo" placeholder="Escribir nuevo grupo..." class="w-full sm:w-44 border border-indigo-200 rounded-lg px-3 py-2 text-sm text-indigo-800 bg-white outline-none focus:ring-2 focus:ring-indigo-400 font-bold">
+                            <button type="submit" class="w-full sm:w-auto bg-indigo-600 text-white font-black px-5 py-2 rounded-lg hover:bg-indigo-700 text-sm shadow uppercase tracking-wide">Agrupar</button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto rounded-xl border border-slate-200 w-full max-w-full">
+                        <table class="w-full text-left text-sm text-slate-600 border-collapse whitespace-nowrap" id="tablaLinks">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 tracking-wider">
+                                    <th class="py-4 px-4 w-10 text-center"><input type="checkbox" id="selectAll" class="w-4 h-4 text-green-600 rounded cursor-pointer"></th>
+                                    <th class="py-4 px-4 font-bold">Usuario (Cliente)</th>
+                                    <th class="py-4 px-4 font-bold">Enlace Único</th>
+                                    <th class="py-4 px-4 font-bold text-center">Grupo</th>
+                                    <th class="py-4 px-4 font-bold">Fecha</th>
+                                    <th class="py-4 px-4 text-right font-bold">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 bg-white">
+                                {% if not enlaces %}
+                                    <tr><td colspan="6" class="py-10 text-center text-slate-400 italic font-medium">No has creado ningún link todavía.</td></tr>
+                                {% endif %}
+                                
+                                {% for token, data in enlaces.items() %}
+                                <tr class="hover:bg-slate-50 group fila-link transition-colors">
+                                    <td class="py-4 px-4 text-center">
+                                        <input type="checkbox" name="tokens" value="{{ token }}" class="chk-link w-4 h-4 text-green-600 rounded cursor-pointer">
+                                    </td>
+                                    <td class="py-4 px-4 font-black text-slate-800 text-base min-w-[150px]"><i class="fas fa-user-circle text-slate-300 mr-2 text-lg align-middle"></i>{{ data.usuario }}</td>
+                                    <td class="py-4 px-4 font-mono text-[11px] text-blue-600">{{ base_url }}retiro/{{ token }}</td>
+                                    <td class="py-4 px-4 text-center min-w-[100px]">
+                                        <span class="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs font-bold border border-slate-200">{{ data.grupo }}</span>
+                                    </td>
+                                    <td class="py-4 px-4 text-[10px] font-bold text-slate-400">{{ data.fecha }}</td>
+                                    
+                                    <td class="py-4 px-4 text-right min-w-[140px]">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <button type="button" onclick="copiarLink('{{ base_url }}retiro/{{ token }}')" title="Copiar Link" class="w-8 h-8 flex items-center justify-center border border-emerald-200 text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                            
+                                            <button type="button" onclick="abrirModal('{{ token }}', '{{ data.usuario }}', '{{ data.grupo }}')" title="Editar" class="w-8 h-8 flex items-center justify-center border border-blue-200 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm">
+                                                <i class="fas fa-pen"></i>
+                                            </button>
+
+                                            <form action="/eliminar_link" method="POST" class="m-0" onsubmit="return confirm('⚠️ ¡ATENCIÓN!\n\n¿Estás absolutamente seguro de que deseas eliminar a este cliente?\n\nSi lo borras, su enlace dejará de funcionar inmediatamente y no podrá enviarte más retiros a menos que lo vuelvas a crear.');">
+                                                <input type="hidden" name="token" value="{{ token }}">
+                                                <button type="submit" title="Eliminar" class="w-8 h-8 flex items-center justify-center border border-red-200 text-red-600 bg-red-50 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- NUEVA LÓGICA PARA EL SUBMENÚ DESPLEGABLE ---
+        function toggleSubmenu(menuId, iconId) {
+            const menu = document.getElementById(menuId);
+            const icon = document.getElementById(iconId);
+            
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                menu.classList.add('flex');
+                icon.classList.add('rotate-180');
+            } else {
+                menu.classList.add('hidden');
+                menu.classList.remove('flex');
+                icon.classList.remove('rotate-180');
+            }
+        }
+
+        // --- LÓGICA DE MENÚ MÓVIL RESPONSIVO ---
+        const btnMenuMovil = document.getElementById('btnMenuMovil');
+        const btnCerrarMenu = document.getElementById('btnCerrarMenu');
+        const sidebar = document.getElementById('sidebar');
+        const overlayMenu = document.getElementById('overlayMenu');
+
+        function toggleMenu() {
+            sidebar.classList.toggle('-translate-x-full');
+            overlayMenu.classList.toggle('hidden');
+        }
+
+        if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);
+        if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
+        if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
+
+
+        // --- LÓGICA DEL MODAL DE EDICIÓN ---
+        const modal = document.getElementById('modalEditar');
+        
+        function abrirModal(token, usuario, grupo) {
+            document.getElementById('editToken').value = token;
+            document.getElementById('editUsuario').value = usuario;
+            document.getElementById('editGrupo').value = grupo;
+            modal.classList.remove('hidden');
+        }
+
+        function cerrarModal() {
+            modal.classList.add('hidden');
+        }
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) cerrarModal();
+        });
+
+        // --- LÓGICA DE CHECKBOXES Y BÚSQUEDA ---
+        const selectAll = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('.chk-link');
+        const bulkBar = document.getElementById('bulkBar');
+        const countSelected = document.getElementById('countSelected');
+
+        function updateBulkBar() {
+            const checked = document.querySelectorAll('.chk-link:checked').length;
+            countSelected.innerText = checked;
+            if(checked > 0) {
+                bulkBar.classList.remove('hidden');
+            } else {
+                bulkBar.classList.add('hidden');
+            }
+        }
+
+        if(selectAll) {
+            selectAll.addEventListener('change', e => {
+                const visibleRows = document.querySelectorAll('.fila-link:not([style*="display: none"]) .chk-link');
+                visibleRows.forEach(chk => {
+                    chk.checked = e.target.checked;
+                });
+                updateBulkBar();
+            });
+        }
+
+        checkboxes.forEach(chk => {
+            chk.addEventListener('change', updateBulkBar);
+        });
+
+        document.getElementById('buscadorLinks').addEventListener('keyup', function() {
+            let filter = this.value.toLowerCase();
+            let rows = document.querySelectorAll('.fila-link');
+            
+            rows.forEach(row => {
+                let text = row.textContent.toLowerCase();
+                if(text.includes(filter)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                    let chk = row.querySelector('.chk-link');
+                    if(chk) chk.checked = false;
+                }
+            });
+            updateBulkBar();
+        });
+
+        function copiarLink(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert('✅ ¡Link copiado exitosamente al portapapeles!\n\n' + url);
+            });
+        }
+
+        // --- LÓGICA DE PDF ---
+        function exportarPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFontSize(18);
+            doc.setTextColor(16, 128, 0); 
+            doc.text("Base de Datos - Links de Clientes", 14, 22);
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text("Flujo ERP | Generado el: " + new Date().toLocaleString(), 14, 30);
+
+            const filas = [];
+            const trs = document.querySelectorAll('.fila-link');
+            if(trs.length === 0) { alert("⚠️ No hay clientes en la tabla."); return; }
+
+            trs.forEach(tr => {
+                const usuario = tr.cells[1].innerText.trim();
+                const enlace = tr.cells[2].innerText.trim();
+                const grupo = tr.cells[3].innerText.trim();
+                const fecha = tr.cells[4].innerText.trim();
+                filas.push([usuario, enlace, grupo, fecha]);
+            });
+
+            doc.autoTable({
+                startY: 40,
+                head: [['Usuario (Cliente)', 'Enlace Seguro', 'Grupo', 'Fecha']],
+                body: filas,
+                theme: 'striped',
+                headStyles: { fillColor: [16, 128, 0] }, 
+                styles: { fontSize: 8, cellPadding: 3 },
+                columnStyles: {
+                    0: { cellWidth: 35, fontStyle: 'bold', textColor: [30, 41, 59] },
+                    1: { cellWidth: 'auto', textColor: [37, 99, 235] }, 
+                    2: { cellWidth: 25, fontStyle: 'bold' },
+                    3: { cellWidth: 30 }
+                }
+            });
+            doc.save('Base_Datos_Links_FlujoERP.pdf');
+        }
+    </script>
+</body>
+</html>

@@ -243,17 +243,26 @@ def eliminar_link():
     return redirect(url_for('index'))
 
 @app.route('/grupos')
+@app.route('/grupos')
 def vista_grupos():
     mis_permisos = session.get('permisos', [])
     if session.get('rol') != 'supremo' and 'gestionar_grupos' not in mis_permisos: return redirect(url_for('login'))
+    
+    # LIMPIEZA AUTOMÁTICA: Borramos las carpetas "Activaciones" que se hayan creado por error antes
+    global grupos_creados
+    grupos_creados = [g for g in grupos_creados if not g.startswith('Activaciones')]
+    guardar_datos()
+    
     grupos_validos = [g for g in grupos_creados if g != 'General']
     usuarios_por_grupo = {g: [] for g in grupos_validos}
-    todos_los_usuarios = sorted(list(set(data['usuario'] for data in enlaces_db.values())))
+    todos = sorted(list(set(data['usuario'] for data in enlaces_db.values())))
+    
     for token, data in enlaces_db.items():
         g = data.get('grupo', 'General')
-        if g in usuarios_por_grupo:
+        if g in usuarios_por_grupo: 
             usuarios_por_grupo[g].append({'token': token, 'data': data})
-    return render_template('grupos.html', grupos=grupos_validos, usuarios_por_grupo=usuarios_por_grupo, todos_los_usuarios=todos_los_usuarios, mi_usuario=session['usuario'], rol=session.get('rol'), base_url=request.host_url)
+            
+    return render_template('grupos.html', grupos=grupos_validos, usuarios_por_grupo=usuarios_por_grupo, todos_los_usuarios=todos, mi_usuario=session['usuario'], rol=session.get('rol'), base_url=request.host_url)
 
 @app.route('/crear_grupo_vacio', methods=['POST'])
 def crear_grupo_vacio():
@@ -361,23 +370,22 @@ def crear_link():
         
     if request.method == 'POST':
         usuario = request.form.get('usuario_cliente').strip()
-        grupo = request.form.get('grupo_usuario', 'General').strip() # ATRAPAMOS EL GRUPO
+        grupo = request.form.get('grupo_usuario', 'General').strip() 
         
         nuevo_token = usuario.replace(' ', '-')
         
-        # Guardamos el usuario junto con su grupo
         enlaces_db[nuevo_token] = {
             'usuario': usuario, 
             'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"), 
             'grupo': grupo
         }
         
-        # Si el grupo no existe en la lista de grupos, lo creamos automáticamente
-        if grupo != 'General' and grupo not in grupos_creados:
+        # REGLA ESTRICTA: Si es una etiqueta de "Activaciones", NO se crea carpeta en Mis Grupos
+        if grupo != 'General' and not grupo.startswith('Activaciones') and grupo not in grupos_creados:
             grupos_creados.append(grupo)
             
         guardar_datos()
-        flash(f'✅ Link para "{usuario}" creado en el grupo "{grupo}".', 'success')
+        flash(f'✅ Link para "{usuario}" creado.', 'success')
         return redirect(url_for('index'))
         
     return render_template('crear_link.html', mi_usuario=session['usuario'], rol=session.get('rol'), grupos=grupos_creados)

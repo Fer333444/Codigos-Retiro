@@ -1126,9 +1126,14 @@ def vista_reportes():
         try: fecha_hasta_obj = datetime.strptime(filtro_fecha_hasta, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
         except: pass
 
-    # NUEVA SECCIÓN DE MÉTRICAS DE RENDIMIENTO
+    # ========================================================
+    # NUEVA SECCIÓN DE MÉTRICAS DE RENDIMIENTO Y GRÁFICOS
+    # ========================================================
     metricas_cobradores = {}
+    datos_grafico = {'labels': [], 'exitos': [], 'fallos': []}
+    
     if vista == 'metricas':
+        # 1. Métricas individuales por Cobrador
         for r in registros:
             if r['estado'] == 'retirado' and r.get('asignado_a'):
                 cob = r['asignado_a']
@@ -1144,6 +1149,34 @@ def vista_reportes():
                 
         for cob, m in metricas_cobradores.items():
             m['promedio'] = round(m['tiempo_total'] / m['exitos'], 1) if m['exitos'] > 0 else 0
+            total_gestiones = m['exitos'] + m['fallos']
+            m['efectividad'] = round((m['exitos'] / total_gestiones) * 100, 1) if total_gestiones > 0 else 0
+
+        # 2. Datos para el Gráfico de Montaña (Últimos 7 días)
+        hoy = hora_ecuador()
+        ultimos_7_dias = [(hoy - timedelta(days=i)).strftime("%d/%m/%Y") for i in range(6, -1, -1)]
+        labels_grafico = [(hoy - timedelta(days=i)).strftime("%d %b") for i in range(6, -1, -1)] # Ej. "22 Abr"
+        
+        exitos_por_dia = [0] * 7
+        fallos_por_dia = [0] * 7
+
+        for r in registros:
+            try:
+                fecha_corta = r['fecha'].split(' ')[0]
+                if fecha_corta in ultimos_7_dias:
+                    idx = ultimos_7_dias.index(fecha_corta)
+                    if r['estado'] == 'retirado':
+                        exitos_por_dia[idx] += 1
+                    elif r['estado'] in ['fallido', 'fallido_revision']:
+                        fallos_por_dia[idx] += 1
+            except:
+                pass
+        
+        datos_grafico['labels'] = labels_grafico
+        datos_grafico['exitos'] = exitos_por_dia
+        datos_grafico['fallos'] = fallos_por_dia
+
+    # ========================================================
 
     exitosos = [r for r in registros if r['estado'] == 'retirado']
     no_exitosos_raw = [r for r in registros if r['estado'] in ['expirado', 'fallido', 'saldado', 'fallido_revision', 'fusionado']]
@@ -1162,7 +1195,7 @@ def vista_reportes():
     registros_tabla_dinamica = [] 
     
     for r in registros:
-        # IGNORAR LOS BORRADOS Y LOS ACTIVOS EN LAS TABLAS DE REPORTES
+        # Ignorar los borrados y los activos en las tablas de reportes
         if r['estado'] in ['papelera', 'activo']:
             continue
             
@@ -1200,6 +1233,7 @@ def vista_reportes():
                            registros_tabla_dinamica=registros_tabla_dinamica,
                            cobradores=cobradores_mostrar,
                            metricas=metricas_cobradores,
+                           datos_grafico=datos_grafico, # Mandamos los datos a Chart.js
                            todos_cobradores=cobradores_activos, 
                            lista_clientes=lista_clientes,
                            lista_estados=lista_estados,

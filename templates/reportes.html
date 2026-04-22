@@ -10,6 +10,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         .custom-scroll::-webkit-scrollbar { width: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
@@ -49,7 +51,7 @@
                 <div id="submenu-rep-1" class="flex flex-col pl-11 pr-2 py-1 space-y-1">
                     <a href="/reportes?vista=completados" class="block py-1.5 text-xs font-bold {% if vista == 'completados' %}text-emerald-600{% else %}text-slate-500 hover:text-emerald-600{% endif %} transition-colors"><i class="fas fa-check-circle mr-1"></i> Retiros Completados</a>
                     <a href="/reportes?vista=historial" class="block py-1.5 text-xs font-bold {% if vista == 'historial' %}text-rose-600{% else %}text-slate-500 hover:text-rose-600{% endif %} transition-colors"><i class="fas fa-history mr-1"></i> Historial y Deudas</a>
-                    <a href="/reportes?vista=metricas" class="block py-1.5 text-xs font-bold {% if vista == 'metricas' %}text-purple-600{% else %}text-slate-500 hover:text-purple-600{% endif %} transition-colors"><i class="fas fa-chart-bar mr-1"></i> Métricas de Rendimiento</a>
+                    <a href="/reportes?vista=metricas" class="block py-1.5 text-xs font-black {% if vista == 'metricas' %}text-purple-600{% else %}text-slate-500 hover:text-purple-600{% endif %} transition-colors"><i class="fas fa-chart-bar mr-1"></i> Métricas de Rendimiento</a>
                     <a href="/reportes?vista=cobradores" class="block py-1.5 text-xs font-bold {% if vista == 'cobradores' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-user-tie mr-1"></i> Por Cobrador</a>
                     <a href="/reportes?vista=valor" class="block py-1.5 text-xs font-bold {% if vista == 'valor' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-dollar-sign mr-1"></i> Por Valor</a>
                     <a href="/reportes?vista=usuario" class="block py-1.5 text-xs font-bold {% if vista == 'usuario' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-user mr-1"></i> Por Usuario</a>
@@ -70,7 +72,7 @@
             </div>
         </header>
 
-        <div class="flex-1 overflow-auto p-8 bg-slate-50">
+        <div class="flex-1 overflow-auto p-8 bg-slate-50 custom-scroll">
             <div class="max-w-6xl mx-auto">
                 
                 <div class="flex justify-between items-center mb-6">
@@ -85,38 +87,134 @@
                 </div>
 
                 {% if vista == 'metricas' %}
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-black text-slate-700 uppercase tracking-widest"><i class="fas fa-chart-area text-purple-500 mr-2"></i> Actividad últimos 7 días</h3>
+                        </div>
+                        <div class="w-full h-72">
+                            <canvas id="chartTendencia"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-12">
                         {% for cob, m in metricas.items() %}
-                        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col items-center text-center hover:border-purple-300 transition-colors">
-                            <div class="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-black text-2xl mb-4">
-                                {{ cob[0]|upper }}
-                            </div>
-                            <h3 class="text-xl font-black text-slate-800 uppercase mb-4">{{ cob }}</h3>
+                        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden relative group transform transition-transform hover:-translate-y-1">
                             
-                            <div class="w-full grid grid-cols-2 gap-4 mb-4">
-                                <div class="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
-                                    <p class="text-[10px] font-black text-emerald-600 uppercase">Éxitos</p>
-                                    <p class="text-2xl font-black text-emerald-700">{{ m.exitos }}</p>
+                            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex flex-col items-center justify-center relative overflow-hidden">
+                                <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500"></div>
+                                <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg mb-3 border-4 border-white/20">
+                                    <span class="text-2xl font-black text-indigo-600">{{ cob[0]|upper }}</span>
                                 </div>
-                                <div class="bg-rose-50 rounded-lg p-3 border border-rose-100">
-                                    <p class="text-[10px] font-black text-rose-600 uppercase">Fallos</p>
-                                    <p class="text-2xl font-black text-rose-700">{{ m.fallos }}</p>
-                                </div>
+                                <h3 class="text-xl font-black text-white uppercase tracking-widest relative z-10">{{ cob }}</h3>
                             </div>
                             
-                            <div class="w-full bg-slate-50 rounded-lg p-4 border border-slate-200">
-                                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1"><i class="fas fa-stopwatch text-purple-500 mr-1"></i> Tiempo Promedio de Cobro</p>
-                                <p class="text-3xl font-black text-purple-600">{{ m.promedio }} <span class="text-sm">min</span></p>
+                            <div class="p-6">
+                                <div class="mb-5">
+                                    <div class="flex justify-between text-xs font-black text-slate-500 mb-1.5 uppercase tracking-widest">
+                                        <span>Efectividad</span>
+                                        <span class="{% if m.efectividad >= 80 %}text-emerald-500{% elif m.efectividad >= 50 %}text-yellow-500{% else %}text-rose-500{% endif %}">{{ m.efectividad }}%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200/50">
+                                        <div class="h-full rounded-full {% if m.efectividad >= 80 %}bg-emerald-500{% elif m.efectividad >= 50 %}bg-yellow-500{% else %}bg-rose-500{% endif %} transition-all duration-1000" style="width: {{ m.efectividad }}%"></div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3 mb-5">
+                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col items-center">
+                                        <span class="text-2xl font-black text-emerald-500">{{ m.exitos }}</span>
+                                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1"><i class="fas fa-check-circle mr-1"></i> Éxitos</span>
+                                    </div>
+                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col items-center">
+                                        <span class="text-2xl font-black text-rose-500">{{ m.fallos }}</span>
+                                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1"><i class="fas fa-times-circle mr-1"></i> Fallos</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
+                                    <div>
+                                        <span class="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">Tiempo Promedio</span>
+                                        <span class="text-2xl font-black text-indigo-700">{{ m.promedio }}<span class="text-sm font-bold text-indigo-400 ml-1">min</span></span>
+                                    </div>
+                                    <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center shadow-sm">
+                                        <i class="fas fa-stopwatch text-lg"></i>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         {% endfor %}
                         
                         {% if not metricas %}
                         <div class="col-span-full bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
+                            <i class="fas fa-chart-line text-4xl mb-3 text-slate-300"></i>
                             <p class="text-sm font-bold uppercase tracking-widest">Aún no hay retiros marcados hoy para medir.</p>
                         </div>
                         {% endif %}
                     </div>
+
+                    <script>
+                        document.addEventListener("DOMContentLoaded", function() {
+                            const ctx = document.getElementById('chartTendencia').getContext('2d');
+                            
+                            let gradientExitos = ctx.createLinearGradient(0, 0, 0, 400);
+                            gradientExitos.addColorStop(0, 'rgba(16, 185, 129, 0.4)'); 
+                            gradientExitos.addColorStop(1, 'rgba(16, 185, 129, 0)');
+
+                            let gradientFallos = ctx.createLinearGradient(0, 0, 0, 400);
+                            gradientFallos.addColorStop(0, 'rgba(244, 63, 94, 0.4)'); 
+                            gradientFallos.addColorStop(1, 'rgba(244, 63, 94, 0)');
+
+                            new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels: {{ datos_grafico.labels | tojson | safe }},
+                                    datasets: [
+                                        {
+                                            label: 'Retiros Completados',
+                                            data: {{ datos_grafico.exitos | tojson | safe }},
+                                            borderColor: '#10b981', 
+                                            backgroundColor: gradientExitos,
+                                            borderWidth: 3,
+                                            fill: true,
+                                            tension: 0.4, 
+                                            pointBackgroundColor: '#10b981',
+                                            pointBorderColor: '#fff',
+                                            pointBorderWidth: 2,
+                                            pointRadius: 4,
+                                            pointHoverRadius: 6
+                                        },
+                                        {
+                                            label: 'Códigos Caídos',
+                                            data: {{ datos_grafico.fallos | tojson | safe }},
+                                            borderColor: '#f43f5e', 
+                                            backgroundColor: gradientFallos,
+                                            borderWidth: 2,
+                                            fill: true,
+                                            tension: 0.4,
+                                            pointBackgroundColor: '#f43f5e',
+                                            pointBorderColor: '#fff',
+                                            pointBorderWidth: 2,
+                                            pointRadius: 3,
+                                            pointHoverRadius: 5
+                                        }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: { position: 'top', labels: { font: { family: "'Inter', sans-serif", weight: 'bold' } } },
+                                        tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(15, 23, 42, 0.9)', titleFont: { size: 13 }, bodyFont: { size: 13, weight: 'bold' }, padding: 12, cornerRadius: 8 }
+                                    },
+                                    scales: {
+                                        x: { grid: { display: false }, ticks: { font: { family: "'Inter', sans-serif", weight: '600' }, color: '#64748b' } },
+                                        y: { beginAtZero: true, grid: { borderDash: [4, 4], color: '#e2e8f0' }, ticks: { stepSize: 1, font: { family: "'Inter', sans-serif", weight: '600' }, color: '#64748b' } }
+                                    },
+                                    interaction: { mode: 'nearest', axis: 'x', intersect: false }
+                                }
+                            });
+                        });
+                    </script>
 
                 {% elif vista == 'historial' %}
                     <div class="mb-10">
@@ -347,7 +445,7 @@
                                     <td>{{ r.celular }}</td>
                                     <td>{{ r.cedula }}</td>
                                     <td>{{ r.asignado_a }}</td>
-                                    <td>{{ r.minutos_demora if r.get('minutos_demora') != None else '0.0' }}</td>
+                                    <td>{{ r.minutos_demora if r.get('minutos_demora') != None else 'N/A' }}</td>
                                     <td>{{ r.fecha }}</td>
                                 </tr>
                                 {% endfor %}
@@ -384,7 +482,7 @@
                                                 <span class="text-xs font-bold text-slate-500 uppercase ml-2">{{ r.banco }} - {{ r.usuario }}</span>
                                             </div>
                                             <div class="flex items-center gap-3">
-                                                <span class="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-1 rounded border border-purple-200"><i class="fas fa-stopwatch mr-1"></i> {{ r.minutos_demora if r.get('minutos_demora') != None else '0.0' }} min</span>
+                                                <span class="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-1 rounded border border-purple-200"><i class="fas fa-stopwatch mr-1"></i> {{ r.minutos_demora if r.get('minutos_demora') != None else 'N/A' }} min</span>
                                                 <span class="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded border border-emerald-200"><i class="fas fa-check mr-1"></i> Completado</span>
                                             </div>
                                         </div>
@@ -512,7 +610,7 @@
                                                     {% if r.asignado_a %}{{ r.asignado_a }}{% else %}N/A{% endif %}
                                                 </td>
                                                 <td class="py-3 px-5 font-mono text-purple-600 font-bold">
-                                                    {% if r.get('minutos_demora') != None %} {{ r.minutos_demora }} min {% else %} 0.0 min {% endif %}
+                                                    {% if r.get('minutos_demora') != None %} {{ r.minutos_demora }} min {% else %} N/A {% endif %}
                                                 </td>
                                                 <td class="py-3 px-5 font-bold text-slate-500 text-xs">{{ r.fecha }}</td>
                                             </tr>

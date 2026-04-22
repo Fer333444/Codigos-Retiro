@@ -11,8 +11,8 @@ from datetime import datetime, timedelta
 
 # --- CONFIGURACIÓN DE INTELIGENCIA ARTIFICIAL ---
 from openai import OpenAI
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY != "TU_CLAVE_AQUI" else None
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") 
+openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 app = Flask(__name__)
 app.secret_key = "flujo_secreto_123"
@@ -21,6 +21,13 @@ UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# ==========================================
+# 💾 SISTEMA DE BASE DE DATOS PERSISTENTE 💾
+# ==========================================
+# Render montará el disco duro en /var/data. Si no estamos en Render (tu PC), guarda un archivo local.
+DATA_FILE = '/var/data/base_datos_erp.json' if os.path.exists('/var/data') else 'base_datos_local.json'
+
+# --- Variables Globales (Memoria RAM) ---
 registros = []
 sistema_config = {'auto_asignar': False}
 enlaces_db = {}
@@ -33,9 +40,47 @@ usuarios_db = {
     'carlos': {'nombre': 'Carlos', 'apellido': 'Caja', 'email': 'caja@erp.com', 'password': '123', 'rol': 'recaudador', 'estado': 'Activo', 'permisos': []},
     'cris': {'nombre': 'Cris', 'apellido': 'Vaca', 'email': 'cris@cobros.com', 'password': '123', 'rol': 'cobrador', 'estado': 'Activo', 'permisos': []},
     'jenny': {'nombre': 'Jenny', 'apellido': 'Vaca', 'email': 'jenny@cobros.com', 'password': '123', 'rol': 'cobrador', 'estado': 'Activo', 'permisos': []},
-    'gina': {'nombre': 'Gina', 'apellido': 'Reportes', 'email': 'gina@reportes.com', 'password': '123', 'rol': 'reportes', 'estado': 'Activo', 'permisos': []},
-    'michelle': {'nombre': 'Michelle', 'apellido': 'Reportes', 'email': 'mich@reportes.com', 'password': '123', 'rol': 'reportes', 'estado': 'Activo', 'permisos': []}
+    'gina': {'nombre': 'Gina', 'apellido': 'Reportes', 'email': 'gina@reportes.com', 'password': '123', 'rol': 'reportes', 'estado': 'Activo', 'permisos': []}
 }
+
+def guardar_datos():
+    """Toma toda la información de la memoria RAM y la escribe en el Disco Duro."""
+    data_a_guardar = {
+        'registros': registros,
+        'sistema_config': sistema_config,
+        'enlaces_db': enlaces_db,
+        'grupos_creados': grupos_creados,
+        'usuarios_db': usuarios_db
+    }
+    try:
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data_a_guardar, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        print("Error crítico al guardar en disco:", e)
+
+def cargar_datos():
+    """Lee el Disco Duro al arrancar el servidor y restaura la memoria RAM."""
+    global registros, sistema_config, enlaces_db, grupos_creados, usuarios_db
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                registros = data.get('registros', [])
+                sistema_config = data.get('sistema_config', {'auto_asignar': False})
+                enlaces_db = data.get('enlaces_db', {})
+                grupos_creados = data.get('grupos_creados', [])
+                
+                usuarios_cargados = data.get('usuarios_db', {})
+                if usuarios_cargados:
+                    usuarios_db = usuarios_cargados
+            print("✅ Base de datos cargada exitosamente desde el Disco.")
+        except Exception as e:
+            print("Error crítico al cargar desde el disco:", e)
+
+# Ejecutamos la carga al iniciar el servidor
+cargar_datos()
+# ==========================================
+
 
 def extraer_datos_imagen_ocr(image_bytes_list):
     if not openai_client: return None
@@ -51,7 +96,7 @@ def extraer_datos_imagen_ocr(image_bytes_list):
         2. BANCO PICHINCHA: Si dice "Pichincha" y da un solo código de retiro.
            - "CLAVE_RETIRO" = el código.
         3. BANCO PRODUBANCO: Si menciona "Produbanco" u "Orden de retiro sin tarjeta".
-           - Busca el código de 6 dígitos que a veces llega por SMS (Ej. "Codigo: 118258").
+           - Busca el código de 6 dígitos que a veces llega por SMS.
            - La "HORA_LIMITE" también suele estar en el SMS.
            - "CLAVE_RETIRO" = ese código de 6 dígitos.
 
@@ -67,9 +112,7 @@ def extraer_datos_imagen_ocr(image_bytes_list):
         }
         NO inventes datos si no están en ninguna foto.
         """
-        
         content_list.append({"type": "text", "text": prompt_experto})
-        
         for img_bytes in image_bytes_list:
             base64_image = base64.b64encode(img_bytes).decode("utf-8")
             content_list.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}})
@@ -90,10 +133,8 @@ def procesar_ocr():
     archivos = request.files.getlist('imagenes')
     if not archivos or archivos[0].filename == '':
         return jsonify({"error": "No se enviaron imágenes"}), 400
-    
     image_bytes_list = [f.read() for f in archivos]
     datos_ia = extraer_datos_imagen_ocr(image_bytes_list)
-    
     if datos_ia:
         return jsonify(datos_ia)
     else:
@@ -124,17 +165,21 @@ def ruta_por_rol(rol, username):
 
 @app.before_request
 def mantenimiento_datos():
+    cambios_realizados = False
     hora_actual = hora_ecuador().strftime('%H:%M')
     for r in registros:
         if r['estado'] == 'activo' and esta_expirado(r['hora_limite'], r['fecha']):
             r['estado'] = 'expirado'
             r['historial'].append(f"[{hora_actual}] ❌ Expirado automáticamente (Tiempo agotado)")
+            cambios_realizados = True
             
     for k, v in enlaces_db.items():
         if 'grupo' not in v:
             v['grupo'] = 'General'
-
-# --- RUTAS PROTEGIDAS POR PERMISOS ---
+            cambios_realizados = True
+            
+    if cambios_realizados:
+        guardar_datos()
 
 @app.route('/')
 def index():
@@ -172,6 +217,8 @@ def editar_link():
         del enlaces_db[viejo_token]
     if nuevo_grupo != 'General' and nuevo_grupo not in grupos_creados:
         grupos_creados.append(nuevo_grupo)
+        
+    guardar_datos()
     flash(f'✅ Cliente "{nuevo_usuario}" actualizado correctamente.', 'success')
     return redirect(url_for('index'))
 
@@ -183,6 +230,7 @@ def eliminar_link():
     if token in enlaces_db:
         usuario_borrado = enlaces_db[token]['usuario']
         del enlaces_db[token]
+        guardar_datos()
         flash(f'🗑️ El cliente "{usuario_borrado}" y su enlace han sido eliminados.', 'success')
     else:
         flash('Error: El cliente no existe.', 'error')
@@ -208,6 +256,7 @@ def crear_grupo_vacio():
     nombre = request.form.get('nombre_grupo')
     if nombre and nombre.strip() != 'General' and nombre.strip() not in grupos_creados:
         grupos_creados.append(nombre.strip())
+        guardar_datos()
         flash(f'✅ Grupo "{nombre}" creado.', 'success')
     return redirect(url_for('vista_grupos'))
 
@@ -232,6 +281,8 @@ def renombrar_grupo():
         if data.get('grupo') == viejo_nombre:
             data['grupo'] = nuevo_nombre
             count += 1
+            
+    guardar_datos()
     flash(f'✅ Grupo renombrado a "{nuevo_nombre}". Se actualizaron {count} clientes.', 'success')
     return redirect(url_for('vista_grupos'))
 
@@ -243,6 +294,7 @@ def quitar_de_grupo():
     if token in enlaces_db:
         usuario = enlaces_db[token]['usuario']
         enlaces_db[token]['grupo'] = 'General'
+        guardar_datos()
         flash(f'✅ Usuario {usuario} removido del grupo.', 'success')
     return redirect(url_for('vista_grupos'))
 
@@ -266,6 +318,8 @@ def quick_add_grupo():
             'grupo': grupo
         }
         flash(f'✅ Nuevo cliente {usuario} creado y añadido al grupo.', 'success')
+        
+    guardar_datos()
     return redirect(url_for('vista_grupos'))
 
 @app.route('/agrupar_bulk', methods=['POST'])
@@ -288,6 +342,8 @@ def agrupar_bulk():
         if t in enlaces_db:
             enlaces_db[t]['grupo'] = destino
             count += 1
+            
+    guardar_datos()
     flash(f'✅ {count} clientes movidos al grupo "{destino}".', 'success')
     return redirect(url_for('index'))
 
@@ -306,6 +362,7 @@ def crear_link():
             'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"),
             'grupo': 'General'
         }
+        guardar_datos()
         flash(f'¡Link generado para {usuario_cliente}!', 'success')
         return redirect(url_for('index'))
     return render_template('crear_link.html', mi_usuario=session['usuario'], rol=session.get('rol'))
@@ -339,6 +396,7 @@ def importar_links():
                     'grupo': 'General'
                 }
                 contador += 1
+        guardar_datos()
         flash(f'✅ ¡Importación exitosa! Se generaron {contador} links nuevos.', 'success')
     except Exception as e:
         flash(f'Hubo un error técnico al leer el archivo: {str(e)}', 'error')
@@ -433,6 +491,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
         'fecha': hora_ecuador().strftime("%d/%m/%Y %I:%M %p")
     }
         
+    guardar_datos()
     flash(f'✅ ¡Datos enviados correctamente!', 'success')
     return redirect(req.url)
 
@@ -444,7 +503,6 @@ def login():
         if username in usuarios_db and usuarios_db[username]['password'] == password:
             session['usuario'] = username
             session['rol'] = usuarios_db[username]['rol']
-            # Guardamos los permisos en la sesión del navegador
             session['permisos'] = usuarios_db[username].get('permisos', [])
             return redirect(ruta_por_rol(session['rol'], username))
         flash('Usuario o contraseña incorrectos', 'error')
@@ -523,6 +581,8 @@ def toggle_auto():
         flash('🤖 Robot de Auto-Asignación ENCENDIDO.', 'success')
     else:
         flash('⏸️ Robot APAGADO. Modo manual activado.', 'error')
+        
+    guardar_datos()
     return redirect(url_for('admin'))
 
 @app.route('/asignar', methods=['POST'])
@@ -536,6 +596,8 @@ def asignar_trabajo():
             r['asignado_a'] = trabajador
             r['historial'].append(f"[{hora_actual}] Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
             break
+            
+    guardar_datos()
     flash(f'Asignado a {trabajador.capitalize()} manualmente.', 'success')
     return redirect(url_for('admin'))
 
@@ -550,6 +612,8 @@ def marcar_retirado():
             r['estado'] = 'retirado'
             r['historial'].append(f"[{hora_actual}] Marcado como Retirado por {session['usuario'].capitalize()}")
             break
+            
+    guardar_datos()
     flash('¡Retiro marcado como completado!', 'success')
     return redirect(ruta_por_rol(session.get('rol'), session.get('usuario')))
 
@@ -578,6 +642,7 @@ def marcar_fallido():
                 flash(f'⚠️ Retiro de {usuario_afectado} marcado como FALLIDO (Deuda).', 'error') 
             break
             
+    guardar_datos()
     return redirect(ruta_por_rol(session.get('rol'), session.get('usuario')))
 
 @app.route('/gestionar_deuda', methods=['POST'])
@@ -601,6 +666,7 @@ def gestionar_deuda():
             registro_revision['historial'].append(f"[{hora_actual}] ➕ Confirmada como NUEVA DEUDA independiente.")
             flash(f'Nueva deuda sumada al historial del cliente.', 'error')
 
+    guardar_datos()
     return redirect(url_for('vista_reportes', vista='historial'))
 
 
@@ -667,6 +733,7 @@ def pago_alternativo():
             deuda_record['historial'].append(f"[{hora_actual}] ⚠️ Abono parcial de ${format_num(valor_pagado)} vía {metodo}. Ref: {descripcion}")
             flash(f'⚠️ Abono de {metodo} guardado en Completados. Aún se deben ${format_num(restante)}.', 'success')
 
+    guardar_datos()
     return redirect(url_for('vista_reportes', vista='historial'))
 
 
@@ -744,6 +811,7 @@ def saldar_deuda():
                 pago_record['historial'].append(f"[{hora_actual}] 🔄 Todo el dinero de este pago se usó para abonar a la deuda #{id_deuda}.")
                 flash(f'⚠️ Abono cruzado. El cliente aún debe ${format_num(restante_deuda)}.', 'success')
 
+    guardar_datos()
     return redirect(url_for('vista_reportes', vista='historial'))
 
 @app.route('/eliminar_registro', methods=['POST'])
@@ -769,6 +837,7 @@ def eliminar_registro():
                         pass
                         
         registros = [r for r in registros if r['id'] != registro_id]
+        guardar_datos()
         flash('🗑️ Registro eliminado permanentemente de la base de datos.', 'success')
     else:
         flash('Error al intentar eliminar: registro no encontrado.', 'error')
@@ -802,6 +871,7 @@ def crear_usuario():
             'permisos': permisos_marcados, 
             'estado': 'Activo'
         }
+        guardar_datos()
         flash(f'Usuario {username} creado con éxito como {request.form.get("rol")}.', 'success')
         return redirect(url_for('lista_usuarios'))
     return render_template('crear_usuario.html', mi_usuario=session['usuario'], rol=session.get('rol'))
@@ -825,6 +895,7 @@ def editar_usuario():
         if nueva_pass and nueva_pass.strip() != '':
             usuarios_db[username]['password'] = nueva_pass
             
+        guardar_datos()
         flash(f'✅ Usuario "{username}" actualizado correctamente.', 'success')
     else:
         flash('Error: Usuario no encontrado en la base de datos.', 'error')
@@ -843,6 +914,7 @@ def eliminar_usuario():
             flash('No puedes eliminar tu propia cuenta activa.', 'error')
         else:
             del usuarios_db[username]
+            guardar_datos()
             flash(f'🗑️ Usuario "{username}" ha sido eliminado permanentemente.', 'success')
     else:
         flash('Error: Usuario no encontrado.', 'error')
@@ -931,6 +1003,7 @@ def marcar_recibido():
                 r['historial'].append(f"[{hora_actual}] 💼 Auditado en caja y liquidado por {usuario_sesion}.")
                 count += 1
                 
+    guardar_datos()
     flash(f'✅ Se liquidaron y confirmaron en caja {count} registros de {cobrador.capitalize()}.', 'success')
     return redirect(url_for('vista_reporte_diario'))
 

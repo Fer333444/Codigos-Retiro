@@ -138,17 +138,22 @@
                                 </div>
 
                                 <div class="grid grid-cols-2 gap-3 mb-5">
-                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col items-center">
-                                        <span class="text-2xl font-black text-emerald-500">{{ m.exitos }}</span>
-                                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1"><i class="fas fa-check-circle mr-1"></i> Éxitos</span>
+                                    <div class="bg-emerald-50 rounded-xl p-3 border border-emerald-100 flex flex-col items-center">
+                                        <span class="text-2xl font-black text-emerald-600">{{ m.exitos }}</span>
+                                        <span class="text-[9px] font-black text-emerald-500 uppercase tracking-widest mt-1"><i class="fas fa-check-circle mr-1"></i> Éxitos</span>
                                     </div>
-                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col items-center">
-                                        <span class="text-2xl font-black text-rose-500">{{ m.fallos }}</span>
-                                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1"><i class="fas fa-times-circle mr-1"></i> Fallos</span>
+                                    <div class="bg-rose-50 rounded-xl p-3 border border-rose-100 flex flex-col items-center">
+                                        <span class="text-2xl font-black text-rose-600">{{ m.fallos }}</span>
+                                        <span class="text-[9px] font-black text-rose-500 uppercase tracking-widest mt-1"><i class="fas fa-times-circle mr-1"></i> Fallos</span>
                                     </div>
                                 </div>
                                 
-                                <div class="w-full bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
+                                <div class="w-full bg-blue-50 rounded-lg p-3 border border-blue-100 mb-4 text-center">
+                                    <p class="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1"><i class="fas fa-university text-blue-400 mr-1"></i> Banco Más Usado</p>
+                                    <p class="text-lg font-black text-blue-800 truncate">{{ m.banco_favorito }}</p>
+                                </div>
+                                
+                                <div class="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
                                     <div>
                                         <span class="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">Tiempo Promedio</span>
                                         <span class="text-2xl font-black text-indigo-700">{{ m.promedio }}<span class="text-sm font-bold text-indigo-400 ml-1">min</span></span>
@@ -436,7 +441,93 @@
                         {% endif %}
                     </div>
 
-                {% elif vista in ['completados', 'cobradores', 'valor', 'usuario', 'estado', 'sucursal'] %}
+                {% elif vista == 'completados' %}
+                    <table id="tablaExportar" class="hidden">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Monto</th>
+                                <th>Usuario</th>
+                                <th>Banco / Método</th>
+                                <th>Celular</th>
+                                <th>Cédula</th>
+                                <th>Cobrado por</th>
+                                <th>Tiempo Demora (Min)</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in exitosos %}
+                            <tr>
+                                <td>{{ r.id }}</td>
+                                <td>${{ r.monto }}</td>
+                                <td>{{ r.usuario }}</td>
+                                <td>{{ r.banco }}</td>
+                                <td>{{ r.celular }}</td>
+                                <td>{{ r.cedula }}</td>
+                                <td>{{ r.asignado_a }}</td>
+                                <td>{{ r.minutos_demora if r.get('minutos_demora') != None else '0.0' }}</td>
+                                <td>{{ r.fecha }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    {% if not exitosos %}
+                        <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 shadow-sm">
+                            <i class="fas fa-box-open text-3xl mb-2"></i>
+                            <p class="text-sm font-bold uppercase tracking-widest">Aún no hay retiros completados</p>
+                        </div>
+                    {% else %}
+                        <div class="grid grid-cols-1 gap-4">
+                            {% for r in exitosos %}
+                            <div class="bg-white rounded-xl border-l-4 border-emerald-500 p-4 md:p-5 flex flex-col md:flex-row gap-4 shadow-sm hover:shadow-md transition-shadow relative">
+                                
+                                <form action="/mover_papelera" method="POST" class="absolute top-3 right-3 m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
+                                    <input type="hidden" name="id" value="{{ r.id }}">
+                                    <button type="submit" class="text-slate-300 hover:text-rose-600 bg-white rounded p-1 transition-colors" title="Eliminar (Mover a papelera)"><i class="fas fa-trash-alt"></i></button>
+                                </form>
+
+                                <div class="hidden md:flex w-20 h-20 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 items-center justify-center">
+                                    {% if r.imagen %}
+                                        {% set imagenes = r.imagen.split(',') %}
+                                        <a href="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" target="_blank"><img src="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" class="w-full h-full object-cover"></a>
+                                    {% else %}
+                                        <i class="fas fa-image text-slate-300 text-xl"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex justify-between items-start mb-2 pr-6">
+                                        <div>
+                                            <span class="font-black text-emerald-600 text-xl">${{ r.monto }}</span>
+                                            <span class="text-xs font-bold text-slate-500 uppercase ml-2">{{ r.banco }} - {{ r.usuario }}</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-1 rounded border border-purple-200"><i class="fas fa-stopwatch mr-1"></i> {{ r.minutos_demora if r.get('minutos_demora') != None else '0.0' }} min</span>
+                                            <span class="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded border border-emerald-200"><i class="fas fa-check mr-1"></i> Completado</span>
+                                        </div>
+                                    </div>
+                                    <div class="bg-slate-50 border border-slate-100 p-2.5 rounded-lg text-[10px] font-mono text-slate-500 space-y-1">
+                                        <strong class="text-slate-700 uppercase tracking-widest block mb-1 border-b border-slate-200 pb-1">Historial de Eventos:</strong>
+                                        {% for evento in r.historial %}
+                                            {% if 'destinaron' in evento or 'usó' in evento %}
+                                                <span class="block text-blue-600 font-bold"><i class="fas fa-magic text-blue-400 mr-1"></i> {{ evento }}</span>
+                                            {% elif 'Abono parcial' in evento %}
+                                                <span class="block text-purple-600 font-bold"><i class="fas fa-hand-holding-usd text-purple-400 mr-1"></i> {{ evento }}</span>
+                                            {% elif 'Pagado totalmente' in evento or 'Creado por' in evento and 'vía' in evento %}
+                                                <span class="block text-indigo-600 font-bold"><i class="fas fa-money-check-alt text-indigo-400 mr-1"></i> {{ evento }}</span>
+                                            {% else %}
+                                                <span class="block text-slate-600"><i class="fas fa-caret-right text-slate-300 mr-1"></i> {{ evento }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                {% else %}
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
                         <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
@@ -535,8 +626,11 @@
                                                     <span class="bg-slate-100 text-slate-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider">{{ r.estado }}</span>
                                                 {% endif %}
                                             </td>
-                                            <td class="py-3 px-5 font-bold text-slate-600 uppercase">
+                                            <td class="py-3 px-5 font-bold text-slate-500 uppercase">
                                                 {{ r.banco }}
+                                                {% if r.get('banco_real_retiro') %}
+                                                    <br><span class="text-[9px] text-emerald-600 bg-emerald-50 px-1 rounded border border-emerald-200 mt-1 inline-block">REAL: {{ r.banco_real_retiro }}</span>
+                                                {% endif %}
                                             </td>
                                             <td class="py-3 px-5 font-black text-indigo-600 uppercase">
                                                 <i class="fas fa-user-tie mr-1 text-indigo-300"></i> 

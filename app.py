@@ -458,63 +458,71 @@ def procesar_formulario_retiro(req, lista_usuarios):
             nombres_imagenes.append(nombre)
     str_imagenes = ",".join(nombres_imagenes) if nombres_imagenes else None
 
-    # SABER SI ES PAGO MÚLTIPLE
+    hora_actual = hora_ecuador().strftime('%H:%M')
+    asignado_a_quien = None
+    asignacion_estado = 'no_asignado' 
+    
+    # -------------------------------------------------------------
+    # NUEVA LÓGICA: UN SOLO REGISTRO PARA MÚLTIPLES USUARIOS
+    # -------------------------------------------------------------
     is_split = len(lista_usuarios) > 1
-
-    for usuario in lista_usuarios:
-        hora_actual = hora_ecuador().strftime('%H:%M')
-        asignado_a_quien = None
-        asignacion_estado = 'no_asignado' 
+    
+    # Armamos un solo texto con todos los usuarios (Ej: "alex1234, Matty01")
+    usuarios_juntos = " + ".join(lista_usuarios)
+    
+    historial_inicial = []
+    
+    if is_split:
+        # Si son varios usuarios, armamos el desglose para el historial
+        detalles_desglose = []
+        for u in lista_usuarios:
+            monto_u = req.form.get(f'monto_usuario_{u}', '0.00')
+            detalles_desglose.append(f"${monto_u} a {u}")
         
-        # ASIGNAR MONTO EXACTO (Sin duplicar)
-        if is_split:
-            monto_especifico = req.form.get(f'monto_usuario_{usuario}')
-            monto_final = str(monto_especifico) if monto_especifico else "0.00"
-            otros_usuarios = [u for u in lista_usuarios if u != usuario]
-            nota_multi = f" (Pago compartido con: {', '.join(otros_usuarios)})"
-        else:
-            monto_final = monto_total_str
-            nota_multi = ""
-            
-        historial_inicial = [f"[{hora_actual}] Creado por Cliente{nota_multi}"]
-        
-        if sistema_config['auto_asignar']:
-            cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
-            if cobradores:
-                cargas = {c: 0 for c in cobradores}
-                for r in registros:
-                    if r['estado'] == 'activo' and r['asignado_a'] in cargas:
-                        cargas[r['asignado_a']] += 1
-                mejor_cobrador = min(cargas, key=cargas.get)
-                asignado_a_quien = mejor_cobrador
-                asignacion_estado = 'asignado'
-                historial_inicial.append(f"[{hora_actual}] 👤 Asignado a {mejor_cobrador.capitalize()} (Robot)")
+        texto_desglose = " | ".join(detalles_desglose)
+        historial_inicial.append(f"[{hora_actual}] Creado por Cliente (Múltiple: {texto_desglose})")
+    else:
+        historial_inicial.append(f"[{hora_actual}] Creado por Cliente")
+    
+    if sistema_config['auto_asignar']:
+        cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
+        if cobradores:
+            cargas = {c: 0 for c in cobradores}
+            for r in registros:
+                if r['estado'] == 'activo' and r['asignado_a'] in cargas:
+                    cargas[r['asignado_a']] += 1
+            mejor_cobrador = min(cargas, key=cargas.get)
+            asignado_a_quien = mejor_cobrador
+            asignacion_estado = 'asignado'
+            historial_inicial.append(f"[{hora_actual}] 👤 Asignado a {mejor_cobrador.capitalize()} (Robot)")
 
-        nuevo_registro = {
-            'id': len(registros) + 1,
-            'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"),
-            'banco': banco, 
-            'celular': celular, 
-            'cedula': cedula, 
-            'monto': monto_final, # MONTO MATEMÁTICAMENTE AISLADO
-            'usuario': usuario, 
-            'hora_limite': '', 
-            'expira_timestamp': tiempo_expiracion, 
-            'timestamp_creacion': tiempo_creacion, 
-            'detalles': {'codigo_pichincha': codigo_recibido, 'guayaquil_retiro': clave_retiro, 'guayaquil_envio': clave_envio, 'seguridad': codigo_seguridad},
-            'imagen': str_imagenes,
-            'asignado_a': asignado_a_quien,
-            'asignacion_estado': asignacion_estado,
-            'estado': 'activo',
-            'historial': historial_inicial,
-            'liquidado': False 
-        }
-        registros.insert(0, nuevo_registro)
+    # CREAMOS UN SOLO REGISTRO
+    nuevo_registro = {
+        'id': len(registros) + 1,
+        'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"),
+        'banco': banco, 
+        'celular': celular, 
+        'cedula': cedula, 
+        'monto': monto_total_str, # EL MONTO TOTAL DEL COMPROBANTE
+        'usuario': usuarios_juntos, # LOS USUARIOS JUNTOS EN LA MISMA CASILLA
+        'hora_limite': '', 
+        'expira_timestamp': tiempo_expiracion, 
+        'timestamp_creacion': tiempo_creacion, 
+        'detalles': {'codigo_pichincha': codigo_recibido, 'guayaquil_retiro': clave_retiro, 'guayaquil_envio': clave_envio, 'seguridad': codigo_seguridad},
+        'imagen': str_imagenes,
+        'asignado_a': asignado_a_quien,
+        'asignacion_estado': asignacion_estado,
+        'estado': 'activo',
+        'historial': historial_inicial,
+        'liquidado': False 
+    }
+    
+    registros.insert(0, nuevo_registro)
         
     session['recibo_retiro'] = {
         'banco': banco.upper() if banco else 'NO ESPECIFICADO',
         'monto': monto_total_str,
-        'usuario': ", ".join(lista_usuarios),
+        'usuario': usuarios_juntos,
         'fecha': hora_ecuador().strftime("%d/%m/%Y %I:%M %p")
     }
         

@@ -356,22 +356,31 @@ def agrupar_bulk():
 @app.route('/crear_link', methods=['GET', 'POST'])
 def crear_link():
     mis_permisos = session.get('permisos', [])
-    if session.get('rol') != 'supremo' and 'crear_links' not in mis_permisos: return redirect(url_for('login'))
+    if session.get('rol') != 'supremo' and 'crear_links' not in mis_permisos: 
+        return redirect(url_for('login'))
+        
     if request.method == 'POST':
-        usuario_cliente = request.form.get('usuario_cliente')
-        if not usuario_cliente:
-            flash('Debes ingresar un nombre de usuario.', 'error')
-            return redirect(url_for('crear_link'))
-        token = usuario_cliente.strip().replace(' ', '-')
-        enlaces_db[token] = {
-            'usuario': usuario_cliente,
-            'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"),
-            'grupo': 'General'
+        usuario = request.form.get('usuario_cliente').strip()
+        grupo = request.form.get('grupo_usuario', 'General').strip() # ATRAPAMOS EL GRUPO
+        
+        nuevo_token = usuario.replace(' ', '-')
+        
+        # Guardamos el usuario junto con su grupo
+        enlaces_db[nuevo_token] = {
+            'usuario': usuario, 
+            'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"), 
+            'grupo': grupo
         }
+        
+        # Si el grupo no existe en la lista de grupos, lo creamos automáticamente
+        if grupo != 'General' and grupo not in grupos_creados:
+            grupos_creados.append(grupo)
+            
         guardar_datos()
-        flash(f'¡Link generado para {usuario_cliente}!', 'success')
+        flash(f'✅ Link para "{usuario}" creado en el grupo "{grupo}".', 'success')
         return redirect(url_for('index'))
-    return render_template('crear_link.html', mi_usuario=session['usuario'], rol=session.get('rol'))
+        
+    return render_template('crear_link.html', mi_usuario=session['usuario'], rol=session.get('rol'), grupos=grupos_creados)
 
 @app.route('/importar_links', methods=['POST'])
 def importar_links():

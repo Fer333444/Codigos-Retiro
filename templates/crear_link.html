@@ -2,65 +2,74 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Nuevo Link | Flujo ERP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generar Link | Flujo ERP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body class="bg-slate-50 flex h-screen text-slate-800 font-sans">
+<body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-y-auto">
 
-    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex">
-        <div class="h-16 flex items-center px-6 border-b border-slate-200 font-black text-xl text-slate-800 tracking-tight">
-            FLUJO<span class="text-green-600">ERP</span>
-        </div>
-        <nav class="flex-1 px-4 py-6 space-y-2">
-            <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg"><i class="fas fa-link w-5"></i> Links de Clientes</a>
-            <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
-            <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
-            <a href="/reportes" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-chart-line w-5"></i> Reportes</a>
-        </nav>
-    </aside>
-
-    <main class="flex-1 flex flex-col h-screen overflow-hidden">
-        <header class="h-16 bg-white border-b border-slate-200 flex items-center px-8">
-            <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
-        </header>
-
-        <div class="flex-1 overflow-auto p-8 bg-white m-4 rounded-xl border border-slate-200 shadow-sm relative">
-            <a href="/" class="text-slate-500 font-bold text-sm flex items-center hover:text-slate-800 mb-6 w-max">
-                <i class="fas fa-chevron-left mr-2"></i> Volver a Clientes
-            </a>
-
-            <h2 class="text-3xl font-bold mb-8">Generar Link de Cliente</h2>
+    <main class="flex-1 flex flex-col p-4 md:p-8 bg-slate-50 w-full">
+        <div class="max-w-3xl mx-auto w-full mt-4 md:mt-10">
             
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                  {% for category, message in messages %}
-                    <div class="mb-6 p-4 bg-red-50 text-red-700 font-bold border border-red-200 rounded-lg text-sm">{{ message }}</div>
-                  {% endfor %}
-                {% endif %}
-            {% endwith %}
-
-            <form action="/crear_link" method="POST" class="max-w-2xl pb-24">
+            <a href="/" class="text-sm font-bold text-slate-500 hover:text-blue-600 transition-colors mb-6 inline-block">
+                <i class="fas fa-chevron-left mr-1"></i> Volver a Clientes
+            </a>
+            
+            <h2 class="text-3xl font-black text-slate-800 tracking-tight mb-8">Generar Link de Cliente</h2>
+            
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 md:p-8">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3">Información del Cliente</h3>
                 
-                <div class="mb-10">
-                    <h3 class="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-6">Información del Cliente</h3>
-                    <p class="text-sm text-slate-500 mb-6">El nombre de usuario se usará para crear un enlace permanente y pre-llenar su formulario de retiro.</p>
-
+                <p class="text-sm text-slate-500 mb-8">El nombre de usuario se usará para crear un enlace permanente y pre-llenar su formulario de retiro.</p>
+                
+                <form action="/crear_link" method="POST" class="space-y-6">
+                    
                     <div>
-                        <label class="block text-sm font-bold text-slate-600 mb-2">Nombre de Usuario (Cliente)</label>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">Nombre de Usuario (Cliente)</label>
                         <div class="relative">
-                            <span class="absolute left-4 top-3 text-slate-400"><i class="fas fa-user"></i></span>
-                            <input type="text" name="usuario_cliente" required placeholder="Ej. alex1234" class="w-full px-4 py-3 pl-10 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-slate-50 focus:bg-white transition-colors font-bold text-lg">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fas fa-user text-slate-400"></i>
+                            </div>
+                            <input type="text" name="usuario_cliente" required class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all text-slate-700 font-bold" placeholder="Ej. alex1234">
                         </div>
                     </div>
-                </div>
 
-                <div class="pt-6 border-t border-slate-200 flex justify-start">
-                    <button type="submit" class="bg-[#108000] hover:bg-[#0c6600] text-white font-bold py-3 px-8 rounded-lg shadow-md transition-colors text-sm flex items-center gap-2">
-                        <i class="fas fa-link"></i> Generar Link y Guardar
-                    </button>
-                </div>
-            </form>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">Grupo de Usuario</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fas fa-users text-slate-400"></i>
+                            </div>
+                            <select name="grupo_usuario" class="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all text-slate-700 font-bold appearance-none cursor-pointer">
+                                <option value="General">General (Sin grupo)</option>
+                                <option value="Activaciones 1">Activaciones 1</option>
+                                <option value="Activaciones 2">Activaciones 2</option>
+                                
+                                {% if grupos %}
+                                    {% for g in grupos %}
+                                        {% if g not in ['General', 'Activaciones 1', 'Activaciones 2'] %}
+                                        <option value="{{ g }}">{{ g }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                            <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                                <i class="fas fa-chevron-down text-slate-400 text-xs"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr class="border-slate-100 my-6">
+
+                    <div>
+                        <button type="submit" class="bg-green-700 hover:bg-green-800 text-white font-bold py-3 px-6 rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                            <i class="fas fa-link"></i> Generar Link y Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
         </div>
     </main>
 

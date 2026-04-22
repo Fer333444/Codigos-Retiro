@@ -438,7 +438,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
     banco = req.form.get('banco')
     celular = req.form.get('celular', '')
     cedula = req.form.get('cedula', '')
-    monto = req.form.get('monto')
+    monto_total_str = req.form.get('monto')
     
     tiempo_creacion = time.time()
     tiempo_expiracion = tiempo_creacion + (2.5 * 3600) 
@@ -458,16 +458,27 @@ def procesar_formulario_retiro(req, lista_usuarios):
             nombres_imagenes.append(nombre)
     str_imagenes = ",".join(nombres_imagenes) if nombres_imagenes else None
 
+    # SABER SI ES PAGO MÚLTIPLE
+    is_split = len(lista_usuarios) > 1
+
     for usuario in lista_usuarios:
         hora_actual = hora_ecuador().strftime('%H:%M')
         asignado_a_quien = None
         asignacion_estado = 'no_asignado' 
         
-        nota_multi = f" (Junto a {len(lista_usuarios)-1} más)" if len(lista_usuarios) > 1 else ""
+        # ASIGNAR MONTO EXACTO (Sin duplicar)
+        if is_split:
+            monto_especifico = req.form.get(f'monto_usuario_{usuario}')
+            monto_final = str(monto_especifico) if monto_especifico else "0.00"
+            otros_usuarios = [u for u in lista_usuarios if u != usuario]
+            nota_multi = f" (Pago compartido con: {', '.join(otros_usuarios)})"
+        else:
+            monto_final = monto_total_str
+            nota_multi = ""
+            
         historial_inicial = [f"[{hora_actual}] Creado por Cliente{nota_multi}"]
         
         if sistema_config['auto_asignar']:
-            # NUEVA LÓGICA: INCLUYE A LOS QUE TIENEN PERMISO DE PROCESAR
             cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
             if cobradores:
                 cargas = {c: 0 for c in cobradores}
@@ -485,7 +496,8 @@ def procesar_formulario_retiro(req, lista_usuarios):
             'banco': banco, 
             'celular': celular, 
             'cedula': cedula, 
-            'monto': monto, 'usuario': usuario, 
+            'monto': monto_final, # MONTO MATEMÁTICAMENTE AISLADO
+            'usuario': usuario, 
             'hora_limite': '', 
             'expira_timestamp': tiempo_expiracion, 
             'timestamp_creacion': tiempo_creacion, 
@@ -501,7 +513,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
         
     session['recibo_retiro'] = {
         'banco': banco.upper() if banco else 'NO ESPECIFICADO',
-        'monto': monto,
+        'monto': monto_total_str,
         'usuario': ", ".join(lista_usuarios),
         'fecha': hora_ecuador().strftime("%d/%m/%Y %I:%M %p")
     }

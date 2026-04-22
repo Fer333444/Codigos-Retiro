@@ -15,14 +15,13 @@
         .box-usuarios::-webkit-scrollbar-track { background: #0f172a; border-radius: 10px; }
         .box-usuarios::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         #formularioCompleto { transition: all 0.5s ease-in-out; opacity: 0; max-height: 0; overflow: hidden; }
-        #formularioCompleto.visible { opacity: 1; max-height: 1500px; overflow: visible; }
+        #formularioCompleto.visible { opacity: 1; max-height: 2500px; overflow: visible; }
     </style>
 </head>
 <body class="bg-[#0f172a] min-h-screen flex items-center justify-center p-4 font-sans">
 
     {% if recibo %}
     <div class="w-full max-w-sm mx-auto animate-fade-in-up">
-        
         <div id="ticketRecibo" class="bg-white rounded-xl p-6 text-center shadow-[0_0_20px_rgba(0,0,0,0.5)] relative overflow-hidden pb-8">
             <div class="absolute top-0 left-0 w-full h-3 bg-blue-500"></div>
             
@@ -31,7 +30,7 @@
             <p class="text-xs text-slate-500 mb-6 font-bold">{{ recibo.fecha }}</p>
             
             <div class="bg-slate-50 rounded-xl p-5 mb-4 border border-slate-200 shadow-inner">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Monto a Retirar</p>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Monto del Comprobante</p>
                 <p class="text-5xl font-black text-blue-600 mb-4">${{ recibo.monto }}</p>
                 
                 <div class="flex justify-between items-start text-left border-t border-slate-200 pt-4 mt-2 gap-2">
@@ -40,12 +39,11 @@
                         <p class="text-sm font-black text-slate-700">{{ recibo.banco }}</p>
                     </div>
                     <div class="w-1/2 text-right">
-                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Usuario</p>
-                        <p class="text-sm font-black text-slate-700 break-words pb-1">{{ recibo.usuario }}</p>
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Usuario(s)</p>
+                        <p class="text-xs font-black text-slate-700 break-words pb-1">{{ recibo.usuario }}</p>
                     </div>
                 </div>
             </div>
-            
             <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-4">Flujo ERP - Comprobante Digital</p>
         </div>
 
@@ -53,7 +51,6 @@
             <button id="btnCompartirWpp" onclick="compartirAppNativa()" class="w-full bg-[#25D366] hover:bg-[#1da851] text-white font-black py-3.5 rounded-xl shadow-lg flex justify-center items-center gap-2 transition-colors uppercase tracking-widest text-sm">
                 <i class="fab fa-whatsapp text-xl"></i> Compartir Recibo
             </button>
-            
             <button id="btnGuardarGaleria" onclick="guardarEnGaleria()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-black py-3 rounded-xl shadow flex justify-center items-center gap-2 transition-colors uppercase tracking-widest text-xs">
                 <i class="fas fa-download"></i> Guardar en Galería
             </button>
@@ -70,7 +67,6 @@
             return await html2canvas(ticket, { scale: 3, backgroundColor: '#ffffff', useCORS: true }); 
         }
 
-        // --- FUNCION 1: MANDAR A WHATSAPP O REDES ---
         async function compartirAppNativa() {
             const btn = document.getElementById('btnCompartirWpp');
             const btnOriginalHtml = btn.innerHTML;
@@ -81,7 +77,6 @@
                 const canvas = await generarImagen();
                 canvas.toBlob(async (blob) => {
                     const file = new File([blob], "Comprobante_FlujoERP.jpg", { type: "image/jpeg", lastModified: new Date().getTime() });
-                    
                     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                         try {
                             await navigator.share({
@@ -90,21 +85,19 @@
                                 text: 'Aquí tienes tu comprobante de retiro enviado.'
                             });
                         } catch (err) {
-                            console.log("Compartir cancelado o no disponible.");
+                            console.log("Compartir cancelado.");
                         }
                     } else {
-                        alert("Tu navegador no soporta enviar la imagen directo a WhatsApp. Por favor usa el botón de 'Guardar en Galería' y envíalo desde ahí.");
+                        alert("Tu navegador no soporta enviar la imagen directo. Usa 'Guardar en Galería'.");
                     }
                     restaurarBoton(btn, btnOriginalHtml);
                 }, 'image/jpeg', 0.95);
             } catch (error) {
-                console.error("Error", error);
                 alert("Error al procesar la imagen.");
                 restaurarBoton(btn, btnOriginalHtml);
             }
         }
 
-        // --- FUNCION 2: GUARDAR EN EL CELULAR ---
         async function guardarEnGaleria() {
             const btn = document.getElementById('btnGuardarGaleria');
             const btnOriginalHtml = btn.innerHTML;
@@ -121,7 +114,6 @@
                 document.body.removeChild(link);
                 restaurarBoton(btn, btnOriginalHtml);
             } catch (error) {
-                console.error("Error", error);
                 alert("Error al descargar.");
                 restaurarBoton(btn, btnOriginalHtml);
             }
@@ -207,8 +199,8 @@
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-400 mb-1">Monto ($)</label>
-                        <input type="number" name="monto" id="inputMonto" required step="0.01" class="w-full bg-[#0f172a] border border-slate-600 text-emerald-400 font-black rounded-lg p-3 outline-none focus:border-emerald-500 transition-colors" placeholder="Ej. 15">
+                        <label class="block text-xs font-bold text-slate-400 mb-1">Monto Total ($)</label>
+                        <input type="number" name="monto" id="inputMonto" required step="0.01" class="w-full bg-[#0f172a] border border-slate-600 text-emerald-400 font-black rounded-lg p-3 outline-none focus:border-emerald-500 transition-colors" placeholder="Ej. 15.00">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-400 mb-1">Tiempo de Cobro</label>
@@ -240,11 +232,21 @@
                         <div class="max-h-40 overflow-y-auto box-usuarios space-y-2 pr-2">
                             {% for u in usuarios_grupo %}
                             <label class="flex items-center space-x-3 p-2 rounded hover:bg-slate-800 transition-colors cursor-pointer border border-transparent hover:border-slate-700">
-                                <input type="checkbox" name="usuarios_magis" value="{{ u }}" class="w-6 h-6 md:w-5 md:h-5 rounded border-slate-600 text-blue-600 focus:ring-blue-600 focus:ring-offset-slate-900 bg-slate-700">
+                                <input type="checkbox" name="usuarios_magis" value="{{ u }}" class="w-6 h-6 md:w-5 md:h-5 rounded border-slate-600 text-blue-600 focus:ring-blue-600 focus:ring-offset-slate-900 bg-slate-700 checkbox-usuario">
                                 <span class="text-white font-bold text-sm">{{ u }}</span>
                             </label>
                             {% endfor %}
                         </div>
+
+                        <div id="desgloseMontosContainer" class="hidden mt-4 pt-4 border-t border-slate-600/50">
+                            <label class="block text-[10px] font-bold text-emerald-400 mb-2 uppercase tracking-widest"><i class="fas fa-divide mr-1"></i> Desglose del Pago Múltiple</label>
+                            <p class="text-[10px] text-slate-400 mb-3 leading-tight">Como seleccionaste varios usuarios, ingresa cuánto del total ($<span id="displayTotalSplit" class="font-black text-white">0.00</span>) corresponde a cada uno. <strong class="text-rose-400">La suma debe coincidir.</strong></p>
+                            
+                            <div id="desgloseInputs" class="space-y-2"></div>
+                            
+                            <p id="errorDesglose" class="text-rose-500 text-[10px] font-bold mt-2 hidden"><i class="fas fa-exclamation-triangle mr-1"></i> Suma incorrecta. Verifica los montos.</p>
+                        </div>
+
                     {% else %}
                         <input type="text" name="usuarios_magis" value="{{ usuario_pre }}" readonly class="w-full bg-[#0f172a] border border-slate-600 text-white font-bold rounded-lg p-3 outline-none opacity-80 cursor-not-allowed">
                     {% endif %}
@@ -289,6 +291,8 @@
         const divGuayaquil = document.getElementById('divGuayaquil');
         const divGenerico = document.getElementById('divGenerico');
         const formCompleto = document.getElementById('formularioCompleto');
+        
+        const inputMonto = document.getElementById('inputMonto');
         const inputCelular = document.getElementById('inputCelular');
         const errorCelular = document.getElementById('errorCelular');
         
@@ -297,6 +301,13 @@
         const errorCedula = document.getElementById('errorCedula');
         
         const btnSubmit = document.getElementById('btnSubmit');
+
+        // ELEMENTOS PARA EL DESGLOSE DE GRUPO
+        const checkboxesUsuarios = document.querySelectorAll('.checkbox-usuario');
+        const desgloseContainer = document.getElementById('desgloseMontosContainer');
+        const desgloseInputs = document.getElementById('desgloseInputs');
+        const displayTotalSplit = document.getElementById('displayTotalSplit');
+        const errorDesglose = document.getElementById('errorDesglose');
 
         function actualizarCamposBanco(bancoValue) {
             boxDinamica.classList.remove('hidden');
@@ -332,6 +343,50 @@
         function mostrarFormularioManual() {
             document.getElementById('zonaSubidaFoto').classList.add('hidden');
             formCompleto.classList.add('visible');
+        }
+
+        // LÓGICA PARA ACTUALIZAR LOS INPUTS DEL DESGLOSE DE GRUPO
+        function actualizarDesglose() {
+            if (!desgloseContainer) return; 
+            
+            const checked = Array.from(checkboxesUsuarios).filter(cb => cb.checked);
+            const total = parseFloat(inputMonto.value) || 0;
+            displayTotalSplit.innerText = total.toFixed(2);
+
+            if (checked.length > 1) {
+                desgloseContainer.classList.remove('hidden');
+                
+                const existingInputs = {};
+                document.querySelectorAll('.input-desglose').forEach(inp => {
+                    existingInputs[inp.dataset.user] = inp.value;
+                });
+
+                desgloseInputs.innerHTML = '';
+                checked.forEach(cb => {
+                    const user = cb.value;
+                    const val = existingInputs[user] || '';
+                    desgloseInputs.innerHTML += `
+                        <div class="flex items-center justify-between gap-3 bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                            <span class="text-xs font-bold text-slate-300 w-1/2 truncate px-2"><i class="fas fa-user text-slate-500 mr-1"></i> ${user}</span>
+                            <div class="flex-1 relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-black text-xs">$</span>
+                                <input type="number" step="0.01" name="monto_usuario_${user}" data-user="${user}" value="${val}" required onkeyup="validarFormularioLive()" onchange="validarFormularioLive()" class="input-desglose w-full bg-[#0f172a] border border-slate-600 text-emerald-400 font-black rounded text-sm py-2 pl-7 pr-2 outline-none focus:border-emerald-500 transition-colors" placeholder="0.00">
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                desgloseContainer.classList.add('hidden');
+                desgloseInputs.innerHTML = '';
+            }
+            validarFormularioLive();
+        }
+
+        if (checkboxesUsuarios) {
+            checkboxesUsuarios.forEach(cb => cb.addEventListener('change', actualizarDesglose));
+        }
+        if (inputMonto) {
+            inputMonto.addEventListener('input', actualizarDesglose);
         }
 
         function validarFormularioLive() {
@@ -373,6 +428,24 @@
                 inputCedula.classList.remove('border-rose-500', 'border-emerald-500');
                 inputCedula.classList.add('border-slate-600');
                 errorCedula.classList.add('hidden');
+            }
+
+            // VALIDAR QUE EL DESGLOSE DE DINERO SEA EXACTO AL TOTAL
+            if (desgloseContainer && !desgloseContainer.classList.contains('hidden')) {
+                let sum = 0;
+                document.querySelectorAll('.input-desglose').forEach(inp => {
+                    sum += parseFloat(inp.value) || 0;
+                });
+                const total = parseFloat(inputMonto.value) || 0;
+                
+                if (Math.abs(sum - total) > 0.01 || total <= 0) {
+                    errorDesglose.classList.remove('hidden');
+                    esValido = false;
+                } else {
+                    errorDesglose.classList.add('hidden');
+                }
+            } else {
+                if (errorDesglose) errorDesglose.classList.add('hidden');
             }
 
             btnSubmit.disabled = !esValido;
@@ -420,7 +493,10 @@
                             actualizarCamposBanco(select.value);
                         }
                         
-                        if(data.MONTO) document.getElementById('inputMonto').value = data.MONTO;
+                        if(data.MONTO) {
+                            document.getElementById('inputMonto').value = data.MONTO;
+                            actualizarDesglose(); // FORZAR ACTUALIZACIÓN DEL DESGLOSE
+                        }
                         if(data.CELULAR) document.getElementById('inputCelular').value = data.CELULAR; 
                         
                         if(data.CEDULA && select.value === 'produbanco') { 
@@ -455,7 +531,7 @@
 
         function validarYEnviar() {
             if (!validarFormularioLive()) {
-                alert("Por favor, verifica que los datos en rojo estén correctos.");
+                alert("Por favor, verifica que los datos en rojo estén correctos (incluyendo el desglose del dinero si es un pago grupal).");
                 return false;
             }
             
@@ -466,6 +542,5 @@
             return true;
         }
     </script>
-    {% endif %}
 </body>
 </html>

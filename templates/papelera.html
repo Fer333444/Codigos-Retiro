@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Papelera | Flujo ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
+
+    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex fixed inset-y-0 left-0 md:relative z-50">
+        <div class="h-16 flex items-center px-6 border-b border-slate-200">
+            <div class="font-black text-xl text-slate-800">FLUJO<span class="text-green-600">ERP</span></div>
+        </div>
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-link w-5"></i> Links Clientes</a>
+            <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
+            <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
+            <a href="/reportes?vista=metricas" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-chart-line w-5"></i> Reportes</a>
+            
+            <a href="/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-black text-rose-700 bg-rose-50 rounded-lg mt-4 border border-rose-200"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
+        </nav>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden w-full relative">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm">
+            <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }}</span>
+                <a href="/logout" class="text-sm font-medium text-red-500">Cerrar sesión</a>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-auto p-8 bg-slate-50">
+            <div class="max-w-5xl mx-auto">
+                
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-3xl font-black text-rose-700 uppercase tracking-tight flex items-center"><i class="fas fa-trash-alt mr-3"></i> Papelera de Reciclaje</h2>
+                        <p class="text-xs font-bold text-slate-500 mt-1">Registros eliminados. Puedes restaurarlos o borrarlos para siempre.</p>
+                    </div>
+                </div>
+
+                {% if not eliminados %}
+                    <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 shadow-sm">
+                        <i class="fas fa-check-circle text-4xl mb-3 text-emerald-300"></i>
+                        <p class="text-sm font-bold uppercase tracking-widest text-emerald-500">La papelera está limpia</p>
+                    </div>
+                {% else %}
+                    <div class="space-y-4">
+                        {% for r in eliminados %}
+                        <div class="bg-white rounded-xl border border-rose-200 shadow-sm p-5 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div class="flex-1">
+                                <span class="text-xl font-black text-slate-800">${{ r.monto }}</span>
+                                <span class="text-xs font-bold text-slate-500 uppercase ml-2 tracking-widest">{{ r.banco }} - {{ r.usuario }}</span>
+                                
+                                <p class="text-[10px] font-mono text-rose-600 mt-2 bg-rose-50 px-2 py-1 rounded inline-block">
+                                    {{ r.historial[-1] if r.historial else 'Eliminado sin detalles' }}
+                                </p>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <form action="/restaurar_papelera" method="POST" class="m-0">
+                                    <input type="hidden" name="id" value="{{ r.id }}">
+                                    <button type="submit" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-black text-xs px-4 py-2.5 rounded uppercase tracking-widest transition-colors"><i class="fas fa-undo mr-1"></i> Restaurar</button>
+                                </form>
+
+                                <form action="/eliminar_registro" method="POST" class="m-0" onsubmit="return confirm('⚠️ ESTO ES IRREVERSIBLE. ¿Eliminar para siempre?');">
+                                    <input type="hidden" name="id" value="{{ r.id }}">
+                                    <input type="hidden" name="vista_origen" value="papelera">
+                                    <button type="submit" class="bg-slate-800 hover:bg-black text-white font-black text-xs px-4 py-2.5 rounded uppercase tracking-widest transition-colors"><i class="fas fa-times mr-1"></i> Eliminar Definitivo</button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+            </div>
+        </div>
+    </main>
+</body>
+</html>

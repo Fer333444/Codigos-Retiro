@@ -6,7 +6,6 @@
     <title>Reportes | Flujo ERP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -28,36 +27,17 @@
 
     <div id="overlayMenu" class="fixed inset-0 bg-slate-900/50 z-40 hidden md:hidden"></div>
 
-    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-50">
-        <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
-            <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
-            <button id="btnCerrarMenu" class="md:hidden text-slate-400 hover:text-red-500 text-xl"><i class="fas fa-times"></i></button>
+    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex fixed inset-y-0 left-0 md:relative z-50">
+        <div class="h-16 flex items-center px-6 border-b border-slate-200">
+            <div class="font-black text-xl text-slate-800">FLUJO<span class="text-green-600">ERP</span></div>
         </div>
         
         <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-            {% set mis_permisos = session.get('permisos', []) %}
+            <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-link w-5"></i> Links Clientes</a>
+            <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
+            <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
+            <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-users w-5"></i> Adm. Usuarios</a>
             
-            {% if rol == 'supremo' or 'crear_links' in mis_permisos %}
-                <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-link w-5"></i> Links de Clientes</a>
-            {% endif %}
-            
-            {% if rol == 'supremo' or 'gestionar_grupos' in mis_permisos %}
-                <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-folder w-5"></i> Mis Grupos</a>
-            {% endif %}
-            
-            {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
-                <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
-            {% endif %}
-            
-            {% if rol in ['supremo', 'recaudador'] or 'ver_reporte_diario' in mis_permisos %}
-                <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
-            {% endif %}
-            
-            {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
-                <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
-            {% endif %}
-            
-            {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
             <div class="relative">
                 <button type="button" onclick="toggleSubmenu('submenu-rep-1', 'icon-rep-1')" class="w-full flex items-center justify-between px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg transition-colors focus:outline-none">
                     <div class="flex items-center gap-3">
@@ -78,39 +58,21 @@
                 </div>
             </div>
             <a href="/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 rounded-lg hover:bg-rose-50 mt-4 border border-transparent hover:border-rose-200 transition-colors"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
-            {% endif %}
         </nav>
-
-        <div class="p-4 border-t border-slate-200 shrink-0">
-            <div class="flex items-center justify-between">
-                <span class="text-sm font-bold text-slate-600 uppercase truncate">{{ mi_usuario }}</span>
-                <a href="/logout" class="text-xs font-medium text-red-500 hover:underline"><i class="fas fa-sign-out-alt"></i> Salir</a>
-            </div>
-        </div>
     </aside>
 
-    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative w-full">
-        <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm relative z-10 w-full shrink-0">
+    <main class="flex-1 flex flex-col h-screen overflow-hidden w-full relative">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm">
             <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
             <div class="flex items-center gap-4">
                 <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }}</span>
-                <a href="/logout" class="text-sm font-medium text-red-500 hover:underline">Cerrar sesión</a>
+                <a href="/logout" class="text-sm font-medium text-red-500">Cerrar sesión</a>
             </div>
         </header>
 
-        <div class="flex-1 overflow-auto p-4 md:p-8 bg-slate-50">
+        <div class="flex-1 overflow-auto p-8 bg-slate-50">
             <div class="max-w-6xl mx-auto">
                 
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                  {% if messages %}
-                    {% for category, message in messages %}
-                      <div class="mb-6 p-4 rounded-xl font-bold text-sm shadow-sm {% if category == 'error' %}bg-rose-50 text-rose-600 border border-rose-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
-                          {{ message }}
-                      </div>
-                    {% endfor %}
-                  {% endif %}
-                {% endwith %}
-
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-3xl font-black text-slate-800 uppercase tracking-tight">Reporte: {{ vista }}</h2>
                     
@@ -385,7 +347,7 @@
                                     <td>{{ r.celular }}</td>
                                     <td>{{ r.cedula }}</td>
                                     <td>{{ r.asignado_a }}</td>
-                                    <td>{{ r.minutos_demora if r.get('minutos_demora') != None else 'N/A' }}</td>
+                                    <td>{{ r.minutos_demora if r.get('minutos_demora') != None else '0.0' }}</td>
                                     <td>{{ r.fecha }}</td>
                                 </tr>
                                 {% endfor %}
@@ -422,7 +384,7 @@
                                                 <span class="text-xs font-bold text-slate-500 uppercase ml-2">{{ r.banco }} - {{ r.usuario }}</span>
                                             </div>
                                             <div class="flex items-center gap-3">
-                                                <span class="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-1 rounded border border-purple-200"><i class="fas fa-stopwatch mr-1"></i> {{ r.minutos_demora if r.get('minutos_demora') != None else 'N/A' }} min</span>
+                                                <span class="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-1 rounded border border-purple-200"><i class="fas fa-stopwatch mr-1"></i> {{ r.minutos_demora if r.get('minutos_demora') != None else '0.0' }} min</span>
                                                 <span class="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded border border-emerald-200"><i class="fas fa-check mr-1"></i> Completado</span>
                                             </div>
                                         </div>
@@ -550,7 +512,7 @@
                                                     {% if r.asignado_a %}{{ r.asignado_a }}{% else %}N/A{% endif %}
                                                 </td>
                                                 <td class="py-3 px-5 font-mono text-purple-600 font-bold">
-                                                    {% if r.get('minutos_demora') != None %} {{ r.minutos_demora }} min {% else %} N/A {% endif %}
+                                                    {% if r.get('minutos_demora') != None %} {{ r.minutos_demora }} min {% else %} 0.0 min {% endif %}
                                                 </td>
                                                 <td class="py-3 px-5 font-bold text-slate-500 text-xs">{{ r.fecha }}</td>
                                             </tr>

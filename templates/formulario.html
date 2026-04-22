@@ -49,9 +49,13 @@
             <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-4">Flujo ERP - Comprobante Digital</p>
         </div>
 
-        <div class="flex gap-3 mt-6">
-            <button id="btnCompartirMaestro" onclick="compartirImagenNativa()" class="w-full bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-black py-4 rounded-xl shadow-lg flex justify-center items-center gap-2 transition-colors uppercase tracking-widest text-sm">
-                <i class="fas fa-share-square text-lg"></i> Compartir / Descargar
+        <div class="flex flex-col gap-3 mt-6">
+            <button id="btnCompartirWpp" onclick="compartirAppNativa()" class="w-full bg-[#25D366] hover:bg-[#1da851] text-white font-black py-3.5 rounded-xl shadow-lg flex justify-center items-center gap-2 transition-colors uppercase tracking-widest text-sm">
+                <i class="fab fa-whatsapp text-xl"></i> Compartir Recibo
+            </button>
+            
+            <button id="btnGuardarGaleria" onclick="guardarEnGaleria()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-black py-3 rounded-xl shadow flex justify-center items-center gap-2 transition-colors uppercase tracking-widest text-xs">
+                <i class="fas fa-download"></i> Guardar en Galería
             </button>
         </div>
         
@@ -66,46 +70,61 @@
             return await html2canvas(ticket, { scale: 3, backgroundColor: '#ffffff', useCORS: true }); 
         }
 
-        async function compartirImagenNativa() {
-            const btn = document.getElementById('btnCompartirMaestro');
+        // --- FUNCION 1: MANDAR A WHATSAPP O REDES ---
+        async function compartirAppNativa() {
+            const btn = document.getElementById('btnCompartirWpp');
             const btnOriginalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
             btn.disabled = true;
 
             try {
                 const canvas = await generarImagen();
                 canvas.toBlob(async (blob) => {
-                    const file = new File([blob], "Comprobante_FlujoERP.jpg", { type: "image/jpeg" });
+                    const file = new File([blob], "Comprobante_FlujoERP.jpg", { type: "image/jpeg", lastModified: new Date().getTime() });
                     
-                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                         try {
                             await navigator.share({
+                                files: [file],
                                 title: 'Comprobante de Retiro',
-                                text: 'Comprobante generado desde Flujo ERP',
-                                files: [file]
+                                text: 'Aquí tienes tu comprobante de retiro enviado.'
                             });
                         } catch (err) {
-                            descargarTradicional(canvas);
+                            console.log("Compartir cancelado o no disponible.");
                         }
                     } else {
-                        descargarTradicional(canvas);
+                        alert("Tu navegador no soporta enviar la imagen directo a WhatsApp. Por favor usa el botón de 'Guardar en Galería' y envíalo desde ahí.");
                     }
                     restaurarBoton(btn, btnOriginalHtml);
                 }, 'image/jpeg', 0.95);
             } catch (error) {
-                console.error("Error al procesar", error);
-                alert("Hubo un error al preparar la imagen.");
+                console.error("Error", error);
+                alert("Error al procesar la imagen.");
                 restaurarBoton(btn, btnOriginalHtml);
             }
         }
 
-        function descargarTradicional(canvas) {
-            const link = document.createElement('a');
-            link.download = 'Comprobante_FlujoERP.jpg';
-            link.href = canvas.toDataURL('image/jpeg', 0.95);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+        // --- FUNCION 2: GUARDAR EN EL CELULAR ---
+        async function guardarEnGaleria() {
+            const btn = document.getElementById('btnGuardarGaleria');
+            const btnOriginalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            btn.disabled = true;
+
+            try {
+                const canvas = await generarImagen();
+                const link = document.createElement('a');
+                link.download = 'Comprobante_FlujoERP.jpg';
+                link.href = canvas.toDataURL('image/jpeg', 0.95);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                restaurarBoton(btn, btnOriginalHtml);
+            } catch (error) {
+                console.error("Error", error);
+                alert("Error al descargar.");
+                restaurarBoton(btn, btnOriginalHtml);
+            }
         }
 
         function restaurarBoton(btn, html) {

@@ -687,10 +687,23 @@ def marcar_retirado():
     if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: return redirect(url_for('login'))
     registro_id = int(request.form.get('id'))
     hora_actual = hora_ecuador().strftime('%H:%M')
+    
     for r in registros:
         if r['id'] == registro_id:
             r['estado'] = 'retirado'
-            r['historial'].append(f"[{hora_actual}] Marcado como Retirado por {session['usuario'].capitalize()}")
+            
+            # --- CÁLCULO DE DEMORA MEJORADO ---
+            if 'timestamp_creacion' in r:
+                r['minutos_demora'] = round((time.time() - r['timestamp_creacion']) / 60, 1)
+            else:
+                # Salvavidas para códigos creados antes de la actualización
+                try:
+                    creacion_dt = datetime.strptime(r['fecha'], "%d/%m/%Y %H:%M")
+                    r['minutos_demora'] = round((hora_ecuador() - creacion_dt).total_seconds() / 60, 1)
+                except:
+                    r['minutos_demora'] = 0.0
+            
+            r['historial'].append(f"[{hora_actual}] ✅ Marcado como Retirado por {session['usuario'].capitalize()}")
             break
             
     guardar_datos()

@@ -430,7 +430,13 @@ def procesar_formulario_retiro(req, lista_usuarios):
     celular = req.form.get('celular', '')
     cedula = req.form.get('cedula', '')
     monto = req.form.get('monto')
-    hora_retiro = req.form.get('hora_retiro')
+    
+    # ========================================================
+    # REGLA ESTRICTA: EL SERVIDOR IMPONE LAS 2 HORAS Y MEDIA
+    # Se ignora cualquier intento del cliente de cambiar la hora
+    # ========================================================
+    hora_retiro = (hora_ecuador() + timedelta(hours=2, minutes=30)).strftime('%H:%M')
+    
     codigo_recibido = req.form.get('codigo_recibido', '')
     clave_retiro = req.form.get('clave_retiro', '')
     clave_envio = req.form.get('clave_envio', '')
@@ -469,7 +475,8 @@ def procesar_formulario_retiro(req, lista_usuarios):
             'banco': banco, 
             'celular': celular, 
             'cedula': cedula, 
-            'monto': monto, 'usuario': usuario, 'hora_limite': hora_retiro,
+            'monto': monto, 'usuario': usuario, 
+            'hora_limite': hora_retiro, # Hora impuesta por el sistema
             'detalles': {'codigo_pichincha': codigo_recibido, 'guayaquil_retiro': clave_retiro, 'guayaquil_envio': clave_envio, 'seguridad': codigo_seguridad},
             'imagen': str_imagenes,
             'asignado_a': asignado_a_quien,
@@ -536,14 +543,12 @@ def admin():
     hoy_ecuador = hora_ecuador().strftime("%d/%m/%Y")
     stats_cobradores = {}
     
-    # Se añade asignados_count y asignados_valor
     for c in cobradores:
         stats_cobradores[c] = {'total_dia': 0.0, 'fallidos': [], 'asignados_count': 0, 'asignados_valor': 0.0}
         
     for r in registros:
         asignado = r.get('asignado_a')
         if asignado in stats_cobradores:
-            # Sumar lo que tienen activo ahora mismo
             if r['estado'] == 'activo':
                 stats_cobradores[asignado]['asignados_count'] += 1
                 try: stats_cobradores[asignado]['asignados_valor'] += float(r['monto'])
@@ -599,11 +604,9 @@ def asignar_trabajo():
         if r['id'] == registro_id:
             viejo_asignado = r.get('asignado_a')
             if viejo_asignado and viejo_asignado != trabajador:
-                # Es una reasignación
                 r['asignado_a'] = trabajador
                 r['historial'].append(f"[{hora_actual}] 🔄 Reasignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
             else:
-                # Es primera asignación
                 r['asignado_a'] = trabajador
                 r['historial'].append(f"[{hora_actual}] 👤 Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
             break

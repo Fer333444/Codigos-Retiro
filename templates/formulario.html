@@ -193,8 +193,8 @@
                         <input type="number" name="monto" id="inputMonto" required step="0.01" class="w-full bg-[#0f172a] border border-slate-600 text-emerald-400 font-black rounded-lg p-3 outline-none focus:border-emerald-500 transition-colors" placeholder="Ej. 15">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-400 mb-1">Hora Límite</label>
-                        <input type="time" name="hora_retiro" id="inputHora" value="{{ hora_sugerida }}" required class="w-full bg-[#0f172a] border border-slate-600 text-white rounded-lg p-3 outline-none focus:border-blue-500 transition-colors font-bold">
+                        <label class="block text-xs font-bold text-slate-400 mb-1">Hora Límite (Auto)</label>
+                        <input type="time" name="hora_retiro" id="inputHora" value="{{ hora_sugerida }}" readonly class="w-full bg-[#0f172a] border border-slate-600 text-slate-500 rounded-lg p-3 outline-none cursor-not-allowed opacity-70 transition-colors font-bold" title="2 horas y media asignadas automáticamente">
                     </div>
                 </div>
 
@@ -271,7 +271,6 @@
         const inputCelular = document.getElementById('inputCelular');
         const errorCelular = document.getElementById('errorCelular');
         
-        // Elementos de la cédula
         const divCedula = document.getElementById('divCedula');
         const inputCedula = document.getElementById('inputCedula');
         const errorCedula = document.getElementById('errorCedula');
@@ -279,20 +278,18 @@
         const btnSubmit = document.getElementById('btnSubmit');
 
         function actualizarCamposBanco(bancoValue) {
-            // Ocultar todo primero
             boxDinamica.classList.remove('hidden');
             divPichinchaProdubanco.classList.add('hidden');
             divGuayaquil.classList.add('hidden');
             divGenerico.classList.add('hidden');
             
-            // Lógica de Cédula: Solo visible y obligatoria en Produbanco
             if (bancoValue === 'produbanco') {
                 divCedula.classList.remove('hidden');
                 inputCedula.setAttribute('required', 'required');
             } else {
                 divCedula.classList.add('hidden');
                 inputCedula.removeAttribute('required');
-                inputCedula.value = ''; // Limpiamos para evitar basura en otros bancos
+                inputCedula.value = ''; 
             }
 
             if(bancoValue === 'pichincha' || bancoValue === 'produbanco') {
@@ -304,7 +301,6 @@
                 divGenerico.classList.remove('hidden');
             }
             
-            // Re-validamos el form para actualizar el botón ENVIAR
             validarFormularioLive();
         }
 
@@ -320,7 +316,6 @@
         function validarFormularioLive() {
             let esValido = true;
 
-            // Validación de Celular
             inputCelular.value = inputCelular.value.replace(/[^0-9]/g, '');
             const celular = inputCelular.value;
             
@@ -337,7 +332,6 @@
                 }
             }
 
-            // Validación de Cédula (Solo si es obligatoria/visible)
             if (inputCedula.hasAttribute('required')) {
                 inputCedula.value = inputCedula.value.replace(/[^0-9]/g, '');
                 const cedula = inputCedula.value;
@@ -355,7 +349,6 @@
                     }
                 }
             } else {
-                // Si no es requerida, quitamos errores visuales por si acaso
                 inputCedula.classList.remove('border-rose-500', 'border-emerald-500');
                 inputCedula.classList.add('border-slate-600');
                 errorCedula.classList.add('hidden');
@@ -409,12 +402,10 @@
                         if(data.MONTO) document.getElementById('inputMonto').value = data.MONTO;
                         if(data.CELULAR) document.getElementById('inputCelular').value = data.CELULAR; 
                         
-                        // Si es Produbanco, ponemos la cédula
                         if(data.CEDULA && select.value === 'produbanco') { 
                             document.getElementById('inputCedula').value = data.CEDULA; 
                         }
                         
-                        // Validamos después de llenar todo
                         validarFormularioLive();
                         
                         if((select.value === 'pichincha' || select.value === 'produbanco') && data.CLAVE_RETIRO) {
@@ -425,10 +416,9 @@
                             if(data.CLAVE_RETIRO) document.getElementById('inputClaveRetiro').value = data.CLAVE_RETIRO;
                             if(data.CLAVE_ENVIO) document.getElementById('inputClaveEnvio').value = data.CLAVE_ENVIO;
                         }
-
-                        if(data.HORA_LIMITE && data.HORA_LIMITE.includes(':')) {
-                            document.getElementById('inputHora').value = data.HORA_LIMITE;
-                        }
+                        
+                        // ELIMINADO: Ya no dejamos que la IA reescriba el campo hora_limite, 
+                        // siempre usará la hora segura generada por el servidor.
                     }
 
                     document.getElementById('zonaSubidaFoto').classList.add('hidden');

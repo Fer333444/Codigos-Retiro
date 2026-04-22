@@ -196,7 +196,11 @@
                                         <span class="text-xs font-bold text-slate-500 uppercase ml-2 tracking-widest">{{ r.banco }} - {{ r.usuario }}</span>
                                     </div>
                                     <div>
-                                        {% if r.hora_limite %}
+                                        {% if r.expira_timestamp %}
+                                            <span class="cronometro-retiro text-xs font-black text-blue-600" data-expira="{{ r.expira_timestamp }}">
+                                                <i class="fas fa-spinner fa-spin"></i>
+                                            </span>
+                                        {% elif r.hora_limite %}
                                             <span class="text-xs font-bold text-rose-600"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
                                         {% endif %}
                                     </div>
@@ -261,6 +265,47 @@
             </div>
         </div>
     </div>
+
+    <script>
+        function actualizarCronometros() {
+            const timers = document.querySelectorAll('.cronometro-retiro');
+            // Obtener el tiempo actual en segundos
+            const ahora = Date.now() / 1000; 
+
+            timers.forEach(timer => {
+                const expira = parseFloat(timer.getAttribute('data-expira'));
+                if (!expira) return;
+
+                const diff = expira - ahora;
+
+                if (diff <= 0) {
+                    timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
+                    timer.className = 'cronometro-retiro text-xs font-black text-rose-600 uppercase tracking-widest';
+                } else {
+                    const horas = Math.floor(diff / 3600);
+                    const minutos = Math.floor((diff % 3600) / 60);
+                    const segundos = Math.floor(diff % 60);
+
+                    const hStr = horas.toString().padStart(2, '0');
+                    const mStr = minutos.toString().padStart(2, '0');
+                    const sStr = segundos.toString().padStart(2, '0');
+
+                    timer.innerHTML = `<i class="fas fa-stopwatch mr-1"></i> EXPIRA EN: ${hStr}:${mStr}:${sStr}`;
+                    
+                    // Si falta menos de media hora, lo ponemos en naranja parpadeante
+                    if (horas === 0 && minutos < 30) {
+                        timer.className = 'cronometro-retiro text-xs font-black text-orange-500 animate-pulse';
+                    } else {
+                        timer.className = 'cronometro-retiro text-xs font-black text-blue-600';
+                    }
+                }
+            });
+        }
+        
+        // Arranca el cronómetro y se actualiza cada segundo
+        setInterval(actualizarCronometros, 1000);
+        actualizarCronometros();
+    </script>
 
     <script>
         let intervaloMapa;

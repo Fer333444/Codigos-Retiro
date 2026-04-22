@@ -5,6 +5,7 @@ import csv
 import io
 import json
 import base64
+import time # <--- NUEVA LIBRERÍA AÑADIDA
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
@@ -76,7 +77,6 @@ def cargar_datos():
 cargar_datos()
 # ==========================================
 
-
 def extraer_datos_imagen_ocr(image_bytes_list):
     if not openai_client: return None
     try:
@@ -92,14 +92,12 @@ def extraer_datos_imagen_ocr(image_bytes_list):
            - "CLAVE_RETIRO" = el código.
         3. BANCO PRODUBANCO: Si menciona "Produbanco" u "Orden de retiro sin tarjeta".
            - Busca el código de 6 dígitos que a veces llega por SMS.
-           - La "HORA_LIMITE" también suele estar en el SMS.
            - "CLAVE_RETIRO" = ese código de 6 dígitos.
 
         FORMATO JSON ESTRICTO:
         {
          "BANCO": "pichincha, guayaquil, produbanco u otro",
          "MONTO": "Solo el número (ej. 50.00)",
-         "HORA_LIMITE": "Hora en HH:MM (24h). Extraela del SMS o app. Si no hay, ''",
          "CELULAR": "Número de celular asociado o ''",
          "CEDULA": "Número de cédula, C.I., o documento de identidad si aparece, sino ''",
          "CLAVE_RETIRO": "El código PIN principal",
@@ -151,22 +149,25 @@ def esta_expirado(hora_limite_str, fecha_creacion_str):
     except Exception as e:
         return False
 
-def ruta_por_rol(rol, username):
-    if rol == 'supremo': return url_for('admin')
-    if rol == 'recaudador': return url_for('admin')
-    if rol == 'cobrador': return url_for('vista_trabajador', nombre=username)
-    if rol == 'reportes': return url_for('vista_reportes')
-    return url_for('login')
-
 @app.before_request
 def mantenimiento_datos():
     cambios_realizados = False
     hora_actual = hora_ecuador().strftime('%H:%M')
+    tiempo_ahora = time.time()
+    
     for r in registros:
-        if r['estado'] == 'activo' and esta_expirado(r['hora_limite'], r['fecha']):
-            r['estado'] = 'expirado'
-            r['historial'].append(f"[{hora_actual}] ❌ Expirado automáticamente (Tiempo agotado)")
-            cambios_realizados = True
+        if r['estado'] == 'activo':
+            # NUEVO SISTEMA (CRONÓMETRO)
+            if 'expira_timestamp' in r:
+                if tiempo_ahora >= r['expira_timestamp']:
+                    r['estado'] = 'expirado'
+                    r['historial'].append(f"[{hora_actual}] ❌ Expirado automáticamente (Tiempo agotado)")
+                    cambios_realizados = True
+            # SISTEMA VIEJO (COMPATIBILIDAD)
+            elif esta_expirado(r.get('hora_limite'), r.get('fecha')):
+                r['estado'] = 'expirado'
+                r['historial'].append(f"[{hora_actual}] ❌ Expirado automáticamente (Tiempo agotado)")
+                cambios_realizados = True
             
     for k, v in enlaces_db.items():
         if 'grupo' not in v:
@@ -175,6 +176,13 @@ def mantenimiento_datos():
             
     if cambios_realizados:
         guardar_datos()
+
+def ruta_por_rol(rol, username):
+    if rol == 'supremo': return url_for('admin')
+    if rol == 'recaudador': return url_for('admin')
+    if rol == 'cobrador': return url_for('vista_trabajador', nombre=username)
+    if rol == 'reportes': return url_for('vista_reportes')
+    return url_for('login')
 
 @app.route('/')
 def index():
@@ -405,9 +413,8 @@ def retiro(token):
     if request.method == 'POST':
         return procesar_formulario_retiro(request, [link_data['usuario']])
         
-    hora_sugerida = (hora_ecuador() + timedelta(hours=2, minutes=30)).strftime('%H:%M')
     recibo = session.pop('recibo_retiro', None)
-    return render_template('formulario.html', usuario_pre=link_data['usuario'], es_grupo=False, hora_sugerida=hora_sugerida, form_action=url_for('retiro', token=token), recibo=recibo)
+    return render_template('formulario.html', usuario_pre=link_data['usuario'], es_grupo=False, form_action=url_for('retiro', token=token), recibo=recibo)
 
 @app.route('/retiro_grupo/<grupo>', methods=['GET', 'POST'])
 def retiro_grupo(grupo):
@@ -421,9 +428,8 @@ def retiro_grupo(grupo):
             return redirect(url_for('retiro_grupo', grupo=grupo))
         return procesar_formulario_retiro(request, usuarios_elegidos)
         
-    hora_sugerida = (hora_ecuador() + timedelta(hours=2, minutes=30)).strftime('%H:%M')
     recibo = session.pop('recibo_retiro', None)
-    return render_template('formulario.html', es_grupo=True, nombre_grupo=grupo, usuarios_grupo=usuarios_del_grupo, hora_sugerida=hora_sugerida, form_action=url_for('retiro_grupo', grupo=grupo), recibo=recibo)
+    return render_template('formulario.html', es_grupo=True, nombre_grupo=grupo, usuarios_grupo=usuarios_del_grupo, form_action=url_for('retiro_grupo', grupo=grupo), recibo=recibo)
 
 def procesar_formulario_retiro(req, lista_usuarios):
     banco = req.form.get('banco')
@@ -432,10 +438,9 @@ def procesar_formulario_retiro(req, lista_usuarios):
     monto = req.form.get('monto')
     
     # ========================================================
-    # REGLA ESTRICTA: EL SERVIDOR IMPONE LAS 2 HORAS Y MEDIA
-    # Se ignora cualquier intento del cliente de cambiar la hora
+    # MAGIA DEL CRONÓMETRO (El servidor impone el tiempo)
     # ========================================================
-    hora_retiro = (hora_ecuador() + timedelta(hours=2, minutes=30)).strftime('%H:%M')
+    tiempo_expiracion = time.time() + (2.5 * 3600) # 2.5 horas en segundos exactos
     
     codigo_recibido = req.form.get('codigo_recibido', '')
     clave_retiro = req.form.get('clave_retiro', '')
@@ -476,7 +481,8 @@ def procesar_formulario_retiro(req, lista_usuarios):
             'celular': celular, 
             'cedula': cedula, 
             'monto': monto, 'usuario': usuario, 
-            'hora_limite': hora_retiro, # Hora impuesta por el sistema
+            'hora_limite': '', # Ya no se usa
+            'expira_timestamp': tiempo_expiracion, # NUEVO
             'detalles': {'codigo_pichincha': codigo_recibido, 'guayaquil_retiro': clave_retiro, 'guayaquil_envio': clave_envio, 'seguridad': codigo_seguridad},
             'imagen': str_imagenes,
             'asignado_a': asignado_a_quien,

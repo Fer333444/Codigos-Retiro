@@ -6,7 +6,6 @@
     <title>Enviar Código de Retiro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <style>
@@ -193,8 +192,11 @@
                         <input type="number" name="monto" id="inputMonto" required step="0.01" class="w-full bg-[#0f172a] border border-slate-600 text-emerald-400 font-black rounded-lg p-3 outline-none focus:border-emerald-500 transition-colors" placeholder="Ej. 15">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-400 mb-1">Hora Límite (Auto)</label>
-                        <input type="time" name="hora_retiro" id="inputHora" value="{{ hora_sugerida }}" readonly class="w-full bg-[#0f172a] border border-slate-600 text-slate-500 rounded-lg p-3 outline-none cursor-not-allowed opacity-70 transition-colors font-bold" title="2 horas y media asignadas automáticamente">
+                        <label class="block text-xs font-bold text-slate-400 mb-1">Tiempo de Cobro</label>
+                        <div class="w-full bg-[#0f172a] border border-slate-600 text-blue-400 rounded-lg p-3 flex items-center justify-center gap-2 font-black opacity-80 cursor-not-allowed">
+                            <i class="fas fa-stopwatch text-lg animate-pulse"></i> <span class="text-sm">2h 30m</span>
+                        </div>
+                        <input type="hidden" name="hora_retiro" value="auto">
                     </div>
                 </div>
 
@@ -416,9 +418,6 @@
                             if(data.CLAVE_RETIRO) document.getElementById('inputClaveRetiro').value = data.CLAVE_RETIRO;
                             if(data.CLAVE_ENVIO) document.getElementById('inputClaveEnvio').value = data.CLAVE_ENVIO;
                         }
-                        
-                        // ELIMINADO: Ya no dejamos que la IA reescriba el campo hora_limite, 
-                        // siempre usará la hora segura generada por el servidor.
                     }
 
                     document.getElementById('zonaSubidaFoto').classList.add('hidden');

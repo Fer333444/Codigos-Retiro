@@ -5,7 +5,7 @@ import csv
 import io
 import json
 import base64
-import time # <--- NUEVA LIBRERÍA AÑADIDA
+import time
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
@@ -157,13 +157,11 @@ def mantenimiento_datos():
     
     for r in registros:
         if r['estado'] == 'activo':
-            # NUEVO SISTEMA (CRONÓMETRO)
             if 'expira_timestamp' in r:
                 if tiempo_ahora >= r['expira_timestamp']:
                     r['estado'] = 'expirado'
                     r['historial'].append(f"[{hora_actual}] ❌ Expirado automáticamente (Tiempo agotado)")
                     cambios_realizados = True
-            # SISTEMA VIEJO (COMPATIBILIDAD)
             elif esta_expirado(r.get('hora_limite'), r.get('fecha')):
                 r['estado'] = 'expirado'
                 r['historial'].append(f"[{hora_actual}] ❌ Expirado automáticamente (Tiempo agotado)")
@@ -437,10 +435,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
     cedula = req.form.get('cedula', '')
     monto = req.form.get('monto')
     
-    # ========================================================
-    # MAGIA DEL CRONÓMETRO (El servidor impone el tiempo)
-    # ========================================================
-    tiempo_expiracion = time.time() + (2.5 * 3600) # 2.5 horas en segundos exactos
+    tiempo_expiracion = time.time() + (2.5 * 3600) 
     
     codigo_recibido = req.form.get('codigo_recibido', '')
     clave_retiro = req.form.get('clave_retiro', '')
@@ -460,6 +455,8 @@ def procesar_formulario_retiro(req, lista_usuarios):
     for usuario in lista_usuarios:
         hora_actual = hora_ecuador().strftime('%H:%M')
         asignado_a_quien = None
+        asignacion_estado = 'no_asignado' # NUEVO: Control de color de borde
+        
         nota_multi = f" (Junto a {len(lista_usuarios)-1} más)" if len(lista_usuarios) > 1 else ""
         historial_inicial = [f"[{hora_actual}] Creado por Cliente{nota_multi}"]
         
@@ -472,6 +469,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
                         cargas[r['asignado_a']] += 1
                 mejor_cobrador = min(cargas, key=cargas.get)
                 asignado_a_quien = mejor_cobrador
+                asignacion_estado = 'asignado'
                 historial_inicial.append(f"[{hora_actual}] 👤 Asignado a {mejor_cobrador.capitalize()} (Robot)")
 
         nuevo_registro = {
@@ -481,11 +479,12 @@ def procesar_formulario_retiro(req, lista_usuarios):
             'celular': celular, 
             'cedula': cedula, 
             'monto': monto, 'usuario': usuario, 
-            'hora_limite': '', # Ya no se usa
-            'expira_timestamp': tiempo_expiracion, # NUEVO
+            'hora_limite': '', 
+            'expira_timestamp': tiempo_expiracion, 
             'detalles': {'codigo_pichincha': codigo_recibido, 'guayaquil_retiro': clave_retiro, 'guayaquil_envio': clave_envio, 'seguridad': codigo_seguridad},
             'imagen': str_imagenes,
             'asignado_a': asignado_a_quien,
+            'asignacion_estado': asignacion_estado, # Se guarda el estado del borde
             'estado': 'activo',
             'historial': historial_inicial,
             'liquidado': False 
@@ -591,6 +590,7 @@ def toggle_auto():
                             cargas[calc['asignado_a']] += 1
                     mejor = min(cargas, key=cargas.get)
                     r['asignado_a'] = mejor
+                    r['asignacion_estado'] = 'asignado'
                     r['historial'].append(f"[{hora_actual}] 👤 Asignado a {mejor.capitalize()} (Robot)")
         flash('🤖 Robot de Auto-Asignación ENCENDIDO.', 'success')
     else:
@@ -611,9 +611,11 @@ def asignar_trabajo():
             viejo_asignado = r.get('asignado_a')
             if viejo_asignado and viejo_asignado != trabajador:
                 r['asignado_a'] = trabajador
+                r['asignacion_estado'] = 'reasignado' # SE MARCA COMO ROJO
                 r['historial'].append(f"[{hora_actual}] 🔄 Reasignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
             else:
                 r['asignado_a'] = trabajador
+                r['asignacion_estado'] = 'asignado' # SE MARCA COMO VERDE
                 r['historial'].append(f"[{hora_actual}] 👤 Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
             break
             

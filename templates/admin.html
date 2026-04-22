@@ -174,12 +174,20 @@
                 {% else %}
                     <div class="space-y-4">
                         {% for r in activos %}
-                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col md:flex-row">
-                            <div class="md:w-32 bg-slate-100 border-b md:border-b-0 md:border-r border-slate-200 p-2 flex items-center justify-center shrink-0 min-h-[120px]">
+                        
+                        {% set border_color = 'border-slate-800' %}
+                        {% if r.get('asignacion_estado') == 'asignado' %} {% set border_color = 'border-emerald-500' %}
+                        {% elif r.get('asignacion_estado') == 'reasignado' %} {% set border_color = 'border-rose-500' %}
+                        {% elif r.asignado_a %} {% set border_color = 'border-emerald-500' %}
+                        {% endif %}
+
+                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-sm overflow-hidden flex flex-row">
+                            
+                            <div class="w-24 sm:w-32 bg-slate-100 border-r border-slate-200 p-2 flex items-center justify-center shrink-0">
                                 {% if r.imagen %}
                                     {% set imagenes = r.imagen.split(',') %}
-                                    <a href="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" target="_blank" class="w-full h-full relative group">
-                                        <img src="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" class="w-full h-full object-cover rounded border border-slate-200 shadow-sm">
+                                    <a href="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
+                                        <img src="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-200 shadow-sm">
                                         {% if imagenes|length > 1 %}
                                             <span class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] font-bold px-1.5 rounded">+{{ imagenes|length - 1 }}</span>
                                         {% endif %}
@@ -189,25 +197,32 @@
                                 {% endif %}
                             </div>
                             
-                            <div class="p-4 md:p-5 flex-1 flex flex-col justify-between">
-                                <div class="flex justify-between items-start mb-3">
-                                    <div>
-                                        <span class="text-2xl font-black text-green-600">${{ r.monto }}</span>
-                                        <span class="text-xs font-bold text-slate-500 uppercase ml-2 tracking-widest">{{ r.banco }} - {{ r.usuario }}</span>
+                            <div class="p-3 sm:p-5 flex-1 flex flex-col justify-between min-w-0">
+                                <div class="flex flex-wrap justify-between items-start mb-3 gap-2">
+                                    <div class="flex-1 min-w-0">
+                                        <span class="text-xl sm:text-2xl font-black text-green-600">${{ r.monto }}</span>
+                                        
+                                        {% set color_banco = 'text-slate-500' %}
+                                        {% if r.banco|lower == 'pichincha' %} {% set color_banco = 'text-yellow-500' %}
+                                        {% elif r.banco|lower == 'guayaquil' %} {% set color_banco = 'text-purple-600' %}
+                                        {% elif r.banco|lower == 'produbanco' %} {% set color_banco = 'text-[#8b4513]' %}
+                                        {% endif %}
+                                        
+                                        <span class="text-[10px] sm:text-xs font-black {{ color_banco }} uppercase ml-1 sm:ml-2 tracking-widest truncate block sm:inline">{{ r.banco }} - {{ r.usuario }}</span>
                                     </div>
-                                    <div>
+                                    <div class="shrink-0 text-right">
                                         {% if r.expira_timestamp %}
-                                            <span class="cronometro-retiro text-xs font-black text-blue-600" data-expira="{{ r.expira_timestamp }}">
+                                            <span class="cronometro-retiro text-[10px] sm:text-xs font-black text-blue-600" data-expira="{{ r.expira_timestamp }}">
                                                 <i class="fas fa-spinner fa-spin"></i>
                                             </span>
                                         {% elif r.hora_limite %}
-                                            <span class="text-xs font-bold text-rose-600"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
+                                            <span class="text-[10px] sm:text-xs font-bold text-rose-600"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
                                         {% endif %}
                                     </div>
                                 </div>
 
-                                <div class="bg-slate-50 rounded-lg p-3 text-xs font-mono text-slate-600 space-y-1 mb-4 border border-slate-100">
-                                    <p class="font-bold text-slate-700 mb-2 uppercase tracking-widest border-b border-slate-200 pb-1">Historial de eventos:</p>
+                                <div class="bg-slate-50 rounded-lg p-2.5 sm:p-3 text-[10px] sm:text-xs font-mono text-slate-600 space-y-1 mb-4 border border-slate-100">
+                                    <p class="font-bold text-slate-700 mb-1.5 uppercase tracking-widest border-b border-slate-200 pb-1">Historial de eventos:</p>
                                     {% for evento in r.historial %}
                                         {% if 'Reasignado' in evento %}
                                             <p class="text-rose-600 font-bold"><i class="fas fa-exchange-alt mr-1 text-rose-400"></i> {{ evento }}</p>
@@ -221,22 +236,21 @@
                                     {% endfor %}
                                 </div>
 
-                                <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2 rounded-lg border border-slate-200">
+                                <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2 rounded-lg border border-slate-200 mt-auto">
                                     <form action="/asignar" method="POST" class="flex flex-1 gap-2 m-0">
                                         <input type="hidden" name="id" value="{{ r.id }}">
-                                        <select name="trabajador" class="flex-1 text-sm bg-white border border-slate-300 rounded px-2 py-2 font-bold text-slate-700 outline-none focus:border-blue-500">
+                                        <select name="trabajador" class="flex-1 text-[10px] sm:text-xs bg-white border border-slate-300 rounded px-2 py-2 font-bold text-slate-700 outline-none focus:border-blue-500">
                                             <option value="" disabled selected>Asignar manual...</option>
                                             {% for c in cobradores %}
                                             <option value="{{ c }}">{{ c|capitalize }}</option>
                                             {% endfor %}
                                         </select>
-                                        <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs px-4 py-2 rounded uppercase tracking-widest transition-colors shadow-sm">Confirmar</button>
+                                        <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] sm:text-xs px-3 sm:px-4 py-2 rounded uppercase tracking-widest transition-colors shadow-sm shrink-0">Confirmar</button>
                                     </form>
                                     
                                     {% if r.asignado_a %}
-                                    <div class="hidden sm:block w-px h-8 bg-slate-300 mx-2"></div>
-                                    <span class="text-xs font-bold text-slate-500 flex items-center justify-center shrink-0">
-                                        <i class="fas fa-user-check text-green-500 mr-1.5 text-base"></i> {{ r.asignado_a|capitalize }}
+                                    <span class="bg-blue-600 text-white text-[10px] sm:text-xs font-black px-3 py-2 rounded shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
+                                        <i class="fas fa-user-check mr-1.5"></i> {{ r.asignado_a }}
                                     </span>
                                     {% endif %}
                                 </div>
@@ -269,7 +283,6 @@
     <script>
         function actualizarCronometros() {
             const timers = document.querySelectorAll('.cronometro-retiro');
-            // Obtener el tiempo actual en segundos
             const ahora = Date.now() / 1000; 
 
             timers.forEach(timer => {
@@ -280,7 +293,7 @@
 
                 if (diff <= 0) {
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
-                    timer.className = 'cronometro-retiro text-xs font-black text-rose-600 uppercase tracking-widest';
+                    timer.className = 'cronometro-retiro text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest';
                 } else {
                     const horas = Math.floor(diff / 3600);
                     const minutos = Math.floor((diff % 3600) / 60);
@@ -292,17 +305,15 @@
 
                     timer.innerHTML = `<i class="fas fa-stopwatch mr-1"></i> EXPIRA EN: ${hStr}:${mStr}:${sStr}`;
                     
-                    // Si falta menos de media hora, lo ponemos en naranja parpadeante
                     if (horas === 0 && minutos < 30) {
-                        timer.className = 'cronometro-retiro text-xs font-black text-orange-500 animate-pulse';
+                        timer.className = 'cronometro-retiro text-[10px] sm:text-xs font-black text-orange-500 animate-pulse uppercase tracking-widest';
                     } else {
-                        timer.className = 'cronometro-retiro text-xs font-black text-blue-600';
+                        timer.className = 'cronometro-retiro text-[10px] sm:text-xs font-black text-blue-600 uppercase tracking-widest';
                     }
                 }
             });
         }
         
-        // Arranca el cronómetro y se actualiza cada segundo
         setInterval(actualizarCronometros, 1000);
         actualizarCronometros();
     </script>

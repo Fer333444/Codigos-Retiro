@@ -3,222 +3,262 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bandeja de Cobro</title>
+    <title>Bandeja de {{ nombre }} | Flujo ERP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
-<body class="bg-slate-50 flex h-screen text-slate-800 font-sans">
-    
-    <main class="flex-1 flex flex-col h-screen overflow-hidden">
-        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 shadow-sm shrink-0">
-            <h1 class="text-base md:text-lg font-black text-indigo-600 tracking-tighter uppercase truncate max-w-[60%]">
-                <i class="fas fa-briefcase mr-1 md:mr-2"></i> Bandeja: {{ nombre }}
+<body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden w-full relative">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 shadow-sm relative z-10 shrink-0">
+            <h1 class="text-lg font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                <i class="fas fa-briefcase"></i> Bandeja: {{ nombre }}
             </h1>
-            <div class="flex items-center gap-2 md:gap-4">
-                <span class="hidden sm:inline text-xs font-bold text-slate-600 uppercase">{{ mi_usuario }} (Cobrador)</span>
-                <a href="/logout" class="text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 px-2 md:px-3 py-1.5 rounded transition-colors whitespace-nowrap">
-                    <i class="fas fa-sign-out-alt"></i> Salir
-                </a>
+            <div class="flex items-center gap-4">
+                <span class="text-[10px] sm:text-xs font-bold text-slate-500 uppercase">{{ mi_usuario }} (Cobrador)</span>
+                <a href="/logout" class="text-xs font-bold text-rose-500 hover:text-rose-700 bg-rose-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 border border-rose-200 shadow-sm"><i class="fas fa-sign-out-alt"></i> <span class="hidden sm:inline">Salir</span></a>
             </div>
         </header>
 
-        <div class="flex-1 overflow-auto p-4 md:p-8">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                {% for category, message in messages %}
-                  <div class="mb-4 md:mb-6 p-3 md:p-4 rounded-xl font-bold text-center text-sm shadow-sm {% if category == 'error' %}bg-red-50 text-red-600 border border-red-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
-                      {{ message }}
-                  </div>
-                {% endfor %}
-              {% endif %}
-            {% endwith %}
+        <div class="flex-1 overflow-auto p-4 sm:p-8 bg-slate-50 custom-scrollbar">
+            <div class="max-w-5xl mx-auto">
 
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-2">
-                <h2 class="text-xl md:text-2xl font-black text-slate-800 uppercase">Retiros Asignados</h2>
-                <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold self-start sm:self-auto">{{ registros|length }} Pendientes</span>
-            </div>
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="mb-6 p-4 rounded-xl font-bold text-sm shadow-sm {% if category == 'error' %}bg-rose-50 text-rose-600 border border-rose-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
+                          {{ message }}
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
 
-            {% if not registros %}
-            <div class="text-center py-16 md:py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200 shadow-sm mx-2 md:mx-0">
-                <i class="fas fa-coffee text-4xl text-slate-300 mb-4"></i>
-                <p class="text-slate-500 text-base md:text-lg font-medium px-4">Bandeja limpia. Espera asignaciones.</p>
-            </div>
-            {% else %}
-            <div class="grid grid-cols-1 gap-4 md:gap-6">
-                {% for r in registros %}
-                <div class="bg-white rounded-2xl border-t-4 border-indigo-500 p-0 flex flex-col md:flex-row shadow-lg overflow-hidden">
-                    
-                    <div class="w-full md:w-48 bg-slate-100 flex-shrink-0 border-b md:border-b-0 md:border-r border-slate-200 p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-1 gap-2 max-h-40 md:max-h-64 overflow-y-auto custom-scroll">
-                        {% if r.imagen %}
-                            {% set imagenes = r.imagen.split(',') %}
-                            {% for img in imagenes %}
-                                <a href="{{ url_for('static', filename='uploads/' + img) }}" target="_blank" class="block rounded-lg overflow-hidden border border-slate-300 shadow-sm hover:opacity-80 transition-opacity">
-                                    <img src="{{ url_for('static', filename='uploads/' + img) }}" class="w-full h-24 md:h-32 object-cover">
-                                </a>
-                            {% endfor %}
-                        {% else %}
-                            <div class="h-24 md:h-32 flex flex-col items-center justify-center text-slate-400 col-span-2 sm:col-span-3 md:col-span-1">
-                                <i class="fas fa-image text-2xl mb-1"></i>
-                                <span class="text-xs font-bold uppercase">Sin foto</span>
-                            </div>
-                        {% endif %}
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl sm:text-2xl font-black text-slate-800 tracking-tight uppercase">Retiros Asignados</h2>
+                    <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">{{ registros|length }} Pendientes</span>
+                </div>
+
+                {% if not registros %}
+                    <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 shadow-sm">
+                        <i class="fas fa-mug-hot text-4xl mb-3"></i>
+                        <p class="text-sm font-bold uppercase tracking-widest">No tienes retiros pendientes, tómate un café.</p>
                     </div>
+                {% else %}
+                    <div class="space-y-4">
+                        {% for r in registros %}
+                        
+                        {% set border_color = 'border-slate-800' %}
+                        {% if r.get('asignacion_estado') == 'asignado' %} {% set border_color = 'border-emerald-500' %}
+                        {% elif r.get('asignacion_estado') == 'reasignado' %} {% set border_color = 'border-rose-500' %}
+                        {% elif r.asignado_a %} {% set border_color = 'border-emerald-500' %}
+                        {% endif %}
 
-                    <div class="flex-1 p-4 md:p-5 flex flex-col justify-between">
-                        
-                        <div class="flex justify-between items-start mb-4 border-b border-slate-100 pb-3">
-                            <div>
-                                <span class="font-black text-green-600 text-2xl md:text-3xl block leading-none mb-1">${{ r.monto }}</span>
-                                <span class="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest"><i class="fas fa-university text-slate-400 mr-1"></i> {{ r.banco }}</span>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-xs md:text-sm font-black text-orange-600 bg-orange-50 px-2 md:px-3 py-1 rounded-lg border border-orange-200 countdown-timer shadow-sm" data-limit="{{ r.hora_limite }}">
-                                    <i class="far fa-clock mr-1"></i> Cargando...
-                                </span>
-                            </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
-                            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                                <span class="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Usuario Magis</span>
-                                <span class="block text-sm font-black text-slate-700 truncate"><i class="fas fa-user text-blue-400 mr-1"></i> {{ r.usuario }}</span>
-                            </div>
+                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-sm overflow-hidden flex flex-row">
                             
-                            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                                <span class="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Celular / C.I.</span>
-                                <span class="block text-sm font-black text-slate-700 truncate"><i class="fas fa-mobile-alt text-blue-400 mr-1"></i> {{ r.celular }}</span>
-                                {% if r.cedula %}
-                                    <span class="block text-xs font-bold text-slate-500 truncate mt-1"><i class="fas fa-id-card text-blue-400 mr-1"></i> {{ r.cedula }}</span>
+                            <div class="w-24 sm:w-32 bg-slate-100 border-r border-slate-200 p-2 flex items-center justify-center shrink-0">
+                                {% if r.imagen %}
+                                    {% set imagenes = r.imagen.split(',') %}
+                                    <a href="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
+                                        <img src="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-200 shadow-sm">
+                                        {% if imagenes|length > 1 %}
+                                            <span class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] font-bold px-1.5 rounded">+{{ imagenes|length - 1 }}</span>
+                                        {% endif %}
+                                    </a>
+                                {% else %}
+                                    <i class="fas fa-image text-slate-300 text-3xl"></i>
                                 {% endif %}
                             </div>
                             
-                            <div class="col-span-1 sm:col-span-2 xl:col-span-2 bg-indigo-50 p-2.5 rounded-lg border border-indigo-200 flex items-center">
-                                <div class="w-full">
-                                    <span class="block text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">Códigos de Retiro</span>
-                                    <div class="text-sm font-mono text-indigo-900 font-bold break-words">
-                                        {% if r.banco == 'pichincha' or r.banco == 'produbanco' %} 
-                                            <span class="text-lg md:text-xl tracking-widest">{{ r.detalles.codigo_pichincha }}</span>
-                                        {% elif r.banco == 'guayaquil' %} 
-                                            Ret: <span class="text-base md:text-lg">{{ r.detalles.guayaquil_retiro }}</span> <span class="text-indigo-300 mx-1 md:mx-2">|</span> Env: <span class="text-base md:text-lg">{{ r.detalles.guayaquil_envio }}</span>
-                                        {% else %} 
-                                            Seg: <span class="text-base md:text-lg">{{ r.detalles.seguridad }}</span> 
+                            <div class="p-3 sm:p-5 flex-1 flex flex-col justify-between min-w-0">
+                                
+                                <div class="flex flex-wrap justify-between items-start mb-3 gap-2">
+                                    <div class="flex-1 min-w-0">
+                                        <span class="text-xl sm:text-2xl font-black text-green-600">${{ r.monto }}</span>
+                                        
+                                        {% set color_banco = 'text-slate-500' %}
+                                        {% if r.banco|lower == 'pichincha' %} {% set color_banco = 'text-yellow-500' %}
+                                        {% elif r.banco|lower == 'guayaquil' %} {% set color_banco = 'text-purple-600' %}
+                                        {% elif r.banco|lower == 'produbanco' %} {% set color_banco = 'text-[#8b4513]' %}
+                                        {% endif %}
+                                        
+                                        <span class="text-[10px] sm:text-xs font-black {{ color_banco }} uppercase ml-1 sm:ml-2 tracking-widest truncate block sm:inline"><i class="fas fa-university mr-1"></i> {{ r.banco }}</span>
+                                    </div>
+                                    <div class="shrink-0 text-right bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg shadow-sm">
+                                        {% if r.expira_timestamp %}
+                                            <span class="cronometro-retiro text-[10px] sm:text-xs font-black text-orange-600" data-expira="{{ r.expira_timestamp }}">
+                                                <i class="fas fa-spinner fa-spin"></i> Cargando...
+                                            </span>
+                                        {% elif r.hora_limite %}
+                                            <span class="text-[10px] sm:text-xs font-bold text-rose-600"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
                                         {% endif %}
                                     </div>
                                 </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                    <div class="bg-slate-50 border border-slate-100 p-2.5 rounded-lg">
+                                        <p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Usuario Magis</p>
+                                        <p class="text-xs sm:text-sm font-bold text-slate-700 truncate"><i class="fas fa-user text-blue-500 mr-1.5"></i> {{ r.usuario }}</p>
+                                    </div>
+                                    <div class="bg-slate-50 border border-slate-100 p-2.5 rounded-lg">
+                                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Celular / C.I.</p>
+                                        <p class="text-xs sm:text-sm font-bold text-slate-700 font-mono tracking-wider"><i class="fas fa-mobile-alt text-slate-400 mr-1.5"></i> {{ r.celular }}</p>
+                                    </div>
+                                </div>
+
+                                <div class="bg-blue-50/50 border border-blue-100 p-3 rounded-xl mb-5 shadow-inner">
+                                    <p class="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-2 border-b border-blue-200/50 pb-1">Códigos de Retiro</p>
+                                    <div class="flex flex-wrap gap-4 text-xs sm:text-sm font-mono">
+                                        {% if r.detalles.codigo_pichincha %}
+                                            <span class="font-black text-blue-800 bg-white px-2 py-1 rounded shadow-sm border border-blue-100">Pin: {{ r.detalles.codigo_pichincha }}</span>
+                                        {% endif %}
+                                        {% if r.detalles.guayaquil_retiro %}
+                                            <span class="font-black text-purple-800 bg-white px-2 py-1 rounded shadow-sm border border-purple-100">Ret: {{ r.detalles.guayaquil_retiro }}</span>
+                                        {% endif %}
+                                        {% if r.detalles.guayaquil_envio %}
+                                            <span class="font-black text-purple-800 bg-white px-2 py-1 rounded shadow-sm border border-purple-100">Env: {{ r.detalles.guayaquil_envio }}</span>
+                                        {% endif %}
+                                        {% if r.detalles.seguridad %}
+                                            <span class="font-black text-slate-700 bg-white px-2 py-1 rounded shadow-sm border border-slate-200">Seg: {{ r.detalles.seguridad }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto">
+                                    <form action="/marcar_retirado" method="POST" class="m-0 w-full" onsubmit="return confirm('¿Confirmas que ya retiraste y tienes el dinero en mano?');">
+                                        <input type="hidden" name="id" value="{{ r.id }}">
+                                        <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-[11px] sm:text-xs flex justify-center items-center gap-2"><i class="fas fa-check-circle text-lg"></i> Marcar Retirado</button>
+                                    </form>
+                                    <button onclick="abrirModalFallido('{{ r.id }}', '{{ r.monto }}', '{{ r.usuario }}')" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-[11px] sm:text-xs flex justify-center items-center gap-2"><i class="fas fa-times-circle text-lg"></i> No Salió</button>
+                                </div>
                             </div>
                         </div>
-
-                        <div class="flex flex-col sm:flex-row gap-2 md:gap-3 mt-auto pt-4 border-t border-slate-100">
-                            
-                            <form action="/marcar_retirado" method="POST" class="flex-1 m-0">
-                                <input type="hidden" name="id" value="{{ r.id }}">
-                                <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-black py-3 md:py-3.5 rounded-xl transition-all shadow-md uppercase tracking-wider flex items-center justify-center gap-2 border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 text-sm md:text-base">
-                                    <i class="fas fa-check-circle text-lg"></i> Marcar Retirado
-                                </button>
-                            </form>
-
-                            <form action="/marcar_fallido" method="POST" class="flex-1 m-0" onsubmit="confirmarFallo(event, this);">
-                                <input type="hidden" name="id" value="{{ r.id }}">
-                                <button type="submit" class="w-full bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white font-black py-3 md:py-3.5 rounded-xl transition-all shadow-md uppercase tracking-wider flex items-center justify-center gap-2 border-b-4 border-rose-700 active:border-b-0 active:translate-y-1 text-sm md:text-base">
-                                    <i class="fas fa-times-circle text-lg"></i> No Salió
-                                </button>
-                            </form>
-
-                        </div>
-
-                        <div class="mt-3 text-[9px] font-mono text-slate-300 uppercase tracking-wider flex flex-wrap gap-x-2 gap-y-1">
-                            {% for evento in r.historial %}
-                                <span>{{ evento }}</span>
-                            {% endfor %}
-                        </div>
-
+                        {% endfor %}
                     </div>
-                </div>
-                {% endfor %}
+                {% endif %}
             </div>
-            {% endif %}
         </div>
     </main>
 
-    <script>
-        function confirmarFallo(e, form) {
-            e.preventDefault(); 
-            let motivo = prompt('⚠️ Escribe el motivo por el cual NO SALIÓ (ej. Código incorrecto, Expirado):');
-            if (motivo !== null) {
-                motivo = motivo.trim() || 'Sin motivo especificado';
-                let input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'motivo';
-                input.value = motivo;
-                form.appendChild(input);
-                form.submit();
-            }
-        }
+    <div id="modalFallido" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
+            <div class="p-5 border-b border-slate-200 bg-rose-50 flex justify-between items-center">
+                <h3 class="font-black text-rose-700 text-lg uppercase tracking-widest"><i class="fas fa-exclamation-triangle mr-2"></i> Reportar Fallo</h3>
+                <button onclick="cerrarModalFallido()" class="text-rose-400 hover:text-rose-600 transition-colors focus:outline-none"><i class="fas fa-times-circle text-2xl"></i></button>
+            </div>
+            
+            <form action="/marcar_fallido" method="POST" class="p-6 space-y-5 bg-white">
+                <input type="hidden" name="id" id="fallido_id">
+                
+                <div class="bg-slate-50 border border-slate-200 p-4 rounded-lg flex justify-between items-center">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cliente</p>
+                        <p class="text-sm font-black text-slate-800" id="fallido_cliente">---</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Monto a retener</p>
+                        <p class="text-lg font-black text-rose-600" id="fallido_monto">$0.00</p>
+                    </div>
+                </div>
 
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Motivo exacto del cajero/app:</label>
+                    <select name="motivo" required class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm font-bold rounded-lg p-3 outline-none focus:border-rose-500 cursor-pointer">
+                        <option value="" disabled selected>-- Selecciona un motivo --</option>
+                        <option value="Clave de retiro incorrecta">Clave de retiro incorrecta</option>
+                        <option value="Código caducado / Tiempo agotado">Código caducado / Tiempo agotado</option>
+                        <option value="Cajero sin dinero">Cajero sin dinero / Fuera de servicio</option>
+                        <option value="Monto excede límite diario">Monto excede límite diario</option>
+                        <option value="Fondos insuficientes (El cliente lo vació)">Fondos insuficientes (El cliente lo vació)</option>
+                        <option value="Bloqueo por seguridad del banco">Bloqueo por seguridad del banco</option>
+                        <option value="Faltan datos (Ej. Código de envío)">Faltan datos (Ej. Código de envío)</option>
+                        <option value="Otro motivo (Captura evidencia)">Otro motivo</option>
+                    </select>
+                </div>
+                
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-sm flex justify-center items-center gap-2"><i class="fas fa-ban"></i> Confirmar Fallo (Crear Deuda)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
         function actualizarCronometros() {
-            const contadores = document.querySelectorAll('.countdown-timer');
-            const ahora = new Date();
-            contadores.forEach(contador => {
-                const horaLimite = contador.getAttribute('data-limit');
-                if (!horaLimite) return;
-                const [horas, minutos] = horaLimite.split(':').map(Number);
-                let fechaObjetivo = new Date();
-                fechaObjetivo.setHours(horas, minutos, 0, 0);
-                if (fechaObjetivo < ahora && (ahora.getHours() - fechaObjetivo.getHours() > 12)) {
-                    fechaObjetivo.setDate(fechaObjetivo.getDate() + 1);
-                }
-                const diferencia = fechaObjetivo - ahora;
-                if (diferencia <= 0) {
-                    contador.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
-                    contador.classList.remove('text-orange-600', 'bg-orange-50', 'border-orange-200');
-                    contador.classList.add('text-red-600', 'bg-red-50', 'border-red-200');
+            const timers = document.querySelectorAll('.cronometro-retiro');
+            const ahora = Date.now() / 1000; 
+
+            timers.forEach(timer => {
+                const expira = parseFloat(timer.getAttribute('data-expira'));
+                if (!expira) return;
+
+                const diff = expira - ahora;
+
+                if (diff <= 0) {
+                    timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
+                    timer.className = 'cronometro-retiro text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest';
                 } else {
-                    const h = Math.floor(diferencia / (1000 * 60 * 60));
-                    const m = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60));
-                    const s = Math.floor((diferencia % (1000 * 60)) / 1000);
+                    const horas = Math.floor(diff / 3600);
+                    const minutos = Math.floor((diff % 3600) / 60);
+                    const segundos = Math.floor(diff % 60);
+
+                    const hStr = horas.toString().padStart(2, '0');
+                    const mStr = minutos.toString().padStart(2, '0');
+                    const sStr = segundos.toString().padStart(2, '0');
+
+                    timer.innerHTML = `<i class="fas fa-stopwatch mr-1"></i> EXPIRA EN: ${hStr}:${mStr}:${sStr}`;
                     
-                    let textoTiempo = '<i class="far fa-clock mr-1"></i> ';
-                    if (h > 0) textoTiempo += h + 'h ';
-                    textoTiempo += m + 'm ' + s + 's';
-                    
-                    contador.innerHTML = textoTiempo;
+                    if (horas === 0 && minutos < 30) {
+                        timer.className = 'cronometro-retiro text-[10px] sm:text-xs font-black text-orange-600 animate-pulse uppercase tracking-widest';
+                    } else {
+                        timer.className = 'cronometro-retiro text-[10px] sm:text-xs font-black text-orange-600 uppercase tracking-widest';
+                    }
                 }
             });
         }
+        
         setInterval(actualizarCronometros, 1000);
+        actualizarCronometros();
 
-        function iniciarRastreo() {
+        function abrirModalFallido(id, monto, cliente) {
+            document.getElementById('fallido_id').value = id;
+            document.getElementById('fallido_monto').innerText = "$" + monto;
+            document.getElementById('fallido_cliente').innerText = cliente;
+            document.getElementById('modalFallido').classList.remove('hidden');
+        }
+
+        function cerrarModalFallido() {
+            document.getElementById('modalFallido').classList.add('hidden');
+        }
+
+        // --- SISTEMA DE UBICACIÓN ---
+        function enviarUbicacion() {
             if ("geolocation" in navigator) {
-                navigator.geolocation.watchPosition(
-                    function(position) {
-                        const coords = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude,
-                            usuario: '{{ nombre.lower() }}'
-                        };
-                        
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
                         fetch('/actualizar_ubicacion', {
                             method: 'POST',
-                            body: JSON.stringify(coords),
-                            headers: {'Content-Type': 'application/json'}
-                        }).catch(err => console.log("Error de red GPS"));
-                    }, 
-                    function(error) {
-                        if(error.code == error.PERMISSION_DENIED) {
-                            alert("⚠️ ERROR: Debes permitir el acceso a tu ubicación para trabajar en la plataforma.");
-                        }
-                    }, 
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ usuario: "{{ nombre }}", lat: lat, lng: lng })
+                        });
+                    },
+                    (error) => { console.warn("No se pudo obtener la ubicación", error); },
+                    { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
                 );
             }
         }
-        window.onload = iniciarRastreo;
+        
+        // Enviar al abrir y luego cada 10 minutos
+        enviarUbicacion();
+        setInterval(enviarUbicacion, 600000);
     </script>
+
 </body>
 </html>

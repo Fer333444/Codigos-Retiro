@@ -87,7 +87,7 @@
             </div>
         </header>
 
-        <div class="flex-1 overflow-auto p-4 md:p-8 bg-slate-50 relative custom-scrollbar">
+        <div id="mainScroll" class="flex-1 overflow-auto p-4 md:p-8 bg-slate-50 relative custom-scrollbar">
             <div class="max-w-6xl mx-auto">
                 
                 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -176,9 +176,12 @@
                         {% for r in activos %}
                         
                         {% set border_color = 'border-slate-800' %}
-                        {% if r.get('asignacion_estado') == 'asignado' %} {% set border_color = 'border-emerald-500' %}
-                        {% elif r.get('asignacion_estado') == 'reasignado' %} {% set border_color = 'border-rose-500' %}
-                        {% elif r.asignado_a %} {% set border_color = 'border-emerald-500' %}
+                        {% if not r.asignado_a %} 
+                            {% set border_color = 'border-slate-800' %}
+                        {% elif r.get('asignacion_estado') == 'reasignado' %} 
+                            {% set border_color = 'border-rose-500' %}
+                        {% else %} 
+                            {% set border_color = 'border-emerald-500' %}
                         {% endif %}
 
                         <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-sm overflow-hidden flex flex-row">
@@ -237,9 +240,9 @@
                                 </div>
 
                                 <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2 rounded-lg border border-slate-200 mt-auto">
-                                    <form action="/asignar" method="POST" class="flex flex-1 gap-2 m-0">
+                                    <form action="/asignar" method="POST" class="flex flex-1 gap-2 m-0 form-mantener-scroll">
                                         <input type="hidden" name="id" value="{{ r.id }}">
-                                        <select name="trabajador" class="flex-1 text-[10px] sm:text-xs bg-white border border-slate-300 rounded px-2 py-2 font-bold text-slate-700 outline-none focus:border-blue-500">
+                                        <select name="trabajador" required class="flex-1 text-[10px] sm:text-xs bg-white border border-slate-300 rounded px-2 py-2 font-bold text-slate-700 outline-none focus:border-blue-500">
                                             <option value="" disabled selected>Asignar manual...</option>
                                             {% for c in cobradores %}
                                             <option value="{{ c }}">{{ c|capitalize }}</option>
@@ -249,9 +252,13 @@
                                     </form>
                                     
                                     {% if r.asignado_a %}
-                                    <span class="bg-blue-600 text-white text-[10px] sm:text-xs font-black px-3 py-2 rounded shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
-                                        <i class="fas fa-user-check mr-1.5"></i> {{ r.asignado_a }}
-                                    </span>
+                                        <span class="bg-green-600 text-white text-[10px] sm:text-xs font-black px-3 py-2 rounded shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
+                                            <i class="fas fa-user-check mr-1.5"></i> {{ r.asignado_a }}
+                                        </span>
+                                    {% else %}
+                                        <span class="bg-slate-500 text-white text-[10px] sm:text-xs font-black px-3 py-2 rounded shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
+                                            <i class="fas fa-user-times mr-1.5"></i> SIN ASIGNAR
+                                        </span>
                                     {% endif %}
                                 </div>
                             </div>
@@ -279,6 +286,27 @@
             </div>
         </div>
     </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() { 
+            var mainScroll = document.getElementById('mainScroll');
+            var savedScrollPos = sessionStorage.getItem('scrollpos_admin');
+            
+            if (savedScrollPos && mainScroll) {
+                mainScroll.scrollTop = savedScrollPos;
+                sessionStorage.removeItem('scrollpos_admin'); 
+            }
+        });
+
+        document.querySelectorAll('.form-mantener-scroll').forEach(form => {
+            form.addEventListener('submit', function() {
+                var mainScroll = document.getElementById('mainScroll');
+                if(mainScroll) {
+                    sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
+                }
+            });
+        });
+    </script>
 
     <script>
         function actualizarCronometros() {

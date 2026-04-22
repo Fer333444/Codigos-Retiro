@@ -455,7 +455,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
     for usuario in lista_usuarios:
         hora_actual = hora_ecuador().strftime('%H:%M')
         asignado_a_quien = None
-        asignacion_estado = 'no_asignado' # NUEVO: Control de color de borde
+        asignacion_estado = 'no_asignado' 
         
         nota_multi = f" (Junto a {len(lista_usuarios)-1} más)" if len(lista_usuarios) > 1 else ""
         historial_inicial = [f"[{hora_actual}] Creado por Cliente{nota_multi}"]
@@ -484,7 +484,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
             'detalles': {'codigo_pichincha': codigo_recibido, 'guayaquil_retiro': clave_retiro, 'guayaquil_envio': clave_envio, 'seguridad': codigo_seguridad},
             'imagen': str_imagenes,
             'asignado_a': asignado_a_quien,
-            'asignacion_estado': asignacion_estado, # Se guarda el estado del borde
+            'asignacion_estado': asignacion_estado,
             'estado': 'activo',
             'historial': historial_inicial,
             'liquidado': False 
@@ -604,11 +604,21 @@ def asignar_trabajo():
     if session.get('rol') not in ['supremo', 'recaudador']: return redirect(url_for('login'))
     registro_id = int(request.form.get('id'))
     trabajador = request.form.get('trabajador')
+    
+    if not trabajador:
+        return redirect(url_for('admin'))
+        
     hora_actual = hora_ecuador().strftime('%H:%M')
     
     for r in registros:
         if r['id'] == registro_id:
             viejo_asignado = r.get('asignado_a')
+            
+            # Bloqueo: Si intentan asignar a la misma persona que ya lo tiene, no hacer nada.
+            if viejo_asignado == trabajador:
+                flash(f'El código ya estaba asignado a {trabajador.capitalize()}.', 'info')
+                return redirect(url_for('admin'))
+                
             if viejo_asignado and viejo_asignado != trabajador:
                 r['asignado_a'] = trabajador
                 r['asignacion_estado'] = 'reasignado' # SE MARCA COMO ROJO
@@ -691,7 +701,6 @@ def gestionar_deuda():
     guardar_datos()
     return redirect(url_for('vista_reportes', vista='historial'))
 
-
 @app.route('/pago_alternativo', methods=['POST'])
 def pago_alternativo():
     mis_permisos = session.get('permisos', [])
@@ -757,7 +766,6 @@ def pago_alternativo():
 
     guardar_datos()
     return redirect(url_for('vista_reportes', vista='historial'))
-
 
 @app.route('/saldar_deuda', methods=['POST'])
 def saldar_deuda():

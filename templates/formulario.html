@@ -18,7 +18,17 @@
         #formularioCompleto.visible { opacity: 1; max-height: 2500px; overflow: visible; }
     </style>
 </head>
-<body class="bg-[#0f172a] min-h-screen flex items-center justify-center p-4 font-sans">
+<body class="bg-[#0f172a] min-h-screen flex items-center justify-center p-4 font-sans relative">
+
+    {% if not horario_activo and not recibo %}
+    <div class="fixed inset-0 bg-[#0f172a]/90 backdrop-blur-sm z-[200] flex flex-col justify-center items-center p-6 text-center">
+        <div class="w-24 h-24 bg-rose-500/20 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(244,63,94,0.4)] border border-rose-500/50">
+            <i class="fas fa-store-alt-slash text-5xl text-rose-500"></i>
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-black text-white uppercase tracking-widest mb-3">Fuera de Horario</h1>
+        <p class="text-slate-400 font-bold max-w-md text-sm">En este momento nuestro sistema de recepción de códigos se encuentra cerrado. Por favor, inténtalo más tarde durante nuestro horario de atención.</p>
+    </div>
+    {% endif %}
 
     {% if recibo %}
     <div class="w-full max-w-sm mx-auto animate-fade-in-up">
@@ -134,7 +144,7 @@
         <p class="text-emerald-400 text-sm font-bold animate-pulse text-center px-6" id="textoCargaSecundario">Subiendo comprobante seguro...<br>Por favor no cierres la ventana.</p>
     </div>
 
-    <div class="w-full max-w-md bg-[#1e293b] rounded-2xl p-6 glow-border relative shadow-2xl mt-2 mb-2">
+    <div class="w-full max-w-md bg-[#1e293b] rounded-2xl p-6 glow-border relative shadow-2xl mt-2 mb-2 transition-all duration-500 {% if not horario_activo %}opacity-30 grayscale pointer-events-none blur-[2px]{% endif %}">
         
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-black text-white tracking-tight">Código de Retiro</h2>

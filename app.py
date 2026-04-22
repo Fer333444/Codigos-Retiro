@@ -194,7 +194,25 @@ def index():
     if session.get('rol') != 'supremo' and 'crear_links' not in mis_permisos:
         flash('No tienes permiso para ver los links.', 'error')
         return redirect(ruta_por_rol(session.get('rol'), session.get('usuario')))
-    return render_template('index.html', enlaces=enlaces_db, mi_usuario=session['usuario'], rol=session.get('rol'), base_url=request.host_url, grupos=grupos_creados)
+        
+    horario = sistema_config.get('horario_activo', True)
+    return render_template('index.html', enlaces=enlaces_db, mi_usuario=session['usuario'], rol=session.get('rol'), base_url=request.host_url, grupos=grupos_creados, horario_activo=horario)
+# 2. AGREGA ESTA NUEVA RUTA PARA EL INTERRUPTOR
+@app.route('/toggle_horario', methods=['POST'])
+def toggle_horario():
+    mis_permisos = session.get('permisos', [])
+    if session.get('rol') != 'supremo' and 'crear_links' not in mis_permisos: 
+        return redirect(url_for('login'))
+        
+    sistema_config['horario_activo'] = not sistema_config.get('horario_activo', True)
+    guardar_datos()
+    
+    if sistema_config['horario_activo']:
+        flash('🟢 Horario ABIERTO. Los clientes ya pueden enviar códigos.', 'success')
+    else:
+        flash('🔴 Horario CERRADO. Formularios de clientes bloqueados.', 'error')
+        
+    return redirect(url_for('index'))
 
 @app.route('/editar_link', methods=['POST'])
 def editar_link():
@@ -428,28 +446,28 @@ def importar_links():
 @app.route('/retiro/<token>', methods=['GET', 'POST'])
 def retiro(token):
     link_data = enlaces_db.get(token)
-    if not link_data:
-        return "<h1>Enlace Inválido</h1><p>Este enlace de retiro no existe.</p>", 404
+    if not link_data: return "Enlace Inválido", 404
+    
+    horario = sistema_config.get('horario_activo', True)
+    
     if request.method == 'POST':
+        if not horario: return "Sistema fuera de horario", 403
         return procesar_formulario_retiro(request, [link_data['usuario']])
         
-    recibo = session.pop('recibo_retiro', None)
-    return render_template('formulario.html', usuario_pre=link_data['usuario'], es_grupo=False, form_action=url_for('retiro', token=token), recibo=recibo)
+    return render_template('formulario.html', usuario_pre=link_data['usuario'], es_grupo=False, form_action=url_for('retiro', token=token), recibo=session.pop('recibo_retiro', None), horario_activo=horario)
 
 @app.route('/retiro_grupo/<grupo>', methods=['GET', 'POST'])
 def retiro_grupo(grupo):
-    if grupo == 'General' or grupo not in grupos_creados:
-        return "<h1>Grupo Inválido</h1><p>Este grupo no existe o fue eliminado.</p>", 404
+    if grupo == 'General' or grupo not in grupos_creados: return "Grupo Inválido", 404
     usuarios_del_grupo = [data['usuario'] for data in enlaces_db.values() if data.get('grupo') == grupo]
+    
+    horario = sistema_config.get('horario_activo', True)
+    
     if request.method == 'POST':
-        usuarios_elegidos = request.form.getlist('usuarios_magis') 
-        if not usuarios_elegidos:
-            flash('Debes seleccionar al menos un usuario.', 'error')
-            return redirect(url_for('retiro_grupo', grupo=grupo))
-        return procesar_formulario_retiro(request, usuarios_elegidos)
+        if not horario: return "Sistema fuera de horario", 403
+        return procesar_formulario_retiro(request, request.form.getlist('usuarios_magis'))
         
-    recibo = session.pop('recibo_retiro', None)
-    return render_template('formulario.html', es_grupo=True, nombre_grupo=grupo, usuarios_grupo=usuarios_del_grupo, form_action=url_for('retiro_grupo', grupo=grupo), recibo=recibo)
+    return render_template('formulario.html', es_grupo=True, nombre_grupo=grupo, usuarios_grupo=usuarios_del_grupo, form_action=url_for('retiro_grupo', grupo=grupo), recibo=session.pop('recibo_retiro', None), horario_activo=horario)
 
 def procesar_formulario_retiro(req, lista_usuarios):
     banco = req.form.get('banco')

@@ -15,10 +15,6 @@
         .custom-scroll::-webkit-scrollbar { width: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .drawer-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 0; opacity: 0; overflow: hidden; }
-        .drawer-content.open { max-height: 5000px; opacity: 1; overflow: visible; }
-        .chevron-icon { transition: transform 0.3s ease-in-out; }
-        .chevron-icon.open { transform: rotate(180deg); }
     </style>
 </head>
 <body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
@@ -39,14 +35,29 @@
         </div>
         
         <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-            {% if rol == 'supremo' %}
+            {% set mis_permisos = session.get('permisos', []) %}
+            
+            {% if rol == 'supremo' or 'crear_links' in mis_permisos %}
                 <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-link w-5"></i> Links de Clientes</a>
+            {% endif %}
+            
+            {% if rol == 'supremo' or 'gestionar_grupos' in mis_permisos %}
                 <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-folder w-5"></i> Mis Grupos</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
                 <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'recaudador'] or 'ver_reporte_diario' in mis_permisos %}
                 <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
+            {% endif %}
+            
+            {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
                 <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
             {% endif %}
             
+            {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
             <div class="relative">
                 <button type="button" onclick="toggleSubmenu('submenu-rep-1', 'icon-rep-1')" class="w-full flex items-center justify-between px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg transition-colors focus:outline-none">
                     <div class="flex items-center gap-3">
@@ -58,6 +69,7 @@
                 <div id="submenu-rep-1" class="flex flex-col pl-11 pr-2 py-1 space-y-1">
                     <a href="/reportes?vista=completados" class="block py-1.5 text-xs font-bold {% if vista == 'completados' %}text-emerald-600{% else %}text-slate-500 hover:text-emerald-600{% endif %} transition-colors"><i class="fas fa-check-circle mr-1"></i> Retiros Completados</a>
                     <a href="/reportes?vista=historial" class="block py-1.5 text-xs font-bold {% if vista == 'historial' %}text-rose-600{% else %}text-slate-500 hover:text-rose-600{% endif %} transition-colors"><i class="fas fa-history mr-1"></i> Historial y Deudas</a>
+                    <a href="/reportes?vista=metricas" class="block py-1.5 text-xs font-bold {% if vista == 'metricas' %}text-purple-600{% else %}text-slate-500 hover:text-purple-600{% endif %} transition-colors"><i class="fas fa-chart-bar mr-1"></i> Métricas de Rendimiento</a>
                     <a href="/reportes?vista=cobradores" class="block py-1.5 text-xs font-bold {% if vista == 'cobradores' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-user-tie mr-1"></i> Por Cobrador</a>
                     <a href="/reportes?vista=valor" class="block py-1.5 text-xs font-bold {% if vista == 'valor' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-dollar-sign mr-1"></i> Por Valor</a>
                     <a href="/reportes?vista=usuario" class="block py-1.5 text-xs font-bold {% if vista == 'usuario' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-user mr-1"></i> Por Usuario</a>
@@ -65,6 +77,8 @@
                     <a href="/reportes?vista=sucursal" class="block py-1.5 text-xs font-bold {% if vista == 'sucursal' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-building mr-1"></i> Por Forma Pago</a>
                 </div>
             </div>
+            <a href="/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 rounded-lg hover:bg-rose-50 mt-4 border border-transparent hover:border-rose-200 transition-colors"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
+            {% endif %}
         </nav>
 
         <div class="p-4 border-t border-slate-200 shrink-0">
@@ -85,7 +99,7 @@
         </header>
 
         <div class="flex-1 overflow-auto p-4 md:p-8 bg-slate-50">
-            <div class="max-w-5xl mx-auto">
+            <div class="max-w-6xl mx-auto">
                 
                 {% with messages = get_flashed_messages(with_categories=true) %}
                   {% if messages %}
@@ -97,109 +111,56 @@
                   {% endif %}
                 {% endwith %}
 
-                {% if vista == 'completados' %}
-                    <div class="mb-10">
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                            <div class="flex items-center gap-3">
-                                <h2 class="text-2xl font-black text-slate-800 tracking-tight">Retiros Completados</h2>
-                                <span class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">{{ exitosos|length }} Éxitos</span>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-black text-slate-800 uppercase tracking-tight">Reporte: {{ vista }}</h2>
+                    
+                    {% if vista not in ['metricas', 'historial'] %}
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <button onclick="exportarExcel('Reporte_{{ vista|capitalize }}')" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"><i class="fas fa-file-excel"></i> Excel</button>
+                        <button onclick="exportarPDF('Reporte_{{ vista|capitalize }}')" class="flex-1 sm:flex-none bg-rose-600 hover:bg-rose-700 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"><i class="fas fa-file-pdf"></i> PDF</button>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if vista == 'metricas' %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {% for cob, m in metricas.items() %}
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col items-center text-center hover:border-purple-300 transition-colors">
+                            <div class="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-black text-2xl mb-4">
+                                {{ cob[0]|upper }}
+                            </div>
+                            <h3 class="text-xl font-black text-slate-800 uppercase mb-4">{{ cob }}</h3>
+                            
+                            <div class="w-full grid grid-cols-2 gap-4 mb-4">
+                                <div class="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
+                                    <p class="text-[10px] font-black text-emerald-600 uppercase">Éxitos</p>
+                                    <p class="text-2xl font-black text-emerald-700">{{ m.exitos }}</p>
+                                </div>
+                                <div class="bg-rose-50 rounded-lg p-3 border border-rose-100">
+                                    <p class="text-[10px] font-black text-rose-600 uppercase">Fallos</p>
+                                    <p class="text-2xl font-black text-rose-700">{{ m.fallos }}</p>
+                                </div>
                             </div>
                             
-                            <div class="flex gap-2 w-full sm:w-auto">
-                                <button onclick="exportarExcel('Retiros_Completados')" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"><i class="fas fa-file-excel"></i> Excel</button>
-                                <button onclick="exportarPDF('Retiros_Completados')" class="flex-1 sm:flex-none bg-rose-600 hover:bg-rose-700 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"><i class="fas fa-file-pdf"></i> PDF</button>
+                            <div class="w-full bg-slate-50 rounded-lg p-4 border border-slate-200">
+                                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1"><i class="fas fa-stopwatch text-purple-500 mr-1"></i> Tiempo Promedio de Cobro</p>
+                                <p class="text-3xl font-black text-purple-600">{{ m.promedio }} <span class="text-sm">min</span></p>
                             </div>
                         </div>
-
-                        <table id="tablaExportar" class="hidden">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Monto</th>
-                                    <th>Usuario</th>
-                                    <th>Banco / Método</th>
-                                    <th>Celular</th>
-                                    <th>Cédula</th>
-                                    <th>Cobrado por</th>
-                                    <th>Fecha</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for r in exitosos %}
-                                <tr>
-                                    <td>{{ r.id }}</td>
-                                    <td>${{ r.monto }}</td>
-                                    <td>{{ r.usuario }}</td>
-                                    <td>{{ r.banco }}</td>
-                                    <td>{{ r.celular }}</td>
-                                    <td>{{ r.cedula }}</td>
-                                    <td>{{ r.asignado_a }}</td>
-                                    <td>{{ r.fecha }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-
-                        {% if not exitosos %}
-                            <div class="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400">
-                                <i class="fas fa-box-open text-3xl mb-2"></i>
-                                <p class="text-sm font-bold uppercase tracking-widest">Aún no hay retiros completados</p>
-                            </div>
-                        {% else %}
-                            <div class="grid grid-cols-1 gap-4">
-                                {% for r in exitosos %}
-                                <div class="bg-white rounded-xl border-l-4 border-emerald-500 p-4 md:p-5 flex flex-col md:flex-row gap-4 shadow-sm hover:shadow-md transition-shadow">
-                                    <div class="hidden md:flex w-20 h-20 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 items-center justify-center">
-                                        {% if r.imagen %}
-                                            {% set imagenes = r.imagen.split(',') %}
-                                            <a href="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" target="_blank"><img src="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" class="w-full h-full object-cover"></a>
-                                        {% else %}
-                                            <i class="fas fa-image text-slate-300 text-xl"></i>
-                                        {% endif %}
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="flex justify-between items-start mb-2">
-                                            <div>
-                                                <span class="font-black text-emerald-600 text-xl">${{ r.monto }}</span>
-                                                <span class="text-xs font-bold text-slate-500 uppercase ml-2">{{ r.banco }} - {{ r.usuario }}</span>
-                                            </div>
-                                            <div class="flex items-center gap-3">
-                                                <span class="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded border border-emerald-200"><i class="fas fa-check mr-1"></i> Completado</span>
-                                                <form action="/eliminar_registro" method="POST" class="m-0" onsubmit="return confirm('⚠️ ¿Estás seguro de eliminar este registro permanentemente? No se puede deshacer.');">
-                                                    <input type="hidden" name="id" value="{{ r.id }}">
-                                                    <input type="hidden" name="vista_origen" value="completados">
-                                                    <button type="submit" class="text-slate-300 hover:text-red-500 transition-colors" title="Eliminar registro"><i class="fas fa-trash"></i></button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                        <div class="bg-slate-50 border border-slate-100 p-2.5 rounded-lg text-[10px] font-mono text-slate-500 space-y-1">
-                                            <strong class="text-slate-700 uppercase tracking-widest block mb-1 border-b border-slate-200 pb-1">Historial de Eventos:</strong>
-                                            {% for evento in r.historial %}
-                                                {% if 'destinaron' in evento or 'usó' in evento %}
-                                                    <span class="block text-blue-600 font-bold"><i class="fas fa-magic text-blue-400 mr-1"></i> {{ evento }}</span>
-                                                {% elif 'Abono parcial' in evento %}
-                                                    <span class="block text-purple-600 font-bold"><i class="fas fa-hand-holding-usd text-purple-400 mr-1"></i> {{ evento }}</span>
-                                                {% elif 'Pagado totalmente' in evento or 'Creado por' in evento and 'vía' in evento %}
-                                                    <span class="block text-indigo-600 font-bold"><i class="fas fa-money-check-alt text-indigo-400 mr-1"></i> {{ evento }}</span>
-                                                {% else %}
-                                                    <span class="block text-slate-600"><i class="fas fa-caret-right text-slate-300 mr-1"></i> {{ evento }}</span>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
+                        {% endfor %}
+                        
+                        {% if not metricas %}
+                        <div class="col-span-full bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
+                            <p class="text-sm font-bold uppercase tracking-widest">Aún no hay retiros marcados hoy para medir.</p>
+                        </div>
                         {% endif %}
                     </div>
-                {% endif %}
 
-                {% if vista == 'historial' %}
+                {% elif vista == 'historial' %}
                     <div class="mb-10">
                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                             <div class="flex items-center gap-3">
-                                <h2 class="text-2xl font-black text-slate-800 tracking-tight">Historial Expirado / Deudas</h2>
-                                <span class="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-xs font-bold">Por Cliente</span>
+                                <span class="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-xs font-bold">Organizado por Cliente</span>
                             </div>
                             
                             <div class="flex gap-2 w-full sm:w-auto">
@@ -236,7 +197,7 @@
                         </table>
 
                         {% if not deudas_agrupadas %}
-                            <div class="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400">
+                            <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
                                 <i class="fas fa-shield-alt text-3xl mb-2 text-slate-300"></i>
                                 <p class="text-sm font-bold uppercase tracking-widest">Historial limpio</p>
                             </div>
@@ -302,10 +263,9 @@
                                                             <span class="text-[10px] text-orange-600 font-bold bg-white px-2 py-1 rounded border border-orange-200 uppercase tracking-wider">Vencido</span>
                                                         {% endif %}
 
-                                                        <form action="/eliminar_registro" method="POST" class="m-0" onsubmit="return confirm('⚠️ ¿Estás seguro de eliminar este registro permanentemente? No se puede deshacer.');">
+                                                        <form action="/mover_papelera" method="POST" class="m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
                                                             <input type="hidden" name="id" value="{{ r.id }}">
-                                                            <input type="hidden" name="vista_origen" value="historial">
-                                                            <button type="submit" class="text-slate-300 hover:text-red-500 transition-colors ml-1" title="Eliminar registro"><i class="fas fa-trash"></i></button>
+                                                            <button type="submit" class="text-slate-300 hover:text-red-500 transition-colors ml-1" title="Eliminar (Mover a papelera)"><i class="fas fa-trash-alt"></i></button>
                                                         </form>
                                                     </div>
                                                 </div>
@@ -397,22 +357,96 @@
                             </div>
                         {% endif %}
                     </div>
-                {% endif %}
 
-                {% if vista in ['cobradores', 'valor', 'usuario', 'estado', 'sucursal'] %}
-                    <div class="mb-10">
-                        
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                            <div class="flex items-center gap-3">
-                                <h2 class="text-2xl font-black text-slate-800 tracking-tight">Reporte por {% if vista == 'sucursal' %}Forma Pago{% else %}{{ vista|capitalize }}{% endif %}</h2>
-                            </div>
-                            
-                            <div class="flex gap-2 w-full sm:w-auto">
-                                <button onclick="exportarExcel('Reporte_{{ vista|capitalize }}')" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"><i class="fas fa-file-excel"></i> Excel</button>
-                                <button onclick="exportarPDF('Reporte_{{ vista|capitalize }}')" class="flex-1 sm:flex-none bg-rose-600 hover:bg-rose-700 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"><i class="fas fa-file-pdf"></i> PDF</button>
-                            </div>
-                        </div>
+                {% elif vista in ['completados', 'cobradores', 'valor', 'usuario', 'estado', 'sucursal'] %}
+                    
+                    {% if vista == 'completados' %}
+                        <table id="tablaExportar" class="hidden">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Monto</th>
+                                    <th>Usuario</th>
+                                    <th>Banco / Método</th>
+                                    <th>Celular</th>
+                                    <th>Cédula</th>
+                                    <th>Cobrado por</th>
+                                    <th>Tiempo Demora (Min)</th>
+                                    <th>Fecha</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in exitosos %}
+                                <tr>
+                                    <td>{{ r.id }}</td>
+                                    <td>${{ r.monto }}</td>
+                                    <td>{{ r.usuario }}</td>
+                                    <td>{{ r.banco }}</td>
+                                    <td>{{ r.celular }}</td>
+                                    <td>{{ r.cedula }}</td>
+                                    <td>{{ r.asignado_a }}</td>
+                                    <td>{{ r.minutos_demora if r.get('minutos_demora') != None else 'N/A' }}</td>
+                                    <td>{{ r.fecha }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
 
+                        {% if not exitosos %}
+                            <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 shadow-sm">
+                                <i class="fas fa-box-open text-3xl mb-2"></i>
+                                <p class="text-sm font-bold uppercase tracking-widest">Aún no hay retiros completados</p>
+                            </div>
+                        {% else %}
+                            <div class="grid grid-cols-1 gap-4">
+                                {% for r in exitosos %}
+                                <div class="bg-white rounded-xl border-l-4 border-emerald-500 p-4 md:p-5 flex flex-col md:flex-row gap-4 shadow-sm hover:shadow-md transition-shadow relative">
+                                    
+                                    <form action="/mover_papelera" method="POST" class="absolute top-3 right-3 m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
+                                        <input type="hidden" name="id" value="{{ r.id }}">
+                                        <button type="submit" class="text-slate-300 hover:text-rose-600 bg-white rounded p-1 transition-colors" title="Eliminar (Mover a papelera)"><i class="fas fa-trash-alt"></i></button>
+                                    </form>
+
+                                    <div class="hidden md:flex w-20 h-20 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 items-center justify-center">
+                                        {% if r.imagen %}
+                                            {% set imagenes = r.imagen.split(',') %}
+                                            <a href="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" target="_blank"><img src="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" class="w-full h-full object-cover"></a>
+                                        {% else %}
+                                            <i class="fas fa-image text-slate-300 text-xl"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start mb-2 pr-6">
+                                            <div>
+                                                <span class="font-black text-emerald-600 text-xl">${{ r.monto }}</span>
+                                                <span class="text-xs font-bold text-slate-500 uppercase ml-2">{{ r.banco }} - {{ r.usuario }}</span>
+                                            </div>
+                                            <div class="flex items-center gap-3">
+                                                <span class="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-1 rounded border border-purple-200"><i class="fas fa-stopwatch mr-1"></i> {{ r.minutos_demora if r.get('minutos_demora') != None else 'N/A' }} min</span>
+                                                <span class="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded border border-emerald-200"><i class="fas fa-check mr-1"></i> Completado</span>
+                                            </div>
+                                        </div>
+                                        <div class="bg-slate-50 border border-slate-100 p-2.5 rounded-lg text-[10px] font-mono text-slate-500 space-y-1">
+                                            <strong class="text-slate-700 uppercase tracking-widest block mb-1 border-b border-slate-200 pb-1">Historial de Eventos:</strong>
+                                            {% for evento in r.historial %}
+                                                {% if 'destinaron' in evento or 'usó' in evento %}
+                                                    <span class="block text-blue-600 font-bold"><i class="fas fa-magic text-blue-400 mr-1"></i> {{ evento }}</span>
+                                                {% elif 'Abono parcial' in evento %}
+                                                    <span class="block text-purple-600 font-bold"><i class="fas fa-hand-holding-usd text-purple-400 mr-1"></i> {{ evento }}</span>
+                                                {% elif 'Pagado totalmente' in evento or 'Creado por' in evento and 'vía' in evento %}
+                                                    <span class="block text-indigo-600 font-bold"><i class="fas fa-money-check-alt text-indigo-400 mr-1"></i> {{ evento }}</span>
+                                                {% else %}
+                                                    <span class="block text-slate-600"><i class="fas fa-caret-right text-slate-300 mr-1"></i> {{ evento }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                    {% else %}
                         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
                             <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
                                 <input type="hidden" name="vista" value="{{ vista }}">
@@ -474,19 +508,20 @@
                         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                             <div class="overflow-x-auto w-full custom-scroll">
                                 <table id="tablaExportar" class="w-full text-left text-sm text-slate-600 border-collapse whitespace-nowrap">
-                                    <thead>
-                                        <tr class="bg-slate-50 border-b border-slate-200 text-[10px] uppercase text-slate-500 tracking-widest">
+                                    <thead class="bg-slate-50 border-b border-slate-200">
+                                        <tr class="text-[10px] uppercase text-slate-500 tracking-widest">
                                             <th class="py-4 px-5 font-bold">Valor</th>
                                             <th class="py-4 px-5 font-bold">Usuario</th>
                                             <th class="py-4 px-5 font-bold">Estado</th>
                                             <th class="py-4 px-5 font-bold">Forma de Pago</th>
                                             <th class="py-4 px-5 font-bold">Cobrador</th>
+                                            <th class="py-4 px-5 font-bold">Tiempo Demora</th>
                                             <th class="py-4 px-5 font-bold">Fecha / Hora</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-100 bg-white">
                                         {% if not registros_tabla_dinamica %}
-                                            <tr><td colspan="6" class="py-10 text-center text-slate-400 italic font-medium">No se encontraron registros para los filtros seleccionados.</td></tr>
+                                            <tr><td colspan="7" class="py-10 text-center text-slate-400 italic font-medium">No se encontraron registros para los filtros seleccionados.</td></tr>
                                         {% else %}
                                             {% for r in registros_tabla_dinamica %}
                                             <tr class="hover:bg-slate-50 transition-colors">
@@ -514,6 +549,9 @@
                                                     <i class="fas fa-user-tie mr-1 text-indigo-300"></i> 
                                                     {% if r.asignado_a %}{{ r.asignado_a }}{% else %}N/A{% endif %}
                                                 </td>
+                                                <td class="py-3 px-5 font-mono text-purple-600 font-bold">
+                                                    {% if r.get('minutos_demora') != None %} {{ r.minutos_demora }} min {% else %} N/A {% endif %}
+                                                </td>
                                                 <td class="py-3 px-5 font-bold text-slate-500 text-xs">{{ r.fecha }}</td>
                                             </tr>
                                             {% endfor %}
@@ -522,7 +560,7 @@
                                 </table>
                             </div>
                         </div>
-                    </div>
+                    {% endif %}
                 {% endif %}
 
             </div>
@@ -531,7 +569,6 @@
 
     <div id="modalPagoAlterno" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4 overflow-y-auto">
         <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden transform scale-95 transition-transform my-auto" id="modal-box-pago">
-            
             <div class="p-5 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
                 <h3 class="font-black text-slate-800 text-lg"><i class="fas fa-money-check-alt text-indigo-500 mr-2"></i> Pagar con otro método</h3>
                 <button onclick="cerrarModalPago()" class="text-slate-400 hover:text-rose-500 transition-colors focus:outline-none"><i class="fas fa-times-circle text-2xl"></i></button>
@@ -586,49 +623,37 @@
     </div>
 
     <script>
-        // --- FUNCIÓN PARA EXPORTAR A EXCEL (Usando SheetJS) ---
         function exportarExcel(nombreArchivo) {
             let tabla = document.getElementById("tablaExportar");
             if(!tabla || tabla.rows.length <= 1) {
                 alert("No hay datos en la tabla para exportar."); 
                 return;
             }
-
             let wb = XLSX.utils.table_to_book(tabla, {sheet: "Reporte"});
             let fecha = new Date().toISOString().split('T')[0];
             XLSX.writeFile(wb, `${nombreArchivo}_${fecha}.xlsx`);
         }
 
-        // --- FUNCIÓN PARA EXPORTAR A PDF (Usando jsPDF + AutoTable) ---
         function exportarPDF(nombreReporte) {
             let tabla = document.getElementById("tablaExportar");
             if(!tabla || tabla.rows.length <= 1) {
                 alert("No hay datos en la tabla para exportar."); 
                 return;
             }
-
-            // Iniciar generador de PDF en formato apaisado (landscape)
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('landscape');
-            
-            // Título
             doc.setFontSize(16);
             doc.text(`Reporte: ${nombreReporte.replace(/_/g, ' ')}`, 14, 15);
-            
-            // Subtítulo con fecha exacta de descarga
             let fecha = new Date().toLocaleString();
             doc.setFontSize(10);
             doc.text(`Generado el: ${fecha}`, 14, 22);
-
-            // Magia de AutoTable para que quede hermoso y cuadriculado
             doc.autoTable({
                 html: '#tablaExportar',
                 startY: 28,
                 theme: 'grid',
                 styles: { fontSize: 8, cellPadding: 2 },
-                headStyles: { fillColor: [22, 163, 74] } // Verde tailwind
+                headStyles: { fillColor: [22, 163, 74] } 
             });
-
             let fechaCorta = new Date().toISOString().split('T')[0];
             doc.save(`${nombreReporte}_${fechaCorta}.pdf`);
         }

@@ -435,7 +435,8 @@ def procesar_formulario_retiro(req, lista_usuarios):
     cedula = req.form.get('cedula', '')
     monto = req.form.get('monto')
     
-    tiempo_expiracion = time.time() + (2.5 * 3600) 
+    tiempo_creacion = time.time()
+    tiempo_expiracion = tiempo_creacion + (2.5 * 3600) 
     
     codigo_recibido = req.form.get('codigo_recibido', '')
     clave_retiro = req.form.get('clave_retiro', '')
@@ -481,6 +482,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
             'monto': monto, 'usuario': usuario, 
             'hora_limite': '', 
             'expira_timestamp': tiempo_expiracion, 
+            'timestamp_creacion': tiempo_creacion, # NUEVO: Guardamos el tiempo exacto
             'detalles': {'codigo_pichincha': codigo_recibido, 'guayaquil_retiro': clave_retiro, 'guayaquil_envio': clave_envio, 'seguridad': codigo_seguridad},
             'imagen': str_imagenes,
             'asignado_a': asignado_a_quien,
@@ -632,6 +634,52 @@ def asignar_trabajo():
     guardar_datos()
     flash(f'Asignado a {trabajador.capitalize()} correctamente.', 'success')
     return redirect(url_for('admin'))
+# ==========================================
+# RUTAS DE PAPELERA DE RECICLAJE
+# ==========================================
+@app.route('/mover_papelera', methods=['POST'])
+def mover_papelera():
+    mis_permisos = session.get('permisos', [])
+    if session.get('rol') not in ['supremo', 'reportes'] and 'ver_reportes' not in mis_permisos: return redirect(url_for('login'))
+    
+    registro_id = int(request.form.get('id'))
+    motivo = request.form.get('motivo_borrado', 'Sin motivo')
+    hora_actual = hora_ecuador().strftime('%H:%M')
+    
+    for r in registros:
+        if r['id'] == registro_id:
+            r['estado_previo'] = r['estado'] # Guardamos estado por si restauramos
+            r['estado'] = 'papelera'
+            r['historial'].append(f"[{hora_actual}] 🗑️ Movido a papelera por {session['usuario'].capitalize()}. Motivo: {motivo}")
+            break
+            
+    guardar_datos()
+    flash('Registro movido a la papelera.', 'success')
+    return redirect(url_for('admin'))
+
+@app.route('/restaurar_papelera', methods=['POST'])
+def restaurar_papelera():
+    mis_permisos = session.get('permisos', [])
+    if session.get('rol') not in ['supremo', 'reportes'] and 'ver_reportes' not in mis_permisos: return redirect(url_for('login'))
+    
+    registro_id = int(request.form.get('id'))
+    hora_actual = hora_ecuador().strftime('%H:%M')
+    
+    for r in registros:
+        if r['id'] == registro_id and r['estado'] == 'papelera':
+            r['estado'] = r.get('estado_previo', 'activo')
+            r['historial'].append(f"[{hora_actual}] ♻️ Restaurado de papelera por {session['usuario'].capitalize()}.")
+            break
+            
+    guardar_datos()
+    flash('Registro restaurado exitosamente.', 'success')
+    return redirect(url_for('vista_papelera'))
+
+@app.route('/papelera')
+def vista_papelera():
+    if session.get('rol') not in ['supremo', 'reportes'] and 'ver_reportes' not in session.get('permisos', []): return redirect(url_for('login'))
+    eliminados = [r for r in registros if r['estado'] == 'papelera']
+    return render_template('papelera.html', eliminados=eliminados, mi_usuario=session['usuario'], rol=session.get('rol'))
 
 @app.route('/marcar_retirado', methods=['POST'])
 def marcar_retirado():
@@ -1065,6 +1113,25 @@ def vista_reportes():
         try: fecha_hasta_obj = datetime.strptime(filtro_fecha_hasta, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
         except: pass
 
+    # NUEVA SECCIÓN DE MÉTRICAS DE RENDIMIENTO
+    metricas_cobradores = {}
+    if vista == 'metricas':
+        for r in registros:
+            if r['estado'] == 'retirado' and r.get('asignado_a'):
+                cob = r['asignado_a']
+                if cob not in metricas_cobradores:
+                    metricas_cobradores[cob] = {'exitos': 0, 'tiempo_total': 0, 'fallos': 0}
+                metricas_cobradores[cob]['exitos'] += 1
+                metricas_cobradores[cob]['tiempo_total'] += r.get('minutos_demora', 0)
+            elif r['estado'] in ['fallido', 'fallido_revision'] and r.get('asignado_a'):
+                cob = r['asignado_a']
+                if cob not in metricas_cobradores:
+                    metricas_cobradores[cob] = {'exitos': 0, 'tiempo_total': 0, 'fallos': 0}
+                metricas_cobradores[cob]['fallos'] += 1
+                
+        for cob, m in metricas_cobradores.items():
+            m['promedio'] = round(m['tiempo_total'] / m['exitos'], 1) if m['exitos'] > 0 else 0
+
     exitosos = [r for r in registros if r['estado'] == 'retirado']
     no_exitosos_raw = [r for r in registros if r['estado'] in ['expirado', 'fallido', 'saldado', 'fallido_revision', 'fusionado']]
     deudas_agrupadas = {}
@@ -1082,6 +1149,10 @@ def vista_reportes():
     registros_tabla_dinamica = [] 
     
     for r in registros:
+        # IGNORAR LOS BORRADOS Y LOS ACTIVOS EN LAS TABLAS DE REPORTES
+        if r['estado'] in ['papelera', 'activo']:
+            continue
+            
         cumple_fecha = True
         try:
             fecha_registro_obj = datetime.strptime(r['fecha'], "%d/%m/%Y %H:%M")
@@ -1115,6 +1186,7 @@ def vista_reportes():
                            stats_cobradores=stats_cobradores,
                            registros_tabla_dinamica=registros_tabla_dinamica,
                            cobradores=cobradores_mostrar,
+                           metricas=metricas_cobradores,
                            todos_cobradores=cobradores_activos, 
                            lista_clientes=lista_clientes,
                            lista_estados=lista_estados,

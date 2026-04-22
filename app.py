@@ -1251,11 +1251,18 @@ def vista_reportes():
 
 @app.route('/trabajador/<nombre>')
 def vista_trabajador(nombre):
-    if session.get('rol') not in ['supremo', 'cobrador']: return redirect(url_for('login'))
+    mis_permisos = session.get('permisos', [])
+    # Validar que tenga el rol O el permiso de procesar retiros
+    if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: 
+        return redirect(url_for('login'))
+        
     nombre = nombre.lower()
+    
+    # Bloquear si un cobrador intenta ver la bandeja de otro
     if session.get('rol') == 'cobrador' and session.get('usuario') != nombre:
         flash('Tu rol no te permite entrar a la bandeja de otros cobradores.', 'error')
         return redirect(ruta_por_rol(session.get('rol'), session.get('usuario')))
+        
     mis_activos = [r for r in registros if r.get('asignado_a') == nombre and r['estado'] == 'activo']
     return render_template('trabajador.html', registros=mis_activos, nombre=nombre.capitalize(), mi_usuario=session['usuario'])
 

@@ -29,9 +29,10 @@
 
     <div id="overlayMenu" class="fixed inset-0 bg-slate-900/50 z-40 hidden md:hidden"></div>
 
-    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex fixed inset-y-0 left-0 md:relative z-50">
-        <div class="h-16 flex items-center px-6 border-b border-slate-200">
-            <div class="font-black text-xl text-slate-800">FLUJO<span class="text-green-600">ERP</span></div>
+    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-50">
+        <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
+            <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+            <button id="btnCerrarMenu" class="md:hidden text-slate-400 hover:text-red-500 text-xl focus:outline-none"><i class="fas fa-times"></i></button>
         </div>
         
         <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
@@ -85,20 +86,20 @@
         </nav>
     </aside>
 
-    <main class="flex-1 flex flex-col h-screen overflow-hidden w-full relative">
-        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm">
+    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative w-full">
+        <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm shrink-0">
             <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
             <div class="flex items-center gap-4">
                 <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }}</span>
-                <a href="/logout" class="text-sm font-medium text-red-500">Cerrar sesión</a>
+                <a href="/logout" class="text-sm font-medium text-red-500 hover:underline">Cerrar sesión</a>
             </div>
         </header>
 
-        <div class="flex-1 overflow-auto p-8 bg-slate-50 custom-scroll">
+        <div class="flex-1 overflow-auto p-4 md:p-8 bg-slate-50 custom-scroll">
             <div class="max-w-6xl mx-auto">
                 
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-3xl font-black text-slate-800 uppercase tracking-tight">Reporte: {{ vista }}</h2>
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                    <h2 class="text-2xl sm:text-3xl font-black text-slate-800 uppercase tracking-tight">Reporte: {{ vista }}</h2>
                     
                     {% if vista not in ['metricas', 'historial'] %}
                     <div class="flex gap-2 w-full sm:w-auto">
@@ -110,19 +111,18 @@
 
                 {% if vista == 'metricas' %}
                     
-                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 mb-8">
                         <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-lg font-black text-slate-700 uppercase tracking-widest"><i class="fas fa-chart-area text-purple-500 mr-2"></i> Actividad últimos 7 días</h3>
+                            <h3 class="text-base sm:text-lg font-black text-slate-700 uppercase tracking-widest"><i class="fas fa-chart-area text-purple-500 mr-2"></i> Actividad últimos 7 días</h3>
                         </div>
-                        <div class="w-full h-72">
+                        <div class="w-full h-64 sm:h-72">
                             <canvas id="chartTendencia"></canvas>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-12">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-12">
                         {% for cob, m in metricas.items() %}
                         <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden relative group transform transition-transform hover:-translate-y-1">
-                            
                             <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex flex-col items-center justify-center relative overflow-hidden">
                                 <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500"></div>
                                 <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg mb-3 border-4 border-white/20">
@@ -327,28 +327,28 @@
                                             {% else %}border-orange-200 bg-orange-50/30{% endif %}">
                                             
                                             <div class="flex-1">
-                                                <div class="flex justify-between items-start mb-2">
-                                                    <div>
-                                                        <span class="font-black text-lg 
+                                                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
+                                                    <div class="flex items-center flex-wrap gap-2">
+                                                        <span class="font-black text-lg leading-none
                                                             {% if r.estado == 'fallido' %}text-rose-600
                                                             {% elif r.estado == 'fallido_revision' %}text-yellow-600
                                                             {% elif r.estado == 'saldado' or r.estado == 'fusionado' %}text-slate-400 line-through
                                                             {% else %}text-orange-500{% endif %}">${{ r.monto }}</span>
-                                                        <span class="text-xs font-bold text-slate-500 uppercase ml-2">{{ r.banco }} (Cod: {{ r.id }})</span>
+                                                        <span class="text-[10px] sm:text-xs font-bold text-slate-500 uppercase bg-slate-100 px-2 py-0.5 rounded">{{ r.banco }} (Cod: {{ r.id }})</span>
                                                     </div>
                                                     
-                                                    <div class="flex items-center gap-2">
+                                                    <div class="flex items-center flex-wrap gap-2 w-full sm:w-auto">
                                                         {% if r.estado == 'fallido' %}
                                                             <button onclick="abrirModalPago('{{ r.id }}', '{{ r.monto }}')" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-colors shadow-sm border border-indigo-200"><i class="fas fa-random mr-1"></i> Otro Método</button>
-                                                            <span class="text-[10px] text-rose-600 font-bold bg-white px-2 py-1 rounded border border-rose-200 uppercase tracking-wider">No Salió (Deuda)</span>
+                                                            <span class="text-[10px] text-rose-600 font-bold bg-white px-2 py-1 rounded border border-rose-200 uppercase tracking-wider whitespace-nowrap">No Salió</span>
                                                         {% elif r.estado == 'fallido_revision' %}
-                                                            <span class="text-[10px] text-yellow-700 font-bold bg-yellow-100 px-2 py-1 rounded border border-yellow-300 uppercase tracking-wider animate-pulse"><i class="fas fa-exclamation-triangle mr-1"></i> REQUIERE REVISIÓN</span>
+                                                            <span class="text-[10px] text-yellow-700 font-bold bg-yellow-100 px-2 py-1 rounded border border-yellow-300 uppercase tracking-wider animate-pulse whitespace-nowrap"><i class="fas fa-exclamation-triangle mr-1"></i> REVISIÓN</span>
                                                         {% elif r.estado == 'saldado' %}
-                                                            <span class="text-[10px] text-teal-600 font-bold bg-white px-2 py-1 rounded border border-teal-200 uppercase tracking-wider">Saldado</span>
+                                                            <span class="text-[10px] text-teal-600 font-bold bg-white px-2 py-1 rounded border border-teal-200 uppercase tracking-wider whitespace-nowrap">Saldado</span>
                                                         {% elif r.estado == 'fusionado' %}
-                                                            <span class="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-1 rounded border border-slate-200 uppercase tracking-wider"><i class="fas fa-link mr-1"></i> Reposición (No suma)</span>
+                                                            <span class="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-1 rounded border border-slate-200 uppercase tracking-wider whitespace-nowrap"><i class="fas fa-link mr-1"></i> Reposición</span>
                                                         {% else %}
-                                                            <span class="text-[10px] text-orange-600 font-bold bg-white px-2 py-1 rounded border border-orange-200 uppercase tracking-wider">Vencido</span>
+                                                            <span class="text-[10px] text-orange-600 font-bold bg-white px-2 py-1 rounded border border-orange-200 uppercase tracking-wider whitespace-nowrap">Vencido</span>
                                                         {% endif %}
 
                                                         <form action="/mover_papelera" method="POST" class="m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
@@ -488,35 +488,31 @@
                             {% for r in exitosos %}
                             <div class="bg-white rounded-xl border-l-4 border-emerald-500 p-4 md:p-5 flex flex-col md:flex-row gap-4 shadow-sm hover:shadow-md transition-shadow relative">
                                 
-                                <form action="/mover_papelera" method="POST" class="absolute top-3 right-3 m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
+                                <form action="/mover_papelera" method="POST" class="absolute top-3 right-3 m-0 z-10" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
                                     <input type="hidden" name="id" value="{{ r.id }}">
                                     <button type="submit" class="text-slate-300 hover:text-rose-600 bg-white rounded p-1 transition-colors" title="Eliminar (Mover a papelera)"><i class="fas fa-trash-alt"></i></button>
                                 </form>
 
                                 <div class="hidden md:flex w-20 h-20 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 items-center justify-center">
                                     {% if r.imagen %}
-    {% set imagenes = r.imagen.split(',') %}
-    <a href="{{ url_for('ver_imagen', filename=imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
-        <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-200 shadow-sm">
-        {% if imagenes|length > 1 %}
-            <span class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] font-bold px-1.5 rounded">+{{ imagenes|length - 1 }}</span>
-        {% endif %}
-    </a>
-{% else %}
-    <i class="fas fa-image text-slate-300 text-3xl"></i>
-{% endif %}
+                                        {% set imagenes = r.imagen.split(',') %}
+                                        <a href="{{ url_for('ver_imagen', filename=imagenes[0]) }}" target="_blank"><img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="w-full h-full object-cover"></a>
+                                    {% else %}
+                                        <i class="fas fa-image text-slate-300 text-xl"></i>
+                                    {% endif %}
                                 </div>
                                 <div class="flex-1">
-                                    <div class="flex justify-between items-start mb-2 pr-6">
-                                        <div>
-                                            <span class="font-black text-emerald-600 text-xl">${{ r.monto }}</span>
-                                            <span class="text-xs font-bold text-slate-500 uppercase ml-2">{{ r.banco }} - {{ r.usuario }}</span>
+                                    <div class="flex flex-col sm:flex-row justify-between items-start gap-3 mb-3 pr-8">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="font-black text-emerald-600 text-xl leading-none">${{ r.monto }}</span>
+                                            <span class="text-[10px] sm:text-xs font-bold text-slate-500 uppercase bg-slate-100 px-2 py-1 rounded">{{ r.banco }} - {{ r.usuario }}</span>
                                         </div>
-                                        <div class="flex items-center gap-3">
-                                            <span class="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-1 rounded border border-purple-200"><i class="fas fa-stopwatch mr-1"></i> {{ r.minutos_demora if r.get('minutos_demora') != None else '0.0' }} min</span>
-                                            <span class="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded border border-emerald-200"><i class="fas fa-check mr-1"></i> Completado</span>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-1 rounded border border-purple-200 whitespace-nowrap"><i class="fas fa-stopwatch mr-1"></i> {{ r.minutos_demora if r.get('minutos_demora') != None else '0.0' }} min</span>
+                                            <span class="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded border border-emerald-200 whitespace-nowrap"><i class="fas fa-check mr-1"></i> Completado</span>
                                         </div>
                                     </div>
+
                                     <div class="bg-slate-50 border border-slate-100 p-2.5 rounded-lg text-[10px] font-mono text-slate-500 space-y-1">
                                         <strong class="text-slate-700 uppercase tracking-widest block mb-1 border-b border-slate-200 pb-1">Historial de Eventos:</strong>
                                         {% for evento in r.historial %}
@@ -636,7 +632,7 @@
                                                     <span class="bg-slate-100 text-slate-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider">{{ r.estado }}</span>
                                                 {% endif %}
                                             </td>
-                                            <td class="py-3 px-5 font-bold text-slate-600 uppercase">
+                                            <td class="py-3 px-5 font-bold text-slate-500 uppercase">
                                                 {{ r.banco }}
                                                 {% if r.get('banco_real_retiro') %}
                                                     <br><span class="text-[9px] text-emerald-600 bg-emerald-50 px-1 rounded border border-emerald-200 mt-1 inline-block">REAL: {{ r.banco_real_retiro }}</span>
@@ -647,7 +643,7 @@
                                                 {% if r.asignado_a %}{{ r.asignado_a }}{% else %}N/A{% endif %}
                                             </td>
                                             <td class="py-3 px-5 font-mono text-purple-600 font-bold">
-                                                {% if r.get('minutos_demora') != None %} {{ r.minutos_demora }} min {% else %} 0.0 min {% endif %}
+                                                {% if r.get('minutos_demora') != None %} {{ r.minutos_demora }} min {% else %} N/A {% endif %}
                                             </td>
                                             <td class="py-3 px-5 font-bold text-slate-500 text-xs">{{ r.fecha }}</td>
                                         </tr>

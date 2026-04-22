@@ -482,7 +482,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
             'monto': monto, 'usuario': usuario, 
             'hora_limite': '', 
             'expira_timestamp': tiempo_expiracion, 
-            'timestamp_creacion': tiempo_creacion, # NUEVO: Guardamos el tiempo exacto
+            'timestamp_creacion': tiempo_creacion, 
             'detalles': {'codigo_pichincha': codigo_recibido, 'guayaquil_retiro': clave_retiro, 'guayaquil_envio': clave_envio, 'seguridad': codigo_seguridad},
             'imagen': str_imagenes,
             'asignado_a': asignado_a_quien,
@@ -685,25 +685,26 @@ def vista_papelera():
 def marcar_retirado():
     mis_permisos = session.get('permisos', [])
     if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: return redirect(url_for('login'))
+    
     registro_id = int(request.form.get('id'))
+    banco_real = request.form.get('banco_real', 'No especificado').strip()
     hora_actual = hora_ecuador().strftime('%H:%M')
     
     for r in registros:
         if r['id'] == registro_id:
             r['estado'] = 'retirado'
+            r['banco_real_retiro'] = banco_real.upper() 
             
-            # --- CÁLCULO DE DEMORA MEJORADO ---
             if 'timestamp_creacion' in r:
                 r['minutos_demora'] = round((time.time() - r['timestamp_creacion']) / 60, 1)
             else:
-                # Salvavidas para códigos creados antes de la actualización
                 try:
                     creacion_dt = datetime.strptime(r['fecha'], "%d/%m/%Y %H:%M")
                     r['minutos_demora'] = round((hora_ecuador() - creacion_dt).total_seconds() / 60, 1)
                 except:
                     r['minutos_demora'] = 0.0
-            
-            r['historial'].append(f"[{hora_actual}] ✅ Marcado como Retirado por {session['usuario'].capitalize()}")
+                    
+            r['historial'].append(f"[{hora_actual}] ✅ Retirado en {banco_real.upper()} por {session['usuario'].capitalize()}")
             break
             
     guardar_datos()
@@ -922,17 +923,17 @@ def eliminar_registro():
             for img in imagenes:
                 ruta_imagen = os.path.join(app.config['UPLOAD_FOLDER'], img)
                 if os.path.exists(ruta_imagen):
-                    try:
-                        os.remove(ruta_imagen)
-                    except:
-                        pass
+                    try: os.remove(ruta_imagen)
+                    except: pass
                         
         registros = [r for r in registros if r['id'] != registro_id]
         guardar_datos()
-        flash('🗑️ Registro eliminado permanentemente de la base de datos.', 'success')
+        flash('🗑️ Registro eliminado permanentemente.', 'success')
     else:
-        flash('Error al intentar eliminar: registro no encontrado.', 'error')
+        flash('Error: registro no encontrado.', 'error')
         
+    if vista_origen == 'papelera':
+        return redirect(url_for('vista_papelera'))
     return redirect(url_for('vista_reportes', vista=vista_origen))
 
 @app.route('/usuarios')
@@ -1126,36 +1127,39 @@ def vista_reportes():
         try: fecha_hasta_obj = datetime.strptime(filtro_fecha_hasta, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
         except: pass
 
-    # ========================================================
-    # NUEVA SECCIÓN DE MÉTRICAS DE RENDIMIENTO Y GRÁFICOS
-    # ========================================================
     metricas_cobradores = {}
     datos_grafico = {'labels': [], 'exitos': [], 'fallos': []}
     
     if vista == 'metricas':
-        # 1. Métricas individuales por Cobrador
         for r in registros:
             if r['estado'] == 'retirado' and r.get('asignado_a'):
                 cob = r['asignado_a']
                 if cob not in metricas_cobradores:
-                    metricas_cobradores[cob] = {'exitos': 0, 'tiempo_total': 0, 'fallos': 0}
+                    metricas_cobradores[cob] = {'exitos': 0, 'tiempo_total': 0, 'fallos': 0, 'bancos': {}}
+                
                 metricas_cobradores[cob]['exitos'] += 1
                 metricas_cobradores[cob]['tiempo_total'] += r.get('minutos_demora', 0)
+                
+                b_real = r.get('banco_real_retiro', r.get('banco', 'Desconocido')).upper()
+                if b_real not in metricas_cobradores[cob]['bancos']:
+                    metricas_cobradores[cob]['bancos'][b_real] = 0
+                metricas_cobradores[cob]['bancos'][b_real] += 1
+                
             elif r['estado'] in ['fallido', 'fallido_revision'] and r.get('asignado_a'):
                 cob = r['asignado_a']
                 if cob not in metricas_cobradores:
-                    metricas_cobradores[cob] = {'exitos': 0, 'tiempo_total': 0, 'fallos': 0}
+                    metricas_cobradores[cob] = {'exitos': 0, 'tiempo_total': 0, 'fallos': 0, 'bancos': {}}
                 metricas_cobradores[cob]['fallos'] += 1
                 
         for cob, m in metricas_cobradores.items():
             m['promedio'] = round(m['tiempo_total'] / m['exitos'], 1) if m['exitos'] > 0 else 0
             total_gestiones = m['exitos'] + m['fallos']
             m['efectividad'] = round((m['exitos'] / total_gestiones) * 100, 1) if total_gestiones > 0 else 0
+            m['banco_favorito'] = max(m['bancos'], key=m['bancos'].get) if m.get('bancos') else 'N/A'
 
-        # 2. Datos para el Gráfico de Montaña (Últimos 7 días)
         hoy = hora_ecuador()
         ultimos_7_dias = [(hoy - timedelta(days=i)).strftime("%d/%m/%Y") for i in range(6, -1, -1)]
-        labels_grafico = [(hoy - timedelta(days=i)).strftime("%d %b") for i in range(6, -1, -1)] # Ej. "22 Abr"
+        labels_grafico = [(hoy - timedelta(days=i)).strftime("%d %b") for i in range(6, -1, -1)] 
         
         exitos_por_dia = [0] * 7
         fallos_por_dia = [0] * 7
@@ -1176,8 +1180,6 @@ def vista_reportes():
         datos_grafico['exitos'] = exitos_por_dia
         datos_grafico['fallos'] = fallos_por_dia
 
-    # ========================================================
-
     exitosos = [r for r in registros if r['estado'] == 'retirado']
     no_exitosos_raw = [r for r in registros if r['estado'] in ['expirado', 'fallido', 'saldado', 'fallido_revision', 'fusionado']]
     deudas_agrupadas = {}
@@ -1195,7 +1197,6 @@ def vista_reportes():
     registros_tabla_dinamica = [] 
     
     for r in registros:
-        # Ignorar los borrados y los activos en las tablas de reportes
         if r['estado'] in ['papelera', 'activo']:
             continue
             
@@ -1233,7 +1234,7 @@ def vista_reportes():
                            registros_tabla_dinamica=registros_tabla_dinamica,
                            cobradores=cobradores_mostrar,
                            metricas=metricas_cobradores,
-                           datos_grafico=datos_grafico, # Mandamos los datos a Chart.js
+                           datos_grafico=datos_grafico,
                            todos_cobradores=cobradores_activos, 
                            lista_clientes=lista_clientes,
                            lista_estados=lista_estados,

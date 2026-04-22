@@ -35,10 +35,27 @@
         </div>
         
         <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-            <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-link w-5"></i> Links Clientes</a>
-            <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
-            <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
-            <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-users w-5"></i> Adm. Usuarios</a>
+            {% set mis_permisos = session.get('permisos', []) %}
+            
+            {% if rol == 'supremo' or 'crear_links' in mis_permisos %}
+                <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-link w-5"></i> Links Clientes</a>
+            {% endif %}
+            
+            {% if rol == 'supremo' or 'gestionar_grupos' in mis_permisos %}
+                <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-folder w-5"></i> Mis Grupos</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
+                <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
+            {% endif %}
+            
+            {% if rol in ['supremo', 'recaudador'] or 'ver_reporte_diario' in mis_permisos %}
+                <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
+            {% endif %}
+            
+            {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
+                <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-users w-5"></i> Adm. Usuarios</a>
+            {% endif %}
             
             <div class="relative">
                 <button type="button" onclick="toggleSubmenu('submenu-rep-1', 'icon-rep-1')" class="w-full flex items-center justify-between px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg transition-colors focus:outline-none">
@@ -131,7 +148,7 @@
                                     </div>
                                 </div>
                                 
-                                <div class="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
+                                <div class="w-full bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
                                     <div>
                                         <span class="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">Tiempo Promedio</span>
                                         <span class="text-2xl font-black text-indigo-700">{{ m.promedio }}<span class="text-sm font-bold text-indigo-400 ml-1">min</span></span>
@@ -154,13 +171,14 @@
 
                     <script>
                         document.addEventListener("DOMContentLoaded", function() {
-                            const ctx = document.getElementById('chartTendencia').getContext('2d');
+                            const ctx = document.getElementById('chartTendencia');
+                            if(!ctx) return;
                             
-                            let gradientExitos = ctx.createLinearGradient(0, 0, 0, 400);
+                            let gradientExitos = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
                             gradientExitos.addColorStop(0, 'rgba(16, 185, 129, 0.4)'); 
                             gradientExitos.addColorStop(1, 'rgba(16, 185, 129, 0)');
 
-                            let gradientFallos = ctx.createLinearGradient(0, 0, 0, 400);
+                            let gradientFallos = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
                             gradientFallos.addColorStop(0, 'rgba(244, 63, 94, 0.4)'); 
                             gradientFallos.addColorStop(1, 'rgba(244, 63, 94, 0)');
 
@@ -420,207 +438,121 @@
 
                 {% elif vista in ['completados', 'cobradores', 'valor', 'usuario', 'estado', 'sucursal'] %}
                     
-                    {% if vista == 'completados' %}
-                        <table id="tablaExportar" class="hidden">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Monto</th>
-                                    <th>Usuario</th>
-                                    <th>Banco / Método</th>
-                                    <th>Celular</th>
-                                    <th>Cédula</th>
-                                    <th>Cobrado por</th>
-                                    <th>Tiempo Demora (Min)</th>
-                                    <th>Fecha</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for r in exitosos %}
-                                <tr>
-                                    <td>{{ r.id }}</td>
-                                    <td>${{ r.monto }}</td>
-                                    <td>{{ r.usuario }}</td>
-                                    <td>{{ r.banco }}</td>
-                                    <td>{{ r.celular }}</td>
-                                    <td>{{ r.cedula }}</td>
-                                    <td>{{ r.asignado_a }}</td>
-                                    <td>{{ r.minutos_demora if r.get('minutos_demora') != None else 'N/A' }}</td>
-                                    <td>{{ r.fecha }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-
-                        {% if not exitosos %}
-                            <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 shadow-sm">
-                                <i class="fas fa-box-open text-3xl mb-2"></i>
-                                <p class="text-sm font-bold uppercase tracking-widest">Aún no hay retiros completados</p>
-                            </div>
-                        {% else %}
-                            <div class="grid grid-cols-1 gap-4">
-                                {% for r in exitosos %}
-                                <div class="bg-white rounded-xl border-l-4 border-emerald-500 p-4 md:p-5 flex flex-col md:flex-row gap-4 shadow-sm hover:shadow-md transition-shadow relative">
-                                    
-                                    <form action="/mover_papelera" method="POST" class="absolute top-3 right-3 m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
-                                        <input type="hidden" name="id" value="{{ r.id }}">
-                                        <button type="submit" class="text-slate-300 hover:text-rose-600 bg-white rounded p-1 transition-colors" title="Eliminar (Mover a papelera)"><i class="fas fa-trash-alt"></i></button>
-                                    </form>
-
-                                    <div class="hidden md:flex w-20 h-20 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 items-center justify-center">
-                                        {% if r.imagen %}
-                                            {% set imagenes = r.imagen.split(',') %}
-                                            <a href="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" target="_blank"><img src="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" class="w-full h-full object-cover"></a>
-                                        {% else %}
-                                            <i class="fas fa-image text-slate-300 text-xl"></i>
-                                        {% endif %}
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="flex justify-between items-start mb-2 pr-6">
-                                            <div>
-                                                <span class="font-black text-emerald-600 text-xl">${{ r.monto }}</span>
-                                                <span class="text-xs font-bold text-slate-500 uppercase ml-2">{{ r.banco }} - {{ r.usuario }}</span>
-                                            </div>
-                                            <div class="flex items-center gap-3">
-                                                <span class="text-[10px] text-purple-600 font-bold bg-purple-50 px-2 py-1 rounded border border-purple-200"><i class="fas fa-stopwatch mr-1"></i> {{ r.minutos_demora if r.get('minutos_demora') != None else 'N/A' }} min</span>
-                                                <span class="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded border border-emerald-200"><i class="fas fa-check mr-1"></i> Completado</span>
-                                            </div>
-                                        </div>
-                                        <div class="bg-slate-50 border border-slate-100 p-2.5 rounded-lg text-[10px] font-mono text-slate-500 space-y-1">
-                                            <strong class="text-slate-700 uppercase tracking-widest block mb-1 border-b border-slate-200 pb-1">Historial de Eventos:</strong>
-                                            {% for evento in r.historial %}
-                                                {% if 'destinaron' in evento or 'usó' in evento %}
-                                                    <span class="block text-blue-600 font-bold"><i class="fas fa-magic text-blue-400 mr-1"></i> {{ evento }}</span>
-                                                {% elif 'Abono parcial' in evento %}
-                                                    <span class="block text-purple-600 font-bold"><i class="fas fa-hand-holding-usd text-purple-400 mr-1"></i> {{ evento }}</span>
-                                                {% elif 'Pagado totalmente' in evento or 'Creado por' in evento and 'vía' in evento %}
-                                                    <span class="block text-indigo-600 font-bold"><i class="fas fa-money-check-alt text-indigo-400 mr-1"></i> {{ evento }}</span>
-                                                {% else %}
-                                                    <span class="block text-slate-600"><i class="fas fa-caret-right text-slate-300 mr-1"></i> {{ evento }}</span>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-
-                    {% else %}
-                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
-                            <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
-                                <input type="hidden" name="vista" value="{{ vista }}">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
+                        <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
+                            <input type="hidden" name="vista" value="{{ vista }}">
+                            
+                            <div class="w-full md:w-auto flex-1">
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Filtrar {% if vista == 'sucursal' %}Forma Pago{% else %}{{ vista|capitalize }}{% endif %}</label>
                                 
-                                <div class="w-full md:w-auto flex-1">
-                                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Filtrar {% if vista == 'sucursal' %}Forma Pago{% else %}{{ vista|capitalize }}{% endif %}</label>
-                                    
-                                    {% if vista == 'cobradores' %}
-                                        <select name="cobrador" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg block p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
-                                            <option value="">Todos los cobradores</option>
-                                            {% for c in todos_cobradores %}
-                                                <option value="{{ c }}" {% if filtro_cobrador == c %}selected{% endif %}>{{ c|capitalize }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    {% elif vista == 'valor' %}
-                                        <input type="number" step="0.01" name="valor" value="{{ filtro_valor }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold focus:border-indigo-500" placeholder="Ej. 15.00">
-                                    {% elif vista == 'usuario' %}
-                                        <select name="cliente" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
-                                            <option value="">Todos los clientes</option>
-                                            {% for c in lista_clientes %}
-                                                <option value="{{ c }}" {% if filtro_cliente == c %}selected{% endif %}>{{ c }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    {% elif vista == 'estado' %}
-                                        <select name="estado_filtro" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
-                                            <option value="">Todos los estados</option>
-                                            {% for e in lista_estados %}
-                                                <option value="{{ e }}" {% if filtro_estado == e %}selected{% endif %}>{{ e|capitalize }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    {% elif vista == 'sucursal' %}
-                                        <select name="sucursal" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
-                                            <option value="">Todas las formas</option>
-                                            {% for s in lista_sucursales %}
-                                                <option value="{{ s }}" {% if filtro_sucursal == s %}selected{% endif %}>{{ s|capitalize }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    {% endif %}
-                                </div>
-
-                                <div class="w-full md:w-auto flex-1">
-                                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha Desde</label>
-                                    <input type="date" name="fecha_desde" value="{{ filtro_fecha_desde }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer">
-                                </div>
-                                <div class="w-full md:w-auto flex-1">
-                                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha Hasta</label>
-                                    <input type="date" name="fecha_hasta" value="{{ filtro_fecha_hasta }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer">
-                                </div>
-
-                                <div class="w-full md:w-auto flex gap-2 pt-1">
-                                    <button type="submit" class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 px-6 rounded-lg transition-colors shadow-sm text-sm"><i class="fas fa-search mr-1"></i> Buscar</button>
-                                    {% if filtro_cobrador or filtro_valor or filtro_cliente or filtro_estado or filtro_sucursal or filtro_fecha_desde or filtro_fecha_hasta %}
-                                        <a href="/reportes?vista={{ vista }}" class="flex-1 sm:flex-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-black py-2.5 px-4 rounded-lg transition-colors shadow-sm text-sm text-center" title="Limpiar Filtros"><i class="fas fa-times"></i></a>
-                                    {% endif %}
-                                </div>
-                            </form>
-                        </div>
-
-                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div class="overflow-x-auto w-full custom-scroll">
-                                <table id="tablaExportar" class="w-full text-left text-sm text-slate-600 border-collapse whitespace-nowrap">
-                                    <thead class="bg-slate-50 border-b border-slate-200">
-                                        <tr class="text-[10px] uppercase text-slate-500 tracking-widest">
-                                            <th class="py-4 px-5 font-bold">Valor</th>
-                                            <th class="py-4 px-5 font-bold">Usuario</th>
-                                            <th class="py-4 px-5 font-bold">Estado</th>
-                                            <th class="py-4 px-5 font-bold">Forma de Pago</th>
-                                            <th class="py-4 px-5 font-bold">Cobrador</th>
-                                            <th class="py-4 px-5 font-bold">Tiempo Demora</th>
-                                            <th class="py-4 px-5 font-bold">Fecha / Hora</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-100 bg-white">
-                                        {% if not registros_tabla_dinamica %}
-                                            <tr><td colspan="7" class="py-10 text-center text-slate-400 italic font-medium">No se encontraron registros para los filtros seleccionados.</td></tr>
-                                        {% else %}
-                                            {% for r in registros_tabla_dinamica %}
-                                            <tr class="hover:bg-slate-50 transition-colors">
-                                                <td class="py-3 px-5 font-black text-slate-800">${{ r.monto }}</td>
-                                                <td class="py-3 px-5 font-bold text-slate-600">{{ r.usuario }}</td>
-                                                <td class="py-3 px-5">
-                                                    {% if r.estado == 'retirado' %}
-                                                        <span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider"><i class="fas fa-check mr-1"></i> Completado</span>
-                                                    {% elif r.estado == 'fallido' %}
-                                                        <span class="bg-rose-100 text-rose-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider"><i class="fas fa-times mr-1"></i> No Salió</span>
-                                                    {% elif r.estado == 'fallido_revision' %}
-                                                        <span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider animate-pulse"><i class="fas fa-exclamation-triangle mr-1"></i> Revisión</span>
-                                                    {% elif r.estado == 'saldado' %}
-                                                        <span class="bg-teal-100 text-teal-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider"><i class="fas fa-check-double mr-1"></i> Saldado</span>
-                                                    {% elif r.estado == 'fusionado' %}
-                                                        <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider"><i class="fas fa-link mr-1"></i> Reposición</span>
-                                                    {% elif r.estado == 'expirado' %}
-                                                        <span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider"><i class="fas fa-clock mr-1"></i> Vencido</span>
-                                                    {% else %}
-                                                        <span class="bg-slate-100 text-slate-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider">{{ r.estado }}</span>
-                                                    {% endif %}
-                                                </td>
-                                                <td class="py-3 px-5 font-bold text-slate-500 uppercase">{{ r.banco }}</td>
-                                                <td class="py-3 px-5 font-black text-indigo-600 uppercase">
-                                                    <i class="fas fa-user-tie mr-1 text-indigo-300"></i> 
-                                                    {% if r.asignado_a %}{{ r.asignado_a }}{% else %}N/A{% endif %}
-                                                </td>
-                                                <td class="py-3 px-5 font-mono text-purple-600 font-bold">
-                                                    {% if r.get('minutos_demora') != None %} {{ r.minutos_demora }} min {% else %} N/A {% endif %}
-                                                </td>
-                                                <td class="py-3 px-5 font-bold text-slate-500 text-xs">{{ r.fecha }}</td>
-                                            </tr>
-                                            {% endfor %}
-                                        {% endif %}
-                                    </tbody>
-                                </table>
+                                {% if vista == 'cobradores' %}
+                                    <select name="cobrador" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg block p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
+                                        <option value="">Todos los cobradores</option>
+                                        {% for c in todos_cobradores %}
+                                            <option value="{{ c }}" {% if filtro_cobrador == c %}selected{% endif %}>{{ c|capitalize }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% elif vista == 'valor' %}
+                                    <input type="number" step="0.01" name="valor" value="{{ filtro_valor }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold focus:border-indigo-500" placeholder="Ej. 15.00">
+                                {% elif vista == 'usuario' %}
+                                    <select name="cliente" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
+                                        <option value="">Todos los clientes</option>
+                                        {% for c in lista_clientes %}
+                                            <option value="{{ c }}" {% if filtro_cliente == c %}selected{% endif %}>{{ c }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% elif vista == 'estado' %}
+                                    <select name="estado_filtro" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
+                                        <option value="">Todos los estados</option>
+                                        {% for e in lista_estados %}
+                                            <option value="{{ e }}" {% if filtro_estado == e %}selected{% endif %}>{{ e|capitalize }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% elif vista == 'sucursal' %}
+                                    <select name="sucursal" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
+                                        <option value="">Todas las formas</option>
+                                        {% for s in lista_sucursales %}
+                                            <option value="{{ s }}" {% if filtro_sucursal == s %}selected{% endif %}>{{ s|capitalize }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% endif %}
                             </div>
+
+                            <div class="w-full md:w-auto flex-1">
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha Desde</label>
+                                <input type="date" name="fecha_desde" value="{{ filtro_fecha_desde }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer">
+                            </div>
+                            <div class="w-full md:w-auto flex-1">
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha Hasta</label>
+                                <input type="date" name="fecha_hasta" value="{{ filtro_fecha_hasta }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer">
+                            </div>
+
+                            <div class="w-full md:w-auto flex gap-2 pt-1">
+                                <button type="submit" class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 px-6 rounded-lg transition-colors shadow-sm text-sm"><i class="fas fa-search mr-1"></i> Buscar</button>
+                                {% if filtro_cobrador or filtro_valor or filtro_cliente or filtro_estado or filtro_sucursal or filtro_fecha_desde or filtro_fecha_hasta %}
+                                    <a href="/reportes?vista={{ vista }}" class="flex-1 sm:flex-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-black py-2.5 px-4 rounded-lg transition-colors shadow-sm text-sm text-center" title="Limpiar Filtros"><i class="fas fa-times"></i></a>
+                                {% endif %}
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto w-full custom-scroll">
+                            <table id="tablaExportar" class="w-full text-left text-sm text-slate-600 border-collapse whitespace-nowrap">
+                                <thead class="bg-slate-50 border-b border-slate-200">
+                                    <tr class="text-[10px] uppercase text-slate-500 tracking-widest">
+                                        <th class="py-4 px-5 font-bold">Valor</th>
+                                        <th class="py-4 px-5 font-bold">Usuario</th>
+                                        <th class="py-4 px-5 font-bold">Estado</th>
+                                        <th class="py-4 px-5 font-bold">Forma de Pago</th>
+                                        <th class="py-4 px-5 font-bold">Cobrador</th>
+                                        <th class="py-4 px-5 font-bold">Tiempo Demora</th>
+                                        <th class="py-4 px-5 font-bold">Fecha / Hora</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    {% if not registros_tabla_dinamica %}
+                                        <tr><td colspan="7" class="py-10 text-center text-slate-400 italic font-medium">No se encontraron registros para los filtros seleccionados.</td></tr>
+                                    {% else %}
+                                        {% for r in registros_tabla_dinamica %}
+                                        <tr class="hover:bg-slate-50 transition-colors">
+                                            <td class="py-3 px-5 font-black text-slate-800">${{ r.monto }}</td>
+                                            <td class="py-3 px-5 font-bold text-slate-600">{{ r.usuario }}</td>
+                                            <td class="py-3 px-5">
+                                                {% if r.estado == 'retirado' %}
+                                                    <span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider"><i class="fas fa-check mr-1"></i> Completado</span>
+                                                {% elif r.estado == 'fallido' %}
+                                                    <span class="bg-rose-100 text-rose-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider"><i class="fas fa-times mr-1"></i> No Salió</span>
+                                                {% elif r.estado == 'fallido_revision' %}
+                                                    <span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider animate-pulse"><i class="fas fa-exclamation-triangle mr-1"></i> Revisión</span>
+                                                {% elif r.estado == 'saldado' %}
+                                                    <span class="bg-teal-100 text-teal-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider"><i class="fas fa-check-double mr-1"></i> Saldado</span>
+                                                {% elif r.estado == 'fusionado' %}
+                                                    <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider"><i class="fas fa-link mr-1"></i> Reposición</span>
+                                                {% elif r.estado == 'expirado' %}
+                                                    <span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider"><i class="fas fa-clock mr-1"></i> Vencido</span>
+                                                {% else %}
+                                                    <span class="bg-slate-100 text-slate-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider">{{ r.estado }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="py-3 px-5 font-bold text-slate-600 uppercase">
+                                                {{ r.banco }}
+                                            </td>
+                                            <td class="py-3 px-5 font-black text-indigo-600 uppercase">
+                                                <i class="fas fa-user-tie mr-1 text-indigo-300"></i> 
+                                                {% if r.asignado_a %}{{ r.asignado_a }}{% else %}N/A{% endif %}
+                                            </td>
+                                            <td class="py-3 px-5 font-mono text-purple-600 font-bold">
+                                                {% if r.get('minutos_demora') != None %} {{ r.minutos_demora }} min {% else %} N/A {% endif %}
+                                            </td>
+                                            <td class="py-3 px-5 font-bold text-slate-500 text-xs">{{ r.fecha }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% endif %}
+                                </tbody>
+                            </table>
                         </div>
-                    {% endif %}
+                    </div>
                 {% endif %}
 
             </div>

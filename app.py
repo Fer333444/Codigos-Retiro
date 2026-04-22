@@ -559,7 +559,8 @@ def admin():
                 try: stats_cobradores[asignado]['asignados_valor'] += float(r['monto'])
                 except: pass
                 
-            if r['fecha'].startswith(hoy_ecuador):
+            # AQUI SE APLICA LA REGLA: Si ya fue liquidado (cobrado por recaudador), ya no suma en 'total_dia' ni 'fallidos' de esta pantalla
+            if r['fecha'].startswith(hoy_ecuador) and not r.get('liquidado', False):
                 if r['estado'] == 'retirado':
                     try: stats_cobradores[asignado]['total_dia'] += float(r['monto'])
                     except: pass
@@ -614,18 +615,17 @@ def asignar_trabajo():
         if r['id'] == registro_id:
             viejo_asignado = r.get('asignado_a')
             
-            # Bloqueo: Si intentan asignar a la misma persona que ya lo tiene, no hacer nada.
             if viejo_asignado == trabajador:
                 flash(f'El código ya estaba asignado a {trabajador.capitalize()}.', 'info')
                 return redirect(url_for('admin'))
                 
             if viejo_asignado and viejo_asignado != trabajador:
                 r['asignado_a'] = trabajador
-                r['asignacion_estado'] = 'reasignado' # SE MARCA COMO ROJO
+                r['asignacion_estado'] = 'reasignado' 
                 r['historial'].append(f"[{hora_actual}] 🔄 Reasignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
             else:
                 r['asignado_a'] = trabajador
-                r['asignacion_estado'] = 'asignado' # SE MARCA COMO VERDE
+                r['asignacion_estado'] = 'asignado' 
                 r['historial'].append(f"[{hora_actual}] 👤 Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
             break
             

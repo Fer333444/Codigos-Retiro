@@ -495,11 +495,16 @@
 
                                 <div class="hidden md:flex w-20 h-20 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200 items-center justify-center">
                                     {% if r.imagen %}
-                                        {% set imagenes = r.imagen.split(',') %}
-                                        <a href="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" target="_blank"><img src="{{ url_for('static', filename='uploads/' + imagenes[0]) }}" class="w-full h-full object-cover"></a>
-                                    {% else %}
-                                        <i class="fas fa-image text-slate-300 text-xl"></i>
-                                    {% endif %}
+    {% set imagenes = r.imagen.split(',') %}
+    <a href="{{ url_for('ver_imagen', filename=imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
+        <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-200 shadow-sm">
+        {% if imagenes|length > 1 %}
+            <span class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] font-bold px-1.5 rounded">+{{ imagenes|length - 1 }}</span>
+        {% endif %}
+    </a>
+{% else %}
+    <i class="fas fa-image text-slate-300 text-3xl"></i>
+{% endif %}
                                 </div>
                                 <div class="flex-1">
                                     <div class="flex justify-between items-start mb-2 pr-6">

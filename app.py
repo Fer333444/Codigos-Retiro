@@ -6,7 +6,7 @@ import io
 import json
 import base64
 import time
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 
@@ -18,29 +18,34 @@ openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 app = Flask(__name__)
 app.secret_key = "flujo_secreto_123"
 
-UPLOAD_FOLDER = 'static/uploads'
+# ==========================================
+# 💾 SISTEMA DE DISCO DURO PERSISTENTE 💾
+# ==========================================
+# Si el código detecta que está en Render, guarda JSON y FOTOS en el disco blindado (/var/data)
+if os.path.exists('/var/data'):
+    DATA_FILE = '/var/data/base_datos_erp.json'
+    UPLOAD_FOLDER = '/var/data/uploads'
+else:
+    DATA_FILE = 'base_datos_local.json'
+    UPLOAD_FOLDER = 'static/uploads'
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True) # Construye la bóveda de fotos si no existe
 
 # ==========================================
-# 💾 SISTEMA DE BASE DE DATOS PERSISTENTE 💾
+# 📸 RUTA MÁGICA PARA LEER LAS FOTOS DEL DISCO
 # ==========================================
-DATA_FILE = '/var/data/base_datos_erp.json' if os.path.exists('/var/data') else 'base_datos_local.json'
+@app.route('/ver_imagen/<filename>')
+def ver_imagen(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
+# --- Variables Globales ---
 registros = []
 sistema_config = {'auto_asignar': False}
 enlaces_db = {}
 grupos_creados = [] 
 liquidaciones_db = {}
 ubicaciones_cobradores = {}
-
-usuarios_db = {
-    'fernando': {'nombre': 'Fernando', 'apellido': 'Supremo', 'email': 'fer@admin.com', 'password': 'admin', 'rol': 'supremo', 'estado': 'Activo', 'permisos': []},
-    'carlos': {'nombre': 'Carlos', 'apellido': 'Caja', 'email': 'caja@erp.com', 'password': '123', 'rol': 'recaudador', 'estado': 'Activo', 'permisos': []},
-    'cris': {'nombre': 'Cris', 'apellido': 'Vaca', 'email': 'cris@cobros.com', 'password': '123', 'rol': 'cobrador', 'estado': 'Activo', 'permisos': []},
-    'jenny': {'nombre': 'Jenny', 'apellido': 'Vaca', 'email': 'jenny@cobros.com', 'password': '123', 'rol': 'cobrador', 'estado': 'Activo', 'permisos': []},
-    'gina': {'nombre': 'Gina', 'apellido': 'Reportes', 'email': 'gina@reportes.com', 'password': '123', 'rol': 'reportes', 'estado': 'Activo', 'permisos': []}
-}
 
 def guardar_datos():
     data_a_guardar = {

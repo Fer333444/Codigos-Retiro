@@ -24,10 +24,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # ==========================================
 # 💾 SISTEMA DE BASE DE DATOS PERSISTENTE 💾
 # ==========================================
-# Render montará el disco duro en /var/data. Si no estamos en Render (tu PC), guarda un archivo local.
 DATA_FILE = '/var/data/base_datos_erp.json' if os.path.exists('/var/data') else 'base_datos_local.json'
 
-# --- Variables Globales (Memoria RAM) ---
 registros = []
 sistema_config = {'auto_asignar': False}
 enlaces_db = {}
@@ -44,7 +42,6 @@ usuarios_db = {
 }
 
 def guardar_datos():
-    """Toma toda la información de la memoria RAM y la escribe en el Disco Duro."""
     data_a_guardar = {
         'registros': registros,
         'sistema_config': sistema_config,
@@ -59,7 +56,6 @@ def guardar_datos():
         print("Error crítico al guardar en disco:", e)
 
 def cargar_datos():
-    """Lee el Disco Duro al arrancar el servidor y restaura la memoria RAM."""
     global registros, sistema_config, enlaces_db, grupos_creados, usuarios_db
     if os.path.exists(DATA_FILE):
         try:
@@ -77,7 +73,6 @@ def cargar_datos():
         except Exception as e:
             print("Error crítico al cargar desde el disco:", e)
 
-# Ejecutamos la carga al iniciar el servidor
 cargar_datos()
 # ==========================================
 
@@ -466,7 +461,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
                         cargas[r['asignado_a']] += 1
                 mejor_cobrador = min(cargas, key=cargas.get)
                 asignado_a_quien = mejor_cobrador
-                historial_inicial.append(f"[{hora_actual}] Auto-asignado a {mejor_cobrador.capitalize()} (Robot)")
+                historial_inicial.append(f"[{hora_actual}] 👤 Asignado a {mejor_cobrador.capitalize()} (Robot)")
 
         nuevo_registro = {
             'id': len(registros) + 1,
@@ -541,17 +536,25 @@ def admin():
     hoy_ecuador = hora_ecuador().strftime("%d/%m/%Y")
     stats_cobradores = {}
     
+    # Se añade asignados_count y asignados_valor
     for c in cobradores:
-        stats_cobradores[c] = {'total_dia': 0.0, 'fallidos': []}
+        stats_cobradores[c] = {'total_dia': 0.0, 'fallidos': [], 'asignados_count': 0, 'asignados_valor': 0.0}
         
     for r in registros:
         asignado = r.get('asignado_a')
-        if asignado in stats_cobradores and r['fecha'].startswith(hoy_ecuador):
-            if r['estado'] == 'retirado':
-                try: stats_cobradores[asignado]['total_dia'] += float(r['monto'])
+        if asignado in stats_cobradores:
+            # Sumar lo que tienen activo ahora mismo
+            if r['estado'] == 'activo':
+                stats_cobradores[asignado]['asignados_count'] += 1
+                try: stats_cobradores[asignado]['asignados_valor'] += float(r['monto'])
                 except: pass
-            elif r['estado'] in ['fallido', 'fallido_revision', 'expirado']:
-                stats_cobradores[asignado]['fallidos'].append(r)
+                
+            if r['fecha'].startswith(hoy_ecuador):
+                if r['estado'] == 'retirado':
+                    try: stats_cobradores[asignado]['total_dia'] += float(r['monto'])
+                    except: pass
+                elif r['estado'] in ['fallido', 'fallido_revision', 'expirado']:
+                    stats_cobradores[asignado]['fallidos'].append(r)
                 
     return render_template('admin.html', 
                            activos=activos, 
@@ -577,7 +580,7 @@ def toggle_auto():
                             cargas[calc['asignado_a']] += 1
                     mejor = min(cargas, key=cargas.get)
                     r['asignado_a'] = mejor
-                    r['historial'].append(f"[{hora_actual}] Auto-asignado a {mejor.capitalize()} (Robot)")
+                    r['historial'].append(f"[{hora_actual}] 👤 Asignado a {mejor.capitalize()} (Robot)")
         flash('🤖 Robot de Auto-Asignación ENCENDIDO.', 'success')
     else:
         flash('⏸️ Robot APAGADO. Modo manual activado.', 'error')
@@ -591,14 +594,22 @@ def asignar_trabajo():
     registro_id = int(request.form.get('id'))
     trabajador = request.form.get('trabajador')
     hora_actual = hora_ecuador().strftime('%H:%M')
+    
     for r in registros:
         if r['id'] == registro_id:
-            r['asignado_a'] = trabajador
-            r['historial'].append(f"[{hora_actual}] Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
+            viejo_asignado = r.get('asignado_a')
+            if viejo_asignado and viejo_asignado != trabajador:
+                # Es una reasignación
+                r['asignado_a'] = trabajador
+                r['historial'].append(f"[{hora_actual}] 🔄 Reasignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
+            else:
+                # Es primera asignación
+                r['asignado_a'] = trabajador
+                r['historial'].append(f"[{hora_actual}] 👤 Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
             break
             
     guardar_datos()
-    flash(f'Asignado a {trabajador.capitalize()} manualmente.', 'success')
+    flash(f'Asignado a {trabajador.capitalize()} correctamente.', 'success')
     return redirect(url_for('admin'))
 
 @app.route('/marcar_retirado', methods=['POST'])

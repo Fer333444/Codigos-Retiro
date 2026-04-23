@@ -1183,7 +1183,10 @@ def marcar_recibido():
 @app.route('/reportes')
 def vista_reportes():
     mis_permisos = session.get('permisos', [])
-    if session.get('rol') not in ['supremo', 'reportes'] and 'ver_reportes' not in mis_permisos: return redirect(url_for('login'))
+    
+    # REGLA ESTRICTA: Si no eres Supremo y no tienes la casilla marcada, te bloquea.
+    if session.get('rol') != 'supremo' and 'ver_reportes' not in mis_permisos: 
+        return redirect(url_for('login'))
     
     lista_clientes = sorted(list(set(r['usuario'] for r in registros if r.get('usuario'))))
     lista_estados = sorted(list(set(r['estado'] for r in registros if r.get('estado'))))

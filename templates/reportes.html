@@ -57,6 +57,7 @@
                 <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-users w-5"></i> Adm. Usuarios</a>
             {% endif %}
             
+            {% if rol == 'supremo' or 'ver_reportes' in mis_permisos %}
             <div class="relative">
                 <button type="button" onclick="toggleSubmenu('submenu-rep-1', 'icon-rep-1')" class="w-full flex items-center justify-between px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg transition-colors focus:outline-none">
                     <div class="flex items-center gap-3">
@@ -76,6 +77,7 @@
                     <a href="/reportes?vista=sucursal" class="block py-1.5 text-xs font-bold {% if vista == 'sucursal' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-building mr-1"></i> Por Forma Pago</a>
                 </div>
             </div>
+            {% endif %}
 
             {% if rol == 'cobrador' or 'procesar_retiros' in mis_permisos %}
                 <a href="/trabajador/{{ mi_usuario }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-blue-600 rounded-lg hover:bg-blue-50 mt-4 border border-transparent hover:border-blue-200 transition-colors"><i class="fas fa-briefcase w-5"></i> Mi Bandeja (Cobrar)</a>
@@ -707,7 +709,7 @@
                                                 {% if r.asignado_a %}{{ r.asignado_a }}{% else %}N/A{% endif %}
                                             </td>
                                             <td class="py-3 px-5 font-mono text-purple-600 font-bold">
-                                                {% if r.get('minutos_demora') != None %} {{ r.minutos_demora }} min {% else %} N/A {% endif %}
+                                                {% if r.get('minutos_demora') != None %} {{ r.minutos_demora }} min {% else %} 0.0 min {% endif %}
                                             </td>
                                             <td class="py-3 px-5 font-bold text-slate-500 text-xs">{{ r.fecha }}</td>
                                         </tr>

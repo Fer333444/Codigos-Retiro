@@ -223,7 +223,10 @@ def index():
         return redirect(ruta_por_rol(session.get('rol'), session.get('usuario')))
         
     horario = sistema_config.get('horario_activo', True)
-    return render_template('index.html', enlaces=enlaces_db, mi_usuario=session['usuario'], rol=session.get('rol'), base_url=request.host_url, grupos=grupos_creados, horario_activo=horario)
+    # Cargar el estado de los bancos (si no existe, por defecto todos activos)
+    bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
+    
+    return render_template('index.html', enlaces=enlaces_db, mi_usuario=session['usuario'], rol=session.get('rol'), base_url=request.host_url, grupos=grupos_creados, horario_activo=horario, bancos_activos=bancos_activos)
 # 2. AGREGA ESTA NUEVA RUTA PARA EL INTERRUPTOR
 @app.route('/toggle_horario', methods=['POST'])
 def toggle_horario():
@@ -238,7 +241,28 @@ def toggle_horario():
         flash('🟢 Horario ABIERTO. Los clientes ya pueden enviar códigos.', 'success')
     else:
         flash('🔴 Horario CERRADO. Formularios de clientes bloqueados.', 'error')
+    return redirect(url_for('index'))
+@app.route('/toggle_banco', methods=['POST'])
+def toggle_banco():
+    mis_permisos = session.get('permisos', [])
+    if session.get('rol') != 'supremo' and 'crear_links' not in mis_permisos: 
+        return redirect(url_for('login'))
         
+    banco = request.form.get('banco')
+    if 'bancos_activos' not in sistema_config:
+        sistema_config['bancos_activos'] = {'pichincha': True, 'guayaquil': True, 'produbanco': True}
+        
+    if banco in sistema_config['bancos_activos']:
+        # Invierte el valor (True a False, o False a True)
+        sistema_config['bancos_activos'][banco] = not sistema_config['bancos_activos'][banco]
+        guardar_datos()
+        
+        estado = "ACTIVADO" if sistema_config['bancos_activos'][banco] else "DESACTIVADO (FUERA DE SERVICIO)"
+        if sistema_config['bancos_activos'][banco]:
+            flash(f'✅ Banco {banco.capitalize()} {estado}.', 'success')
+        else:
+            flash(f'🚫 Banco {banco.capitalize()} {estado}.', 'error')
+            
     return redirect(url_for('index'))
 
 @app.route('/editar_link', methods=['POST'])
@@ -476,25 +500,32 @@ def retiro(token):
     if not link_data: return "Enlace Inválido", 404
     
     horario = sistema_config.get('horario_activo', True)
+    bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
     
     if request.method == 'POST':
         if not horario: return "Sistema fuera de horario", 403
+        banco_seleccionado = request.form.get('banco')
+        if banco_seleccionado and not bancos_activos.get(banco_seleccionado, True):
+            return f"El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.", 403
         return procesar_formulario_retiro(request, [link_data['usuario']])
         
-    return render_template('formulario.html', usuario_pre=link_data['usuario'], es_grupo=False, form_action=url_for('retiro', token=token), recibo=session.pop('recibo_retiro', None), horario_activo=horario)
-
+    return render_template('formulario.html', usuario_pre=link_data['usuario'], es_grupo=False, form_action=url_for('retiro', token=token), recibo=session.pop('recibo_retiro', None), horario_activo=horario, bancos_activos=bancos_activos)
 @app.route('/retiro_grupo/<grupo>', methods=['GET', 'POST'])
 def retiro_grupo(grupo):
     if grupo == 'General' or grupo not in grupos_creados: return "Grupo Inválido", 404
     usuarios_del_grupo = [data['usuario'] for data in enlaces_db.values() if data.get('grupo') == grupo]
     
     horario = sistema_config.get('horario_activo', True)
+    bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
     
     if request.method == 'POST':
         if not horario: return "Sistema fuera de horario", 403
+        banco_seleccionado = request.form.get('banco')
+        if banco_seleccionado and not bancos_activos.get(banco_seleccionado, True):
+            return f"El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.", 403
         return procesar_formulario_retiro(request, request.form.getlist('usuarios_magis'))
         
-    return render_template('formulario.html', es_grupo=True, nombre_grupo=grupo, usuarios_grupo=usuarios_del_grupo, form_action=url_for('retiro_grupo', grupo=grupo), recibo=session.pop('recibo_retiro', None), horario_activo=horario)
+    return render_template('formulario.html', es_grupo=True, nombre_grupo=grupo, usuarios_grupo=usuarios_del_grupo, form_action=url_for('retiro_grupo', grupo=grupo), recibo=session.pop('recibo_retiro', None), horario_activo=horario, bancos_activos=bancos_activos)
 
 def procesar_formulario_retiro(req, lista_usuarios):
     banco = req.form.get('banco')

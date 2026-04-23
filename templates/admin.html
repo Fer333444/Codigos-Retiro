@@ -317,9 +317,7 @@
             document.getElementById('modalPapelera').classList.add('hidden');
         }
 
-        // ==========================================
         // 1. SISTEMA MAESTRO DE EVENTOS (DELEGACIÓN)
-        // ==========================================
         document.body.addEventListener('click', function(event) {
             if (event.target.closest('.btn-abrir-papelera')) {
                 const btn = event.target.closest('.btn-abrir-papelera');
@@ -344,9 +342,7 @@
             }
         });
 
-        // ==========================================
         // 2. SISTEMA DE RESTAURACIÓN DE SCROLL
-        // ==========================================
         document.addEventListener("DOMContentLoaded", function() { 
             var mainScroll = document.getElementById('mainScroll');
             var savedScrollPos = sessionStorage.getItem('scrollpos_admin');
@@ -359,16 +355,21 @@
             }
         });
 
-        document.getElementById('formRealPapelera').addEventListener('submit', function() {
-            var mainScroll = document.getElementById('mainScroll');
-            if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
-        });
+        const formPapelera = document.getElementById('formRealPapelera');
+        if(formPapelera){
+            formPapelera.addEventListener('submit', function() {
+                var mainScroll = document.getElementById('mainScroll');
+                if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
+            });
+        }
 
-        // ==========================================
-        // 3. SISTEMA DE REFRESCAMIENTO SILENCIOSO ANTI-CACHÉ
-        // ==========================================
+        // VARIABLE GLOBAL PARA CONTAR LOS CÓDIGOS ACTUALES
+        let totalCodigosActuales = document.querySelectorAll('form[action="/asignar"]').length;
+
+        // 3. SISTEMA DE REFRESCAMIENTO SILENCIOSO + NOTIFICACIONES
         function refrescarPanelSilencioso() {
-            if(!document.getElementById('modalPapelera').classList.contains('hidden')) {
+            const modalPapelera = document.getElementById('modalPapelera');
+            if(modalPapelera && !modalPapelera.classList.contains('hidden')) {
                 return;
             }
 
@@ -382,7 +383,6 @@
                 .then(html => {
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
-                    
                     const nuevoContenido = doc.getElementById('contenidoDinamico');
                     
                     if (nuevoContenido) {
@@ -393,6 +393,21 @@
                         
                         actualizarCronometros();
                         mainScroll.scrollTop = scrollActual;
+
+                        // --- LÓGICA DE NOTIFICACIONES PUSH REALES ---
+                        let nuevosCodigosCount = document.querySelectorAll('form[action="/asignar"]').length;
+                        
+                        // Si hay MÁS códigos que antes, lanzamos notificación
+                        if (nuevosCodigosCount > totalCodigosActuales) {
+                            if (Notification.permission === "granted") {
+                                new Notification("¡Nuevo Retiro Ingresado! 💰", {
+                                    body: "Revisa tu bandeja, acaba de llegar un nuevo código.",
+                                    icon: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png" // Puedes cambiar esto por el link a tu propio logo
+                                });
+                            }
+                        }
+                        // Actualizamos el contador
+                        totalCodigosActuales = nuevosCodigosCount;
                     }
                 })
                 .catch(err => console.log('Silenced refresh error', err));
@@ -400,9 +415,7 @@
 
         setInterval(refrescarPanelSilencioso, 10000);
 
-        // ==========================================
         // 4. RESTO DE FUNCIONES NORMALES
-        // ==========================================
         function actualizarCronometros() {
             const timers = document.querySelectorAll('.cronometro-retiro');
             const ahora = Date.now() / 1000; 
@@ -494,14 +507,13 @@
                     const btns = document.querySelectorAll('.btn-notificaciones');
                     btns.forEach(btn => btn.classList.add('hidden'));
                     new Notification("¡Excelente!", {
-                        body: "Las notificaciones están activadas.",
+                        body: "A partir de ahora te avisaré cuando lleguen nuevos códigos.",
                         icon: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png"
                     });
                 }
             });
         }
 
-        // Chequear estado al iniciar
         checkNotificationStatus();
     </script>
 </body>

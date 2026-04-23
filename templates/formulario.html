@@ -203,9 +203,19 @@
                     <label class="block text-xs font-bold text-slate-400 mb-2">Selecciona tu Banco</label>
                     <select name="banco" id="bancoSelect" required class="w-full bg-[#0f172a] border border-slate-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-3 appearance-none outline-none transition-colors">
                         <option value="" disabled selected>-- Toca para elegir --</option>
-                        <option value="pichincha">Banco Pichincha</option>
-                        <option value="guayaquil">Banco Guayaquil</option>
-                        <option value="produbanco">Produbanco</option>
+                        
+                        <option value="pichincha" {% if not bancos_activos.get('pichincha', True) %} disabled class="bg-red-900/30 text-red-400 font-medium italic" {% endif %}>
+                            Banco Pichincha {% if not bancos_activos.get('pichincha', True) %}(🚫 Fuera de servicio){% endif %}
+                        </option>
+                        
+                        <option value="guayaquil" {% if not bancos_activos.get('guayaquil', True) %} disabled class="bg-red-900/30 text-red-400 font-medium italic" {% endif %}>
+                            Banco Guayaquil {% if not bancos_activos.get('guayaquil', True) %}(🚫 Fuera de servicio){% endif %}
+                        </option>
+                        
+                        <option value="produbanco" {% if not bancos_activos.get('produbanco', True) %} disabled class="bg-red-900/30 text-red-400 font-medium italic" {% endif %}>
+                            Produbanco {% if not bancos_activos.get('produbanco', True) %}(🚫 Fuera de servicio){% endif %}
+                        </option>
+                        
                     </select>
                 </div>
 
@@ -496,10 +506,31 @@
                     } else {
                         if(data.BANCO) {
                             let b = data.BANCO.toLowerCase();
-                            if(b.includes('pichincha')) { select.value = 'pichincha'; }
-                            else if(b.includes('guayaquil')) { select.value = 'guayaquil'; }
-                            else if(b.includes('produbanco')) { select.value = 'produbanco'; }
-                            actualizarCamposBanco(select.value);
+                            let bancoElegido = '';
+                            
+                            if(b.includes('pichincha')) { bancoElegido = 'pichincha'; }
+                            else if(b.includes('guayaquil')) { bancoElegido = 'guayaquil'; }
+                            else if(b.includes('produbanco')) { bancoElegido = 'produbanco'; }
+                            
+                            // AQUI ESTÁ LA NUEVA PROTECCIÓN ANTI-BANCOS APAGADOS
+                            if (bancoElegido) {
+                                // Obtenemos el option correspondiente del select
+                                let option = Array.from(select.options).find(opt => opt.value === bancoElegido);
+                                
+                                // Verificamos si la opción está deshabilitada (es decir, el banco está apagado)
+                                if (option && option.disabled) {
+                                    alert(`🚫 LO SENTIMOS: El banco detectado (${bancoElegido.toUpperCase()}) se encuentra temporalmente fuera de servicio. Por favor, intenta más tarde o usa otro método.`);
+                                    
+                                    // Limpiamos todo y volvemos a la pantalla de subida
+                                    document.getElementById('comprobanteInput').value = '';
+                                    previewContainer.innerHTML = '';
+                                    return; // Detenemos la ejecución aquí, no se muestra el formulario
+                                } else {
+                                    // Si está activo, lo seleccionamos
+                                    select.value = bancoElegido;
+                                    actualizarCamposBanco(bancoElegido);
+                                }
+                            }
                         }
                         
                         if(data.MONTO) {
@@ -522,11 +553,11 @@
                             if(data.CLAVE_RETIRO) document.getElementById('inputClaveRetiro').value = data.CLAVE_RETIRO;
                             if(data.CLAVE_ENVIO) document.getElementById('inputClaveEnvio').value = data.CLAVE_ENVIO;
                         }
+                        
+                        // Mostramos el formulario si todo salió bien
+                        document.getElementById('zonaSubidaFoto').classList.add('hidden');
+                        formCompleto.classList.add('visible');
                     }
-
-                    document.getElementById('zonaSubidaFoto').classList.add('hidden');
-                    formCompleto.classList.add('visible');
-
                 })
                 .catch(error => {
                     console.error('Error:', error);

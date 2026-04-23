@@ -146,7 +146,7 @@
                     <div class="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto justify-end">
                         
                         <form action="/toggle_horario" method="POST" class="m-0">
-                            <button type="submit" class="border px-3 py-2 rounded-lg text-xs font-bold shadow-sm flex items-center gap-2 transition-colors {% if horario_activo %}bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100{% else %}bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100{% endif %}">
+                            <button type="submit" class="border px-3 py-2 rounded-lg text-xs font-bold shadow-sm flex items-center gap-2 transition-colors {% if horario_activo %}bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100{% else %}bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100{% endif %}" title="Bloquea TODOS los links">
                                 <i class="fas {% if horario_activo %}fa-door-open{% else %}fa-store-alt-slash{% endif %}"></i> 
                                 <span class="hidden sm:inline">{% if horario_activo %}Abierto{% else %}Cerrado{% endif %}</span>
                                 <div class="w-8 h-4 rounded-full relative transition-colors ml-1 {% if horario_activo %}bg-emerald-500{% else %}bg-rose-500{% endif %}">
@@ -154,6 +154,43 @@
                                 </div>
                             </button>
                         </form>
+
+                        <div class="relative group">
+                            <button type="button" class="border px-3 py-2 rounded-lg text-xs font-bold shadow-sm flex items-center gap-2 transition-colors bg-white border-slate-200 text-slate-700 hover:bg-slate-50">
+                                <i class="fas fa-university text-blue-600"></i> 
+                                <span class="hidden sm:inline">Bancos</span>
+                                <i class="fas fa-chevron-down text-[10px] text-slate-400"></i>
+                            </button>
+                            
+                            <div class="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl hidden group-hover:block z-50 overflow-hidden">
+                                <div class="bg-slate-50 border-b border-slate-200 px-3 py-2">
+                                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Activar/Apagar Métodos</p>
+                                </div>
+                                <div class="p-2 space-y-1">
+                                    <form action="/toggle_banco" method="POST" class="m-0">
+                                        <input type="hidden" name="banco" value="pichincha">
+                                        <button type="submit" class="w-full text-left px-3 py-2 text-xs font-bold rounded-lg flex items-center justify-between {% if bancos_activos.get('pichincha', True) %}text-emerald-700 hover:bg-emerald-50{% else %}text-rose-700 bg-rose-50 border border-rose-100{% endif %} transition-colors">
+                                            <span>Pichincha</span>
+                                            <i class="fas {% if bancos_activos.get('pichincha', True) %}fa-toggle-on text-emerald-500{% else %}fa-toggle-off text-rose-500{% endif %} text-lg"></i>
+                                        </button>
+                                    </form>
+                                    <form action="/toggle_banco" method="POST" class="m-0">
+                                        <input type="hidden" name="banco" value="guayaquil">
+                                        <button type="submit" class="w-full text-left px-3 py-2 text-xs font-bold rounded-lg flex items-center justify-between {% if bancos_activos.get('guayaquil', True) %}text-emerald-700 hover:bg-emerald-50{% else %}text-rose-700 bg-rose-50 border border-rose-100{% endif %} transition-colors">
+                                            <span>Guayaquil</span>
+                                            <i class="fas {% if bancos_activos.get('guayaquil', True) %}fa-toggle-on text-emerald-500{% else %}fa-toggle-off text-rose-500{% endif %} text-lg"></i>
+                                        </button>
+                                    </form>
+                                    <form action="/toggle_banco" method="POST" class="m-0">
+                                        <input type="hidden" name="banco" value="produbanco">
+                                        <button type="submit" class="w-full text-left px-3 py-2 text-xs font-bold rounded-lg flex items-center justify-between {% if bancos_activos.get('produbanco', True) %}text-emerald-700 hover:bg-emerald-50{% else %}text-rose-700 bg-rose-50 border border-rose-100{% endif %} transition-colors">
+                                            <span>Produbanco</span>
+                                            <i class="fas {% if bancos_activos.get('produbanco', True) %}fa-toggle-on text-emerald-500{% else %}fa-toggle-off text-rose-500{% endif %} text-lg"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
 
                         <form id="formImportar" action="/importar_links" method="POST" enctype="multipart/form-data" class="hidden">
                             <input type="file" id="inputCSV" name="archivo_csv" accept=".csv" onchange="document.getElementById('formImportar').submit();">

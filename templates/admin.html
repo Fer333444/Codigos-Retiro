@@ -97,18 +97,21 @@
         </header>
 
         <div id="mainScroll" class="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 relative custom-scrollbar pb-24">
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                <div class="max-w-6xl mx-auto mb-4">
+                {% for category, message in messages %}
+                  <div class="p-4 rounded-xl font-bold text-sm shadow-sm {% if category == 'error' %}bg-rose-50 text-rose-600 border border-rose-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
+                      {{ message }}
+                  </div>
+                {% endfor %}
+                </div>
+              {% endif %}
+            {% endwith %}
+
             <div class="max-w-6xl mx-auto" id="contenidoDinamico">
                 
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                  {% if messages %}
-                    {% for category, message in messages %}
-                      <div class="mb-6 p-4 rounded-xl font-bold text-sm shadow-sm {% if category == 'error' %}bg-rose-50 text-rose-600 border border-rose-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
-                          {{ message }}
-                      </div>
-                    {% endfor %}
-                  {% endif %}
-                {% endwith %}
-
                 <div class="mb-4">
                     <h2 class="text-2xl font-black text-slate-800 tracking-tight uppercase"><i class="fas fa-chart-pie text-blue-500 mr-2"></i> Reporte Diario en vivo</h2>
                     <p class="text-xs font-bold text-slate-500">Resumen de cajas antes de liquidar.</p>
@@ -254,7 +257,7 @@
 
                                 <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto">
                                     
-                                    <form action="/asignar" method="POST" class="flex flex-1 m-0 form-mantener-scroll w-full">
+                                    <form action="/asignar" method="POST" class="flex flex-col sm:flex-row flex-1 m-0 form-mantener-scroll w-full">
                                         <input type="hidden" name="id" value="{{ r.id }}">
                                         <select name="trabajador" required onchange="this.form.submit()" class="w-full text-sm sm:text-base bg-white border-2 border-slate-300 rounded-xl px-4 py-3 font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm cursor-pointer transition-colors hover:bg-slate-50">
                                             <option value="" disabled selected>Asignar manual...</option>
@@ -328,15 +331,6 @@
             }
         });
 
-        document.querySelectorAll('.form-mantener-scroll').forEach(form => {
-            form.addEventListener('submit', function() {
-                var mainScroll = document.getElementById('mainScroll');
-                if(mainScroll) {
-                    sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
-                }
-            });
-        });
-
         // ==========================================
         // 2. SISTEMA DE REFRESCAMIENTO SILENCIOSO (AJAX)
         // ==========================================
@@ -350,6 +344,8 @@
                 .then(html => {
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
+                    
+                    // Extraemos específicamente el id="contenidoDinamico"
                     const nuevoContenido = doc.getElementById('contenidoDinamico');
                     
                     if (nuevoContenido) {
@@ -358,11 +354,15 @@
                         
                         document.getElementById('contenidoDinamico').innerHTML = nuevoContenido.innerHTML;
                         
+                        // Re-adjuntar eventos onsubmit a los nuevos formularios
                         document.querySelectorAll('.form-mantener-scroll').forEach(form => {
                             form.addEventListener('submit', function() {
                                 sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
                             });
                         });
+                        
+                        // Reactivar el cronómetro para los nuevos elementos
+                        actualizarCronometros();
                         
                         mainScroll.scrollTop = scrollActual;
                     }
@@ -370,7 +370,8 @@
                 .catch(err => console.log('Silenced refresh error', err));
         }
 
-        setInterval(refrescarPanelSilencioso, 15000);
+        // Refrescar cada 10 segundos
+        setInterval(refrescarPanelSilencioso, 10000);
 
         // ==========================================
         // RESTO DE FUNCIONES NORMALES

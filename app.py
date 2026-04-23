@@ -180,12 +180,39 @@ def mantenimiento_datos():
     if cambios_realizados:
         guardar_datos()
 
-def ruta_por_rol(rol, username):
-    if rol == 'supremo': return url_for('admin')
-    if rol == 'recaudador': return url_for('admin')
-    if rol == 'cobrador': return url_for('vista_trabajador', nombre=username)
-    if rol == 'reportes': return url_for('vista_reportes')
-    return url_for('login')
+def ruta_por_rol(rol, usuario):
+    # Obtenemos los permisos exactos que tiene el usuario en la sesión
+    permisos = session.get('permisos', [])
+    
+    # 1. El Supremo siempre va a la pantalla principal
+    if rol == 'supremo':
+        return '/'
+        
+    # 2. Si el usuario tiene casillas marcadas, lo enviamos a la primera que tenga activa
+    if 'crear_links' in permisos:
+        return '/'
+    elif 'gestionar_grupos' in permisos:
+        return '/grupos'
+    elif 'ver_retiros' in permisos:
+        return '/admin'
+    elif 'procesar_retiros' in permisos:
+        return f'/trabajador/{usuario}'
+    elif 'ver_reportes' in permisos:
+        return '/reportes'
+    elif 'ver_reporte_diario' in permisos:
+        return '/reporte_diario'
+    elif 'gestionar_usuarios' in permisos:
+        return '/usuarios'
+        
+    # 3. Rutas por defecto (Solo se usan si el usuario no tiene NINGUNA casilla marcada)
+    if rol == 'recaudador': 
+        return '/admin'
+    if rol == 'cobrador': 
+        return f'/trabajador/{usuario}'
+    if rol == 'reportes': 
+        return '/reportes'
+        
+    return '/'
 
 @app.route('/')
 def index():

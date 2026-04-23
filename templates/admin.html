@@ -87,7 +87,7 @@
         </div>
     </aside>
 
-    <main class="flex-1 flex flex-col h-screen pt-16 md:pt-0 relative w-full">
+    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative w-full">
         <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm relative z-10 w-full shrink-0">
             <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
             <div class="flex items-center gap-4">
@@ -253,23 +253,23 @@
                                 </div>
 
                                 <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto">
-                                    <form action="/asignar" method="POST" class="flex flex-col sm:flex-row flex-1 gap-2 m-0 form-mantener-scroll">
+                                    
+                                    <form action="/asignar" method="POST" class="flex flex-1 m-0 form-mantener-scroll w-full">
                                         <input type="hidden" name="id" value="{{ r.id }}">
-                                        <select name="trabajador" required class="flex-1 text-xs sm:text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm">
+                                        <select name="trabajador" required onchange="this.form.submit()" class="w-full text-sm sm:text-base bg-white border-2 border-slate-300 rounded-xl px-4 py-3 font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm cursor-pointer transition-colors hover:bg-slate-50">
                                             <option value="" disabled selected>Asignar manual...</option>
                                             {% for c in cobradores %}
                                             <option value="{{ c }}">{{ c|capitalize }}</option>
                                             {% endfor %}
                                         </select>
-                                        <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white font-black text-xs px-4 py-2.5 rounded-lg uppercase tracking-widest transition-colors shadow-sm shrink-0">Confirmar</button>
                                     </form>
                                     
                                     {% if r.asignado_a %}
-                                        <span class="bg-green-600 text-white text-xs font-black px-4 py-2.5 rounded-lg shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest w-full sm:w-auto">
+                                        <span class="bg-green-600 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest w-full sm:w-auto h-full">
                                             <i class="fas fa-user-check mr-2"></i> {{ r.asignado_a }}
                                         </span>
                                     {% else %}
-                                        <span class="bg-slate-500 text-white text-xs font-black px-4 py-2.5 rounded-lg shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest w-full sm:w-auto">
+                                        <span class="bg-slate-500 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest w-full sm:w-auto h-full">
                                             <i class="fas fa-user-times mr-2"></i> SIN ASIGNAR
                                         </span>
                                     {% endif %}
@@ -321,7 +321,6 @@
             var savedScrollPos = sessionStorage.getItem('scrollpos_admin');
             
             if (savedScrollPos && mainScroll) {
-                // Pequeño delay para asegurar que el contenido ya cargó antes de hacer scroll
                 setTimeout(() => {
                     mainScroll.scrollTop = parseInt(savedScrollPos, 10);
                     sessionStorage.removeItem('scrollpos_admin'); 
@@ -329,7 +328,6 @@
             }
         });
 
-        // Enganchar el guardado de scroll a todos los formularios con la clase
         document.querySelectorAll('.form-mantener-scroll').forEach(form => {
             form.addEventListener('submit', function() {
                 var mainScroll = document.getElementById('mainScroll');
@@ -343,7 +341,6 @@
         // 2. SISTEMA DE REFRESCAMIENTO SILENCIOSO (AJAX)
         // ==========================================
         function refrescarPanelSilencioso() {
-            // Solo refrescamos si no hay modales abiertos (para no interrumpir al usuario)
             if(!document.getElementById('modalPapelera').classList.contains('hidden')) {
                 return;
             }
@@ -351,31 +348,28 @@
             fetch(window.location.href)
                 .then(response => response.text())
                 .then(html => {
-                    // Extraer solo la parte del contenido dinámico usando DOMParser
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
                     const nuevoContenido = doc.getElementById('contenidoDinamico');
                     
                     if (nuevoContenido) {
                         const mainScroll = document.getElementById('mainScroll');
-                        const scrollActual = mainScroll.scrollTop; // Guardamos dónde está mirando
+                        const scrollActual = mainScroll.scrollTop; 
                         
                         document.getElementById('contenidoDinamico').innerHTML = nuevoContenido.innerHTML;
                         
-                        // Re-asignamos eventos a los nuevos botones que llegaron con el HTML fresco
                         document.querySelectorAll('.form-mantener-scroll').forEach(form => {
                             form.addEventListener('submit', function() {
                                 sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
                             });
                         });
                         
-                        mainScroll.scrollTop = scrollActual; // Restauramos la vista al milímetro
+                        mainScroll.scrollTop = scrollActual;
                     }
                 })
                 .catch(err => console.log('Silenced refresh error', err));
         }
 
-        // Ejecutar el refresco silencioso cada 15 segundos
         setInterval(refrescarPanelSilencioso, 15000);
 
         // ==========================================

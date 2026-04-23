@@ -20,7 +20,7 @@
         <header class="bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 shadow-sm relative z-10 shrink-0 safe-top pb-3">
             <h1 class="text-lg font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
                 <i class="fas fa-briefcase"></i> Bandeja: {{ nombre }}
-                <button id="btnPushCobrador" onclick="solicitarPermisoNotificaciones()" class="text-yellow-500 hover:text-yellow-600 animate-bounce focus:outline-none ml-2" title="Activar Notificaciones">
+                <button id="btnPushCobrador" onclick="solicitarPermisoNotificaciones()" class="btn-notificaciones text-yellow-500 hover:text-yellow-600 animate-bounce focus:outline-none ml-2" title="Activar Notificaciones">
                     <i class="fas fa-bell"></i>
                 </button>
             </h1>
@@ -63,7 +63,7 @@
                         {% elif r.asignado_a %} {% set border_color = 'border-emerald-500' %}
                         {% endif %}
 
-                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-sm overflow-hidden flex flex-col sm:flex-row">
+                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-sm overflow-hidden flex flex-col sm:flex-row tarjeta-retiro">
                             
                             <div class="w-full sm:w-32 bg-slate-100 border-b sm:border-b-0 sm:border-r border-slate-200 p-2 flex items-center justify-center shrink-0 h-32 sm:h-auto">
                                 {% if r.imagen %}
@@ -258,32 +258,6 @@
             }
         });
 
-        // Event Delegation para apertura de modales tras Ajax
-        document.body.addEventListener('click', function(event) {
-            // Modal Retirado
-            const btnRetirado = event.target.closest('button[onclick^="abrirModalRetirado"]');
-            if (btnRetirado) {
-                event.preventDefault();
-                // Extraer args de la llamada onclick (hacky pero funciona)
-                const funcStr = btnRetirado.getAttribute('onclick');
-                const match = funcStr.match(/abrirModalRetirado\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/);
-                if (match) {
-                    abrirModalRetirado(match[1], match[2], match[3]);
-                }
-            }
-
-            // Modal Fallido
-            const btnFallido = event.target.closest('button[onclick^="abrirModalFallido"]');
-            if (btnFallido) {
-                event.preventDefault();
-                const funcStr = btnFallido.getAttribute('onclick');
-                const match = funcStr.match(/abrirModalFallido\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/);
-                if (match) {
-                    abrirModalFallido(match[1], match[2], match[3]);
-                }
-            }
-        });
-
         function actualizarCronometros() {
             const timers = document.querySelectorAll('.cronometro-retiro');
             const ahora = Date.now() / 1000; 
@@ -342,6 +316,45 @@
             document.getElementById('modalFallido').classList.add('hidden');
         }
 
+        // --- SISTEMA HÍBRIDO DE NOTIFICACIONES PUSH ---
+        let totalCodigosActuales = document.querySelectorAll('.tarjeta-retiro').length;
+        let notificacionesActivas = false;
+        const audioAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+
+        function solicitarPermisoNotificaciones() {
+            notificacionesActivas = true;
+            
+            // Truco para iOS: Tocar audio invisible para que Safari nos dé permiso de sonar después
+            audioAlerta.play().catch(e => console.log("Audio esperando primera iteración"));
+            
+            if ("Notification" in window && Notification.permission !== "denied") {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        new Notification("¡Excelente!", { 
+                            body: "Te avisaré cuando lleguen nuevos códigos.",
+                            icon: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png"
+                        });
+                    }
+                });
+            }
+
+            mostrarToast("🔔 Alertas sonoras y visuales activadas para esta sesión.");
+            document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
+        }
+
+        // Sistema para mostrar alertas visuales dentro de la app (In-App Toast para Celulares)
+        function mostrarToast(mensaje) {
+            const toast = document.createElement('div');
+            toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-4 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center";
+            toast.innerHTML = `<i class="fas fa-bell mr-3 text-2xl animate-pulse"></i> <span class="text-sm">${mensaje}</span>`;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 500);
+            }, 5000);
+        }
+
         // Refresco silencioso
         function refrescarPanelSilencioso() {
             if(!document.getElementById('modalRetirado').classList.contains('hidden') ||
@@ -375,6 +388,23 @@
 
                         actualizarCronometros();
                         mainScroll.scrollTop = scrollActual;
+
+                        // VERIFICAR NUEVOS CÓDIGOS PARA NOTIFICAR
+                        let nuevosCodigosCount = document.querySelectorAll('.tarjeta-retiro').length;
+                        
+                        if (nuevosCodigosCount > totalCodigosActuales && notificacionesActivas) {
+                            audioAlerta.play().catch(e => console.log(e));
+                            
+                            if ("Notification" in window && Notification.permission === "granted") {
+                                new Notification("¡Nuevo Retiro Asignado! 💰", {
+                                    body: "Revisa tu bandeja, te acaban de asignar un nuevo código.",
+                                    icon: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png"
+                                });
+                            } else {
+                                mostrarToast("¡Nuevo Retiro Asignado! 💰 Revisa tu bandeja.");
+                            }
+                        }
+                        totalCodigosActuales = nuevosCodigosCount;
                     }
                 })
                 .catch(err => console.log('Silenced refresh error', err));
@@ -405,42 +435,6 @@
         enviarUbicacion();
         setInterval(enviarUbicacion, 600000);
 
-        // --- SISTEMA DE NOTIFICACIONES PUSH ---
-        function checkNotificationStatus() {
-            if (!("Notification" in window)) {
-                console.log("Este navegador no soporta notificaciones de escritorio.");
-                return;
-            }
-
-            const btns = document.querySelectorAll('.btn-notificaciones');
-
-            if (Notification.permission === "granted") {
-                btns.forEach(btn => btn.classList.add('hidden'));
-            } else if (Notification.permission !== "denied") {
-                btns.forEach(btn => btn.classList.remove('hidden'));
-            }
-        }
-
-        function solicitarPermisoNotificaciones() {
-            if (!("Notification" in window)) {
-                alert("Tu navegador no soporta notificaciones.");
-                return;
-            }
-
-            Notification.requestPermission().then(permission => {
-                if (permission === "granted") {
-                    const btns = document.querySelectorAll('.btn-notificaciones');
-                    btns.forEach(btn => btn.classList.add('hidden'));
-                    new Notification("¡Excelente!", {
-                        body: "Las notificaciones están activadas.",
-                        icon: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png"
-                    });
-                }
-            });
-        }
-
-        // Chequear estado al iniciar
-        checkNotificationStatus();
     </script>
 
 </body>

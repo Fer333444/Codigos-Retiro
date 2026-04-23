@@ -18,7 +18,7 @@
     <header class="md:hidden fixed top-0 w-full h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-40 shadow-sm">
         <div class="flex items-center gap-3">
             <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
-            <button class="btn-notificaciones hidden text-yellow-500 hover:text-yellow-600 animate-bounce text-lg focus:outline-none" onclick="solicitarPermisoNotificaciones()" title="Activar Notificaciones"><i class="fas fa-bell"></i></button>
+            <button class="btn-notificaciones text-yellow-500 hover:text-yellow-600 animate-bounce text-lg focus:outline-none" onclick="solicitarPermisoNotificaciones()" title="Activar Notificaciones"><i class="fas fa-bell"></i></button>
         </div>
         <button id="btnMenuMovil" class="text-slate-600 hover:text-green-600 text-2xl focus:outline-none"><i class="fas fa-bars"></i></button>
     </header>
@@ -29,7 +29,7 @@
         <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
             <div class="flex items-center gap-3">
                 <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
-                <button class="btn-notificaciones hidden text-yellow-500 hover:text-yellow-600 animate-bounce text-lg focus:outline-none" onclick="solicitarPermisoNotificaciones()" title="Activar Notificaciones"><i class="fas fa-bell"></i></button>
+                <button class="btn-notificaciones text-yellow-500 hover:text-yellow-600 animate-bounce text-lg focus:outline-none" onclick="solicitarPermisoNotificaciones()" title="Activar Notificaciones"><i class="fas fa-bell"></i></button>
             </div>
             <button id="btnCerrarMenu" class="md:hidden text-slate-400 hover:text-red-500 text-xl focus:outline-none"><i class="fas fa-times"></i></button>
         </div>
@@ -366,7 +366,46 @@
         // VARIABLE GLOBAL PARA CONTAR LOS CÓDIGOS ACTUALES
         let totalCodigosActuales = document.querySelectorAll('form[action="/asignar"]').length;
 
-        // 3. SISTEMA DE REFRESCAMIENTO SILENCIOSO + NOTIFICACIONES
+        // --- SISTEMA DE NOTIFICACIONES PUSH (Híbrido iOS/PC) ---
+        let notificacionesActivas = false;
+        // Sonido de alerta compatible con todos los navegadores
+        const audioAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+
+        function solicitarPermisoNotificaciones() {
+            notificacionesActivas = true; // Activa notificaciones in-app
+            
+            // Desbloquear audio en iOS (requiere interacción del usuario)
+            audioAlerta.play().catch(e => console.log("Audio desbloqueado", e));
+            
+            // Intentar notificaciones nativas si están soportadas
+            if ("Notification" in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        new Notification("¡Activado!", { body: "Te avisaré de nuevos códigos." });
+                    }
+                });
+            }
+            
+            mostrarToast("🔔 Alertas sonoras y visuales activadas.");
+            // Ocultar todas las campanas
+            document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
+        }
+
+        // Sistema para mostrar alertas hermosas dentro de la app (Especial para iPhone)
+        function mostrarToast(mensaje) {
+            const toast = document.createElement('div');
+            toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-3 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center";
+            toast.innerHTML = `<i class="fas fa-bell mr-3 text-xl animate-pulse"></i> <span>${mensaje}</span>`;
+            document.body.appendChild(toast);
+            
+            // Efecto de desaparecer a los 4 segundos
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 500);
+            }, 4000);
+        }
+
+        // 3. SISTEMA DE REFRESCAMIENTO SILENCIOSO
         function refrescarPanelSilencioso() {
             const modalPapelera = document.getElementById('modalPapelera');
             if(modalPapelera && !modalPapelera.classList.contains('hidden')) {
@@ -394,19 +433,24 @@
                         actualizarCronometros();
                         mainScroll.scrollTop = scrollActual;
 
-                        // --- LÓGICA DE NOTIFICACIONES PUSH REALES ---
+                        // LÓGICA DE NOTIFICACIONES
                         let nuevosCodigosCount = document.querySelectorAll('form[action="/asignar"]').length;
                         
-                        // Si hay MÁS códigos que antes, lanzamos notificación
-                        if (nuevosCodigosCount > totalCodigosActuales) {
-                            if (Notification.permission === "granted") {
+                        if (nuevosCodigosCount > totalCodigosActuales && notificacionesActivas) {
+                            // Reproducir sonido para TODOS los dispositivos
+                            audioAlerta.play().catch(e => console.log(e));
+                            
+                            // Mostrar notificación nativa si es PC/Android
+                            if ("Notification" in window && Notification.permission === "granted") {
                                 new Notification("¡Nuevo Retiro Ingresado! 💰", {
                                     body: "Revisa tu bandeja, acaba de llegar un nuevo código.",
-                                    icon: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png" // Puedes cambiar esto por el link a tu propio logo
+                                    icon: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png"
                                 });
+                            } else {
+                                // Mostrar In-App Toast si es iPhone o no dio permisos nativos
+                                mostrarToast("¡Nuevo Retiro Ingresado! 💰 Revisa tu bandeja.");
                             }
                         }
-                        // Actualizamos el contador
                         totalCodigosActuales = nuevosCodigosCount;
                     }
                 })
@@ -479,42 +523,6 @@
         if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);
         if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
         if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
-
-        // --- SISTEMA DE NOTIFICACIONES PUSH ---
-        function checkNotificationStatus() {
-            if (!("Notification" in window)) {
-                console.log("Este navegador no soporta notificaciones de escritorio.");
-                return;
-            }
-
-            const btns = document.querySelectorAll('.btn-notificaciones');
-
-            if (Notification.permission === "granted") {
-                btns.forEach(btn => btn.classList.add('hidden'));
-            } else if (Notification.permission !== "denied") {
-                btns.forEach(btn => btn.classList.remove('hidden'));
-            }
-        }
-
-        function solicitarPermisoNotificaciones() {
-            if (!("Notification" in window)) {
-                alert("Tu navegador no soporta notificaciones.");
-                return;
-            }
-
-            Notification.requestPermission().then(permission => {
-                if (permission === "granted") {
-                    const btns = document.querySelectorAll('.btn-notificaciones');
-                    btns.forEach(btn => btn.classList.add('hidden'));
-                    new Notification("¡Excelente!", {
-                        body: "A partir de ahora te avisaré cuando lleguen nuevos códigos.",
-                        icon: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png"
-                    });
-                }
-            });
-        }
-
-        checkNotificationStatus();
     </script>
 </body>
 </html>

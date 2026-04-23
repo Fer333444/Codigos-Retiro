@@ -483,28 +483,20 @@ def procesar_formulario_retiro(req, lista_usuarios):
     clave_envio = req.form.get('clave_envio', '')
     codigo_seguridad = req.form.get('codigo_seguridad', '')
     
-    # =================================================================
-    # SISTEMA ANTI-DUPLICADOS (HUELLA DIGITAL DE TRANSACCIÓN)
-    # =================================================================
     import hashlib
-    
     codigos_unidos = f"{codigo_recibido}{clave_retiro}{clave_envio}{codigo_seguridad}".strip()
     
     if codigos_unidos:
-        # Genera un ID único (Hash) mezclando el monto y los códigos
         hash_input = f"{monto_total_str}-{codigos_unidos}".encode('utf-8')
         transaccion_id = f"TRX-{hashlib.md5(hash_input).hexdigest()[:8].upper()}"
         
-        # REVISAR SI EL CÓDIGO YA EXISTE EN EL SISTEMA
         for r in registros:
             if r.get('transaccion_id') == transaccion_id and r.get('estado') in ['activo', 'retirado']:
                 flash('⚠️ ADVERTENCIA: Este código de retiro ya fue ingresado al sistema. No se puede duplicar.', 'error')
                 return redirect(req.url)
     else:
-        # Si envían datos manuales sin códigos, generamos ID por fecha
         transaccion_id = f"TRX-{int(tiempo_creacion)}"
-    # =================================================================
-    
+        
     imagenes = req.files.getlist('comprobante')
     nombres_imagenes = []
     
@@ -523,16 +515,24 @@ def procesar_formulario_retiro(req, lista_usuarios):
     usuarios_juntos = " + ".join(lista_usuarios)
     
     historial_inicial = []
+    usuarios_para_recibo = ""
     
     if is_split:
         detalles_desglose = []
+        recibo_desglose = []
         for u in lista_usuarios:
             monto_u = req.form.get(f'monto_usuario_{u}', '0.00')
             detalles_desglose.append(f"${monto_u} a {u}")
+            # AQUÍ CREAMOS EL TEXTO PARA EL RECIBO FINAL
+            recibo_desglose.append(f"{u} (${monto_u})")
+            
         texto_desglose = " | ".join(detalles_desglose)
         historial_inicial.append(f"[{hora_actual}] Creado por Cliente (Múltiple: {texto_desglose})")
+        # Usamos <br> para que en el recibo cada usuario salga en una línea distinta
+        usuarios_para_recibo = "<br>".join(recibo_desglose)
     else:
         historial_inicial.append(f"[{hora_actual}] Creado por Cliente")
+        usuarios_para_recibo = lista_usuarios[0]
     
     if sistema_config['auto_asignar']:
         cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
@@ -548,7 +548,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
 
     nuevo_registro = {
         'id': len(registros) + 1,
-        'transaccion_id': transaccion_id, # GUARDAMOS EL ID CREADO
+        'transaccion_id': transaccion_id, 
         'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"),
         'banco': banco, 
         'celular': celular, 
@@ -570,10 +570,10 @@ def procesar_formulario_retiro(req, lista_usuarios):
     registros.insert(0, nuevo_registro)
         
     session['recibo_retiro'] = {
-        'transaccion_id': transaccion_id, # PASAMOS EL ID A LA VISTA FINAL
+        'transaccion_id': transaccion_id,
         'banco': banco.upper() if banco else 'NO ESPECIFICADO',
         'monto': monto_total_str,
-        'usuario': usuarios_juntos,
+        'usuario': usuarios_para_recibo, # <-- AHORA ENVÍA EL TEXTO CON MONTOS
         'fecha': hora_ecuador().strftime("%d/%m/%Y %I:%M %p")
     }
         

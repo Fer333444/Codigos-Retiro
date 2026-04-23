@@ -57,18 +57,31 @@
         </div>
         
         <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            {% set mis_permisos = session.get('permisos', []) %}
+
+            {% if rol == 'supremo' or 'crear_links' in mis_permisos %}
             <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg">
                 <i class="fas fa-link w-5"></i> Links de Clientes
             </a>
+            {% endif %}
+
+            {% if rol == 'supremo' or 'gestionar_grupos' in mis_permisos %}
             <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50">
                 <i class="fas fa-folder w-5"></i> Mis Grupos
             </a>
+            {% endif %}
+
+            {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
             <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50">
                 <i class="fas fa-home w-5"></i> Retiros Activos
             </a>
+            {% endif %}
+
+            {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
             <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50">
                 <i class="fas fa-users w-5"></i> Administrar usuarios
             </a>
+            {% endif %}
             
             {% if rol == 'supremo' or 'ver_reportes' in mis_permisos %}
             <div class="relative">
@@ -116,110 +129,127 @@
                 {% endif %}
             {% endwith %}
 
-            <div class="bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm w-full">
-                <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-slate-800 tracking-tight">Administrar Links de Clientes</h2>
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm w-full overflow-hidden">
+                <div class="p-4 md:p-6 pb-0">
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Administrar Links de Clientes</h2>
+                </div>
 
-                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
-                    <div class="relative w-full xl:w-72">
-                        <i class="fas fa-search absolute left-4 top-3 text-slate-400"></i>
-                        <input type="text" id="buscadorLinks" placeholder="Buscar por usuario..." class="w-full pl-11 pr-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm transition-all bg-slate-50 focus:bg-white">
-                    </div>
+                <div class="p-4 sm:p-6 border-b border-slate-100 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white">
                     
-                    <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+                    <div class="relative w-full lg:w-72">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-slate-400"></i>
+                        </div>
+                        <input type="text" id="buscadorLinks" placeholder="Buscar por usuario..." class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 text-slate-600 font-medium shadow-sm transition-colors bg-slate-50 focus:bg-white">
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto justify-end">
+                        
+                        <form action="/toggle_horario" method="POST" class="m-0">
+                            <button type="submit" class="border px-3 py-2 rounded-lg text-xs font-bold shadow-sm flex items-center gap-2 transition-colors {% if horario_activo %}bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100{% else %}bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100{% endif %}">
+                                <i class="fas {% if horario_activo %}fa-door-open{% else %}fa-store-alt-slash{% endif %}"></i> 
+                                <span class="hidden sm:inline">{% if horario_activo %}Abierto{% else %}Cerrado{% endif %}</span>
+                                <div class="w-8 h-4 rounded-full relative transition-colors ml-1 {% if horario_activo %}bg-emerald-500{% else %}bg-rose-500{% endif %}">
+                                    <div class="w-3 h-3 bg-white rounded-full absolute top-0.5 transition-transform {% if horario_activo %}right-0.5{% else %}left-0.5{% endif %}"></div>
+                                </div>
+                            </button>
+                        </form>
+
                         <form id="formImportar" action="/importar_links" method="POST" enctype="multipart/form-data" class="hidden">
                             <input type="file" id="inputCSV" name="archivo_csv" accept=".csv" onchange="document.getElementById('formImportar').submit();">
                         </form>
-                        
-                        <button onclick="document.getElementById('inputCSV').click();" class="flex-1 md:flex-none bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-white font-bold py-2.5 px-4 md:px-5 rounded-xl shadow-sm transition-all text-xs md:text-sm flex items-center justify-center gap-2">
-                            <i class="fas fa-file-import"></i> Importar
-                        </button>
-                        
-                        <button onclick="exportarPDF()" class="flex-1 md:flex-none bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold py-2.5 px-4 md:px-5 rounded-xl shadow-sm transition-all text-xs md:text-sm flex items-center justify-center gap-2">
-                            <i class="fas fa-file-pdf"></i> Exportar
-                        </button>
 
-                        <a href="/crear_link" class="w-full md:w-auto bg-[#108000] hover:bg-[#0c6600] active:bg-green-800 text-white font-bold py-2.5 px-4 md:px-6 rounded-xl shadow-sm transition-all text-xs md:text-sm flex items-center justify-center gap-2">
-                            <i class="fas fa-plus"></i> Nuevo Cliente
+                        <button onclick="document.getElementById('inputCSV').click();" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-lg shadow-sm text-xs flex items-center transition-colors">
+                            <i class="fas fa-file-import sm:mr-1.5"></i> <span class="hidden sm:inline">Importar</span>
+                        </button>
+                        
+                        <button onclick="exportarPDF()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm text-xs flex items-center transition-colors">
+                            <i class="fas fa-file-export sm:mr-1.5"></i> <span class="hidden sm:inline">Exportar</span>
+                        </button>
+                        
+                        <a href="/crear_link" class="bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-4 rounded-lg shadow-sm text-xs flex items-center transition-colors">
+                            <i class="fas fa-plus mr-1.5"></i> Nuevo Cliente
                         </a>
                     </div>
                 </div>
 
-                <form action="/agrupar_bulk" method="POST" id="formBulk">
-                    
-                    <div id="bulkBar" class="hidden bg-indigo-50 border border-indigo-200 p-4 rounded-xl mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 transition-all shadow-sm">
-                        <span class="text-indigo-800 font-black text-sm tracking-wide"><span id="countSelected" class="bg-indigo-600 text-white px-2 py-0.5 rounded-full mr-1">0</span> SELECCIONADOS</span>
-                        <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-center">
-                            <select name="grupo_destino" class="w-full sm:w-auto border border-indigo-200 rounded-lg px-3 py-2 text-sm text-indigo-800 bg-white font-bold outline-none focus:ring-2 focus:ring-indigo-400">
-                                <option value="">-- Mover a Grupo Existente --</option>
-                                {% for g in grupos %}
-                                <option value="{{ g }}">{{ g }}</option>
-                                {% endfor %}
-                            </select>
-                            <span class="hidden sm:inline text-xs text-indigo-400 font-bold uppercase tracking-widest">Ó</span>
-                            <input type="text" name="nuevo_grupo" placeholder="Escribir nuevo grupo..." class="w-full sm:w-44 border border-indigo-200 rounded-lg px-3 py-2 text-sm text-indigo-800 bg-white outline-none focus:ring-2 focus:ring-indigo-400 font-bold">
-                            <button type="submit" class="w-full sm:w-auto bg-indigo-600 text-white font-black px-5 py-2 rounded-lg hover:bg-indigo-700 text-sm shadow uppercase tracking-wide">Agrupar</button>
+                <div class="p-4 md:p-6 pt-4">
+                    <form action="/agrupar_bulk" method="POST" id="formBulk">
+                        
+                        <div id="bulkBar" class="hidden bg-indigo-50 border border-indigo-200 p-4 rounded-xl mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 transition-all shadow-sm">
+                            <span class="text-indigo-800 font-black text-sm tracking-wide"><span id="countSelected" class="bg-indigo-600 text-white px-2 py-0.5 rounded-full mr-1">0</span> SELECCIONADOS</span>
+                            <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-center">
+                                <select name="grupo_destino" class="w-full sm:w-auto border border-indigo-200 rounded-lg px-3 py-2 text-sm text-indigo-800 bg-white font-bold outline-none focus:ring-2 focus:ring-indigo-400">
+                                    <option value="">-- Mover a Grupo Existente --</option>
+                                    {% for g in grupos %}
+                                    <option value="{{ g }}">{{ g }}</option>
+                                    {% endfor %}
+                                </select>
+                                <span class="hidden sm:inline text-xs text-indigo-400 font-bold uppercase tracking-widest">Ó</span>
+                                <input type="text" name="nuevo_grupo" placeholder="Escribir nuevo grupo..." class="w-full sm:w-44 border border-indigo-200 rounded-lg px-3 py-2 text-sm text-indigo-800 bg-white outline-none focus:ring-2 focus:ring-indigo-400 font-bold">
+                                <button type="submit" class="w-full sm:w-auto bg-indigo-600 text-white font-black px-5 py-2 rounded-lg hover:bg-indigo-700 text-sm shadow uppercase tracking-wide">Agrupar</button>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="overflow-x-auto rounded-xl border border-slate-200 w-full max-w-full">
-                        <table class="w-full text-left text-sm text-slate-600 border-collapse whitespace-nowrap" id="tablaLinks">
-                            <thead>
-                                <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 tracking-wider">
-                                    <th class="py-4 px-4 w-10 text-center"><input type="checkbox" id="selectAll" class="w-4 h-4 text-green-600 rounded cursor-pointer"></th>
-                                    <th class="py-4 px-4 font-bold">Usuario (Cliente)</th>
-                                    <th class="py-4 px-4 font-bold">Enlace Único</th>
-                                    <th class="py-4 px-4 font-bold text-center">Grupo</th>
-                                    <th class="py-4 px-4 font-bold">Fecha</th>
-                                    <th class="py-4 px-4 text-right font-bold">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 bg-white">
-                                {% if not enlaces %}
-                                    <tr><td colspan="6" class="py-10 text-center text-slate-400 italic font-medium">No has creado ningún link todavía.</td></tr>
-                                {% endif %}
-                                
-                                {% for token, data in enlaces.items() %}
-                                <tr class="hover:bg-slate-50 group fila-link transition-colors">
-                                    <td class="py-4 px-4 text-center">
-                                        <input type="checkbox" name="tokens" value="{{ token }}" class="chk-link w-4 h-4 text-green-600 rounded cursor-pointer">
-                                    </td>
-                                    <td class="py-4 px-4 font-black text-slate-800 text-base min-w-[150px]"><i class="fas fa-user-circle text-slate-300 mr-2 text-lg align-middle"></i>{{ data.usuario }}</td>
-                                    <td class="py-4 px-4 font-mono text-[11px] text-blue-600">{{ base_url }}retiro/{{ token }}</td>
-                                    <td class="py-4 px-4 text-center min-w-[100px]">
-                                        <span class="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs font-bold border border-slate-200">{{ data.grupo }}</span>
-                                    </td>
-                                    <td class="py-4 px-4 text-[10px] font-bold text-slate-400">{{ data.fecha }}</td>
+                        <div class="overflow-x-auto rounded-xl border border-slate-200 w-full max-w-full">
+                            <table class="w-full text-left text-sm text-slate-600 border-collapse whitespace-nowrap" id="tablaLinks">
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 tracking-wider">
+                                        <th class="py-4 px-4 w-10 text-center"><input type="checkbox" id="selectAll" class="w-4 h-4 text-green-600 rounded cursor-pointer"></th>
+                                        <th class="py-4 px-4 font-bold">Usuario (Cliente)</th>
+                                        <th class="py-4 px-4 font-bold">Enlace Único</th>
+                                        <th class="py-4 px-4 font-bold text-center">Grupo</th>
+                                        <th class="py-4 px-4 font-bold">Fecha</th>
+                                        <th class="py-4 px-4 text-right font-bold">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    {% if not enlaces %}
+                                        <tr><td colspan="6" class="py-10 text-center text-slate-400 italic font-medium">No has creado ningún link todavía.</td></tr>
+                                    {% endif %}
                                     
-                                    <td class="py-4 px-4 text-right min-w-[140px]">
-                                        <div class="flex items-center justify-end gap-2">
-                                            <button type="button" onclick="copiarLink('{{ base_url }}retiro/{{ token }}')" title="Copiar Link" class="w-8 h-8 flex items-center justify-center border border-emerald-200 text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
-                                                <i class="fas fa-copy"></i>
-                                            </button>
-                                            
-                                            <button type="button" onclick="abrirModal('{{ token }}', '{{ data.usuario }}', '{{ data.grupo }}')" title="Editar" class="w-8 h-8 flex items-center justify-center border border-blue-200 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm">
-                                                <i class="fas fa-pen"></i>
-                                            </button>
-
-                                            <form action="/eliminar_link" method="POST" class="m-0" onsubmit="return confirm('⚠️ ¡ATENCIÓN!\n\n¿Estás absolutamente seguro de que deseas eliminar a este cliente?\n\nSi lo borras, su enlace dejará de funcionar inmediatamente y no podrá enviarte más retiros a menos que lo vuelvas a crear.');">
-                                                <input type="hidden" name="token" value="{{ token }}">
-                                                <button type="submit" title="Eliminar" class="w-8 h-8 flex items-center justify-center border border-red-200 text-red-600 bg-red-50 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm">
-                                                    <i class="fas fa-trash"></i>
+                                    {% for token, data in enlaces.items() %}
+                                    <tr class="hover:bg-slate-50 group fila-link transition-colors">
+                                        <td class="py-4 px-4 text-center">
+                                            <input type="checkbox" name="tokens" value="{{ token }}" class="chk-link w-4 h-4 text-green-600 rounded cursor-pointer">
+                                        </td>
+                                        <td class="py-4 px-4 font-black text-slate-800 text-base min-w-[150px]"><i class="fas fa-user-circle text-slate-300 mr-2 text-lg align-middle"></i>{{ data.usuario }}</td>
+                                        <td class="py-4 px-4 font-mono text-[11px] text-blue-600">{{ base_url }}retiro/{{ token }}</td>
+                                        <td class="py-4 px-4 text-center min-w-[100px]">
+                                            <span class="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs font-bold border border-slate-200">{{ data.grupo }}</span>
+                                        </td>
+                                        <td class="py-4 px-4 text-[10px] font-bold text-slate-400">{{ data.fecha }}</td>
+                                        
+                                        <td class="py-4 px-4 text-right min-w-[140px]">
+                                            <div class="flex items-center justify-end gap-2">
+                                                <button type="button" onclick="copiarLink('{{ base_url }}retiro/{{ token }}')" title="Copiar Link" class="w-8 h-8 flex items-center justify-center border border-emerald-200 text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
+                                                    <i class="fas fa-copy"></i>
                                                 </button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </form>
+                                                
+                                                <button type="button" onclick="abrirModal('{{ token }}', '{{ data.usuario }}', '{{ data.grupo }}')" title="Editar" class="w-8 h-8 flex items-center justify-center border border-blue-200 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm">
+                                                    <i class="fas fa-pen"></i>
+                                                </button>
+
+                                                <form action="/eliminar_link" method="POST" class="m-0" onsubmit="return confirm('⚠️ ¡ATENCIÓN!\n\n¿Estás absolutamente seguro de que deseas eliminar a este cliente?\n\nSi lo borras, su enlace dejará de funcionar inmediatamente y no podrá enviarte más retiros a menos que lo vuelvas a crear.');">
+                                                    <input type="hidden" name="token" value="{{ token }}">
+                                                    <button type="submit" title="Eliminar" class="w-8 h-8 flex items-center justify-center border border-red-200 text-red-600 bg-red-50 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </main>
 
     <script>
-        // --- NUEVA LÓGICA PARA EL SUBMENÚ DESPLEGABLE ---
         function toggleSubmenu(menuId, iconId) {
             const menu = document.getElementById(menuId);
             const icon = document.getElementById(iconId);
@@ -235,7 +265,6 @@
             }
         }
 
-        // --- LÓGICA DE MENÚ MÓVIL RESPONSIVO ---
         const btnMenuMovil = document.getElementById('btnMenuMovil');
         const btnCerrarMenu = document.getElementById('btnCerrarMenu');
         const sidebar = document.getElementById('sidebar');
@@ -251,7 +280,6 @@
         if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
 
 
-        // --- LÓGICA DEL MODAL DE EDICIÓN ---
         const modal = document.getElementById('modalEditar');
         
         function abrirModal(token, usuario, grupo) {
@@ -269,7 +297,6 @@
             if (e.target === modal) cerrarModal();
         });
 
-        // --- LÓGICA DE CHECKBOXES Y BÚSQUEDA ---
         const selectAll = document.getElementById('selectAll');
         const checkboxes = document.querySelectorAll('.chk-link');
         const bulkBar = document.getElementById('bulkBar');
@@ -322,7 +349,6 @@
             });
         }
 
-        // --- LÓGICA DE PDF ---
         function exportarPDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();

@@ -847,7 +847,7 @@ def marcar_retirado():
             
     guardar_datos()
     flash('¡Retiro marcado como completado!', 'success')
-    return redirect(ruta_por_rol(session.get('rol'), session.get('usuario')))
+    return redirect(request.referrer)
 
 @app.route('/marcar_fallido', methods=['POST'])
 def marcar_fallido():
@@ -875,7 +875,7 @@ def marcar_fallido():
             break
             
     guardar_datos()
-    return redirect(ruta_por_rol(session.get('rol'), session.get('usuario')))
+    return redirect(request.referrer)
 
 @app.route('/gestionar_deuda', methods=['POST'])
 def gestionar_deuda():

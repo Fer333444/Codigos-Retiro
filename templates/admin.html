@@ -16,7 +16,10 @@
 <body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
 
     <header class="md:hidden fixed top-0 w-full h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-40 shadow-sm">
-        <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+        <div class="flex items-center gap-3">
+            <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+            <button class="btn-notificaciones hidden text-yellow-500 hover:text-yellow-600 animate-bounce text-lg focus:outline-none" onclick="solicitarPermisoNotificaciones()" title="Activar Notificaciones"><i class="fas fa-bell"></i></button>
+        </div>
         <button id="btnMenuMovil" class="text-slate-600 hover:text-green-600 text-2xl focus:outline-none"><i class="fas fa-bars"></i></button>
     </header>
 
@@ -24,7 +27,10 @@
 
     <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-50">
         <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
-            <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+            <div class="flex items-center gap-3">
+                <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+                <button class="btn-notificaciones hidden text-yellow-500 hover:text-yellow-600 animate-bounce text-lg focus:outline-none" onclick="solicitarPermisoNotificaciones()" title="Activar Notificaciones"><i class="fas fa-bell"></i></button>
+            </div>
             <button id="btnCerrarMenu" class="md:hidden text-slate-400 hover:text-red-500 text-xl focus:outline-none"><i class="fas fa-times"></i></button>
         </div>
         
@@ -313,7 +319,6 @@
 
         // ==========================================
         // 1. SISTEMA MAESTRO DE EVENTOS (DELEGACIÓN)
-        // A prueba de fallos tras las recargas de Ajax
         // ==========================================
         document.body.addEventListener('click', function(event) {
             if (event.target.closest('.btn-abrir-papelera')) {
@@ -367,7 +372,6 @@
                 return;
             }
 
-            // CACHE-BUSTER: Forzamos una URL única para que el navegador NO use datos viejos
             const urlFresca = window.location.pathname + '?t=' + new Date().getTime();
 
             fetch(urlFresca, { 
@@ -397,7 +401,7 @@
         setInterval(refrescarPanelSilencioso, 10000);
 
         // ==========================================
-        // RESTO DE FUNCIONES NORMALES
+        // 4. RESTO DE FUNCIONES NORMALES
         // ==========================================
         function actualizarCronometros() {
             const timers = document.querySelectorAll('.cronometro-retiro');
@@ -462,6 +466,43 @@
         if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);
         if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
         if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
+
+        // --- SISTEMA DE NOTIFICACIONES PUSH ---
+        function checkNotificationStatus() {
+            if (!("Notification" in window)) {
+                console.log("Este navegador no soporta notificaciones de escritorio.");
+                return;
+            }
+
+            const btns = document.querySelectorAll('.btn-notificaciones');
+
+            if (Notification.permission === "granted") {
+                btns.forEach(btn => btn.classList.add('hidden'));
+            } else if (Notification.permission !== "denied") {
+                btns.forEach(btn => btn.classList.remove('hidden'));
+            }
+        }
+
+        function solicitarPermisoNotificaciones() {
+            if (!("Notification" in window)) {
+                alert("Tu navegador no soporta notificaciones.");
+                return;
+            }
+
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    const btns = document.querySelectorAll('.btn-notificaciones');
+                    btns.forEach(btn => btn.classList.add('hidden'));
+                    new Notification("¡Excelente!", {
+                        body: "Las notificaciones están activadas.",
+                        icon: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png"
+                    });
+                }
+            });
+        }
+
+        // Chequear estado al iniciar
+        checkNotificationStatus();
     </script>
 </body>
 </html>

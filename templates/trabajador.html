@@ -20,6 +20,9 @@
         <header class="bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 shadow-sm relative z-10 shrink-0 safe-top pb-3">
             <h1 class="text-lg font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
                 <i class="fas fa-briefcase"></i> Bandeja: {{ nombre }}
+                <button id="btnPushCobrador" onclick="solicitarPermisoNotificaciones()" class="text-yellow-500 hover:text-yellow-600 animate-bounce focus:outline-none ml-2" title="Activar Notificaciones">
+                    <i class="fas fa-bell"></i>
+                </button>
             </h1>
             <div class="flex items-center gap-4">
                 <span class="text-[10px] sm:text-xs font-bold text-slate-500 uppercase">{{ mi_usuario }} (Cobrador)</span>
@@ -27,8 +30,8 @@
             </div>
         </header>
 
-        <div class="flex-1 overflow-auto p-4 sm:p-8 bg-slate-50 custom-scrollbar">
-            <div class="max-w-5xl mx-auto">
+        <div class="flex-1 overflow-auto p-4 sm:p-8 bg-slate-50 custom-scrollbar" id="mainScroll">
+            <div class="max-w-5xl mx-auto" id="contenidoDinamico">
 
                 {% with messages = get_flashed_messages(with_categories=true) %}
                   {% if messages %}
@@ -151,7 +154,7 @@
                 <button type="button" onclick="cerrarModalRetirado()" class="text-emerald-400 hover:text-emerald-600 focus:outline-none"><i class="fas fa-times-circle text-2xl"></i></button>
             </div>
             
-            <form action="/marcar_retirado" method="POST" class="p-6 space-y-5 bg-white">
+            <form action="/marcar_retirado" method="POST" class="p-6 space-y-5 bg-white form-mantener-scroll">
                 <input type="hidden" name="id" id="retirado_id">
                 
                 <div class="bg-slate-50 border border-slate-200 p-4 rounded-lg flex justify-between items-center">
@@ -196,7 +199,7 @@
                 <button type="button" onclick="cerrarModalFallido()" class="text-rose-400 hover:text-rose-600 transition-colors focus:outline-none"><i class="fas fa-times-circle text-2xl"></i></button>
             </div>
             
-            <form action="/marcar_fallido" method="POST" class="p-6 space-y-5 bg-white">
+            <form action="/marcar_fallido" method="POST" class="p-6 space-y-5 bg-white form-mantener-scroll">
                 <input type="hidden" name="id" id="fallido_id">
                 
                 <div class="bg-slate-50 border border-slate-200 p-4 rounded-lg flex justify-between items-center">
@@ -233,6 +236,54 @@
     </div>
 
     <script>
+        // Mantenimiento del Scroll en formularios
+        document.querySelectorAll('.form-mantener-scroll').forEach(form => {
+            form.addEventListener('submit', function() {
+                var mainScroll = document.getElementById('mainScroll');
+                if(mainScroll) {
+                    sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
+                }
+            });
+        });
+
+        document.addEventListener("DOMContentLoaded", function() { 
+            var mainScroll = document.getElementById('mainScroll');
+            var savedScrollPos = sessionStorage.getItem('scrollpos_admin');
+            
+            if (savedScrollPos && mainScroll) {
+                setTimeout(() => {
+                    mainScroll.scrollTop = parseInt(savedScrollPos, 10);
+                    sessionStorage.removeItem('scrollpos_admin'); 
+                }, 50);
+            }
+        });
+
+        // Event Delegation para apertura de modales tras Ajax
+        document.body.addEventListener('click', function(event) {
+            // Modal Retirado
+            const btnRetirado = event.target.closest('button[onclick^="abrirModalRetirado"]');
+            if (btnRetirado) {
+                event.preventDefault();
+                // Extraer args de la llamada onclick (hacky pero funciona)
+                const funcStr = btnRetirado.getAttribute('onclick');
+                const match = funcStr.match(/abrirModalRetirado\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/);
+                if (match) {
+                    abrirModalRetirado(match[1], match[2], match[3]);
+                }
+            }
+
+            // Modal Fallido
+            const btnFallido = event.target.closest('button[onclick^="abrirModalFallido"]');
+            if (btnFallido) {
+                event.preventDefault();
+                const funcStr = btnFallido.getAttribute('onclick');
+                const match = funcStr.match(/abrirModalFallido\('([^']+)',\s*'([^']+)',\s*'([^']+)'\)/);
+                if (match) {
+                    abrirModalFallido(match[1], match[2], match[3]);
+                }
+            }
+        });
+
         function actualizarCronometros() {
             const timers = document.querySelectorAll('.cronometro-retiro');
             const ahora = Date.now() / 1000; 
@@ -291,6 +342,47 @@
             document.getElementById('modalFallido').classList.add('hidden');
         }
 
+        // Refresco silencioso
+        function refrescarPanelSilencioso() {
+            if(!document.getElementById('modalRetirado').classList.contains('hidden') ||
+               !document.getElementById('modalFallido').classList.contains('hidden')) {
+                return;
+            }
+
+            const urlFresca = window.location.pathname + '?t=' + new Date().getTime();
+
+            fetch(urlFresca, { 
+                cache: 'no-store',
+                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+            })
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const nuevoContenido = doc.getElementById('contenidoDinamico');
+                    
+                    if (nuevoContenido) {
+                        const mainScroll = document.getElementById('mainScroll');
+                        const scrollActual = mainScroll.scrollTop; 
+                        
+                        document.getElementById('contenidoDinamico').innerHTML = nuevoContenido.innerHTML;
+                        
+                        document.querySelectorAll('.form-mantener-scroll').forEach(form => {
+                            form.addEventListener('submit', function() {
+                                sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
+                            });
+                        });
+
+                        actualizarCronometros();
+                        mainScroll.scrollTop = scrollActual;
+                    }
+                })
+                .catch(err => console.log('Silenced refresh error', err));
+        }
+
+        setInterval(refrescarPanelSilencioso, 10000);
+
+
         // --- SISTEMA DE UBICACIÓN ---
         function enviarUbicacion() {
             if ("geolocation" in navigator) {
@@ -312,6 +404,43 @@
         
         enviarUbicacion();
         setInterval(enviarUbicacion, 600000);
+
+        // --- SISTEMA DE NOTIFICACIONES PUSH ---
+        function checkNotificationStatus() {
+            if (!("Notification" in window)) {
+                console.log("Este navegador no soporta notificaciones de escritorio.");
+                return;
+            }
+
+            const btns = document.querySelectorAll('.btn-notificaciones');
+
+            if (Notification.permission === "granted") {
+                btns.forEach(btn => btn.classList.add('hidden'));
+            } else if (Notification.permission !== "denied") {
+                btns.forEach(btn => btn.classList.remove('hidden'));
+            }
+        }
+
+        function solicitarPermisoNotificaciones() {
+            if (!("Notification" in window)) {
+                alert("Tu navegador no soporta notificaciones.");
+                return;
+            }
+
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    const btns = document.querySelectorAll('.btn-notificaciones');
+                    btns.forEach(btn => btn.classList.add('hidden'));
+                    new Notification("¡Excelente!", {
+                        body: "Las notificaciones están activadas.",
+                        icon: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png"
+                    });
+                }
+            });
+        }
+
+        // Chequear estado al iniciar
+        checkNotificationStatus();
     </script>
 
 </body>

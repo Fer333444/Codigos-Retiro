@@ -196,7 +196,7 @@
 
                         <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-md overflow-hidden flex flex-col lg:flex-row relative group transition-all duration-300 hover:shadow-lg">
                             
-                            <button type="button" class="btn-abrir-papelera absolute top-3 right-3 text-slate-400 hover:text-rose-600 bg-white/90 backdrop-blur-sm border border-slate-200 hover:border-rose-200 rounded-lg p-2.5 transition-colors z-10 shadow-sm" data-id="{{ r.id }}" data-monto="{{ r.monto }}" data-usuario="{{ r.usuario }}" title="Eliminar (Mover a papelera)">
+                            <button type="button" class="btn-abrir-papelera absolute top-3 right-3 text-slate-400 hover:text-rose-600 bg-white/90 backdrop-blur-sm border border-slate-200 hover:border-rose-200 rounded-lg p-2.5 transition-colors z-10 shadow-sm cursor-pointer" data-id="{{ r.id }}" data-monto="{{ r.monto }}" data-usuario="{{ r.usuario }}" title="Eliminar (Mover a papelera)">
                                 <i class="fas fa-trash-alt pointer-events-none"></i>
                             </button>
 
@@ -257,7 +257,7 @@
 
                                 <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto">
                                     
-                                    <form action="/asignar" method="POST" class="flex flex-col sm:flex-row flex-1 m-0 w-full form-asignar">
+                                    <form action="/asignar" method="POST" class="flex flex-col sm:flex-row flex-1 m-0 w-full form-mantener-scroll">
                                         <input type="hidden" name="id" value="{{ r.id }}">
                                         <select name="trabajador" required class="select-trabajador w-full text-sm sm:text-base bg-white border-2 border-slate-300 rounded-xl px-4 py-3 font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm cursor-pointer transition-colors hover:bg-slate-50">
                                             <option value="" disabled selected>Asignar manual...</option>
@@ -294,7 +294,7 @@
                 <button onclick="cerrarModalPapelera()" class="text-rose-400 hover:text-rose-600"><i class="fas fa-times-circle text-2xl"></i></button>
             </div>
             
-            <form action="/mover_papelera" method="POST" class="p-6 space-y-4 bg-white" id="formRealPapelera">
+            <form action="/mover_papelera" method="POST" class="p-6 space-y-4 bg-white form-mantener-scroll" id="formRealPapelera">
                 <input type="hidden" name="id" id="papelera_id">
                 <p class="text-sm font-bold text-slate-600">Vas a eliminar el retiro de <strong id="papelera_info" class="text-slate-800"></strong></p>
                 <div>
@@ -313,10 +313,9 @@
 
         // ==========================================
         // 1. SISTEMA MAESTRO DE EVENTOS (DELEGACIÓN)
-        // Esto asegura que los botones funcionen incluso después del refresco de Ajax.
+        // A prueba de fallos tras las recargas de Ajax
         // ==========================================
         document.body.addEventListener('click', function(event) {
-            // Si hacen clic en el botón de la papelera o en su icono interior
             if (event.target.closest('.btn-abrir-papelera')) {
                 const btn = event.target.closest('.btn-abrir-papelera');
                 const id = btn.getAttribute('data-id');
@@ -330,26 +329,15 @@
         });
 
         document.body.addEventListener('change', function(event) {
-            // Si cambian la opción en el selector de trabajador
             if (event.target.classList.contains('select-trabajador')) {
                 const select = event.target;
                 if (select.value !== "") {
-                    // Guardar el scroll
                     var mainScroll = document.getElementById('mainScroll');
                     if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
-                    
-                    // Enviar el formulario padre de ese select
                     select.closest('form').submit();
                 }
             }
         });
-        
-        // Guardar scroll para el formulario de la papelera también
-        document.getElementById('formRealPapelera').addEventListener('submit', function() {
-            var mainScroll = document.getElementById('mainScroll');
-            if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
-        });
-
 
         // ==========================================
         // 2. SISTEMA DE RESTAURACIÓN DE SCROLL
@@ -366,15 +354,26 @@
             }
         });
 
+        document.getElementById('formRealPapelera').addEventListener('submit', function() {
+            var mainScroll = document.getElementById('mainScroll');
+            if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
+        });
+
         // ==========================================
-        // 3. SISTEMA DE REFRESCAMIENTO SILENCIOSO (AJAX)
+        // 3. SISTEMA DE REFRESCAMIENTO SILENCIOSO ANTI-CACHÉ
         // ==========================================
         function refrescarPanelSilencioso() {
             if(!document.getElementById('modalPapelera').classList.contains('hidden')) {
-                return; // Pausar refresco si el modal está abierto
+                return;
             }
 
-            fetch(window.location.href)
+            // CACHE-BUSTER: Forzamos una URL única para que el navegador NO use datos viejos
+            const urlFresca = window.location.pathname + '?t=' + new Date().getTime();
+
+            fetch(urlFresca, { 
+                cache: 'no-store',
+                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+            })
                 .then(response => response.text())
                 .then(html => {
                     const parser = new DOMParser();
@@ -395,7 +394,6 @@
                 .catch(err => console.log('Silenced refresh error', err));
         }
 
-        // Refrescar cada 10 segundos
         setInterval(refrescarPanelSilencioso, 10000);
 
         // ==========================================

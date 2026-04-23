@@ -259,7 +259,7 @@
                                     
                                     <form action="/asignar" method="POST" class="flex flex-col sm:flex-row flex-1 m-0 form-mantener-scroll w-full">
                                         <input type="hidden" name="id" value="{{ r.id }}">
-                                        <select name="trabajador" required onchange="this.form.submit()" class="w-full text-sm sm:text-base bg-white border-2 border-slate-300 rounded-xl px-4 py-3 font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm cursor-pointer transition-colors hover:bg-slate-50">
+                                        <select name="trabajador" required onchange="sessionStorage.setItem('scrollpos_admin', document.getElementById('mainScroll').scrollTop); this.form.submit();" class="w-full text-sm sm:text-base bg-white border-2 border-slate-300 rounded-xl px-4 py-3 font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm cursor-pointer transition-colors hover:bg-slate-50">
                                             <option value="" disabled selected>Asignar manual...</option>
                                             {% for c in cobradores %}
                                             <option value="{{ c }}">{{ c|capitalize }}</option>
@@ -345,7 +345,6 @@
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
                     
-                    // Extraemos específicamente el id="contenidoDinamico"
                     const nuevoContenido = doc.getElementById('contenidoDinamico');
                     
                     if (nuevoContenido) {
@@ -354,14 +353,12 @@
                         
                         document.getElementById('contenidoDinamico').innerHTML = nuevoContenido.innerHTML;
                         
-                        // Re-adjuntar eventos onsubmit a los nuevos formularios
                         document.querySelectorAll('.form-mantener-scroll').forEach(form => {
                             form.addEventListener('submit', function() {
                                 sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
                             });
                         });
                         
-                        // Reactivar el cronómetro para los nuevos elementos
                         actualizarCronometros();
                         
                         mainScroll.scrollTop = scrollActual;
@@ -370,7 +367,6 @@
                 .catch(err => console.log('Silenced refresh error', err));
         }
 
-        // Refrescar cada 10 segundos
         setInterval(refrescarPanelSilencioso, 10000);
 
         // ==========================================

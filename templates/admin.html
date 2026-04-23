@@ -87,7 +87,7 @@
         </div>
     </aside>
 
-    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative w-full">
+    <main class="flex-1 flex flex-col h-screen pt-16 md:pt-0 relative w-full">
         <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm relative z-10 w-full shrink-0">
             <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
             <div class="flex items-center gap-4">
@@ -96,7 +96,7 @@
             </div>
         </header>
 
-        <div id="mainScroll" class="flex-1 overflow-auto p-4 md:p-8 bg-slate-50 relative custom-scrollbar">
+        <div id="mainScroll" class="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 relative custom-scrollbar pb-24">
             <div class="max-w-6xl mx-auto" id="contenidoDinamico">
                 
                 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -170,19 +170,6 @@
                     <div class="flex items-center gap-3">
                         <h2 class="text-2xl font-black text-slate-800 tracking-tight">Retiros Pendientes</h2>
                         <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">{{ activos|length }} Activos</span>
-                    </div>
-                    <div class="flex gap-3">
-                        <button onclick="abrirMapa()" class="bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm whitespace-nowrap">
-                            <i class="fas fa-map-marker-alt"></i> Mapa Cobradores
-                        </button>
-                        <form action="/toggle_auto" method="POST" class="m-0 form-mantener-scroll">
-                            <button type="submit" class="border px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap {% if auto_asignar %}bg-blue-50 border-blue-200 text-blue-700{% else %}bg-white border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
-                                <i class="fas fa-robot"></i> Auto-Asignar
-                                <div class="w-8 h-4 rounded-full relative transition-colors {% if auto_asignar %}bg-blue-500{% else %}bg-slate-300{% endif %}">
-                                    <div class="w-3 h-3 bg-white rounded-full absolute top-0.5 transition-transform {% if auto_asignar %}right-0.5{% else %}left-0.5{% endif %}"></div>
-                                </div>
-                            </button>
-                        </form>
                     </div>
                 </div>
 
@@ -297,22 +284,6 @@
         </div>
     </main>
 
-    <div id="modalMapa" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
-        <div class="bg-white rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col overflow-hidden h-[80vh] animate-fade-in-up">
-            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
-                <h3 class="font-black text-slate-800 text-lg"><i class="fas fa-map-marked-alt text-rose-600 mr-2"></i> Mapa de Cobradores</h3>
-                <div class="flex gap-3 items-center">
-                    <span id="mapaStatus" class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded animate-pulse">Actualizando en vivo...</span>
-                    <button onclick="cerrarMapa()" class="text-slate-400 hover:text-rose-500 transition-colors focus:outline-none"><i class="fas fa-times-circle text-2xl"></i></button>
-                </div>
-            </div>
-            <div class="flex-1 bg-slate-100 relative p-4 overflow-y-auto">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="contenedorUbicaciones">
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div id="modalPapelera" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
         <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
             <div class="p-5 border-b border-slate-200 bg-rose-50 flex justify-between items-center">
@@ -373,8 +344,7 @@
         // ==========================================
         function refrescarPanelSilencioso() {
             // Solo refrescamos si no hay modales abiertos (para no interrumpir al usuario)
-            if(!document.getElementById('modalPapelera').classList.contains('hidden') || 
-               !document.getElementById('modalMapa').classList.contains('hidden')) {
+            if(!document.getElementById('modalPapelera').classList.contains('hidden')) {
                 return;
             }
 
@@ -383,7 +353,7 @@
                 .then(html => {
                     // Extraer solo la parte del contenido dinámico usando DOMParser
                     const parser = new DOMParser();
-                    const doc = parser.parseParseFromString(html, 'text/html');
+                    const doc = parser.parseFromString(html, 'text/html');
                     const nuevoContenido = doc.getElementById('contenidoDinamico');
                     
                     if (nuevoContenido) {
@@ -446,53 +416,6 @@
         
         setInterval(actualizarCronometros, 1000);
         actualizarCronometros();
-
-        let intervaloMapa;
-
-        function abrirMapa() {
-            document.getElementById('modalMapa').classList.remove('hidden');
-            actualizarMapa();
-            intervaloMapa = setInterval(actualizarMapa, 5000);
-        }
-
-        function cerrarMapa() {
-            document.getElementById('modalMapa').classList.add('hidden');
-            clearInterval(intervaloMapa);
-        }
-
-        function actualizarMapa() {
-            fetch('/obtener_ubicaciones')
-                .then(r => r.json())
-                .then(data => {
-                    const contenedor = document.getElementById('contenedorUbicaciones');
-                    contenedor.innerHTML = '';
-                    
-                    if(Object.keys(data).length === 0) {
-                        contenedor.innerHTML = '<div class="col-span-full text-center p-10 text-slate-400 font-bold"><i class="fas fa-satellite-dish text-4xl mb-3 block"></i> No hay cobradores transmitiendo ubicación.</div>';
-                        return;
-                    }
-
-                    for (const [cobrador, info] of Object.entries(data)) {
-                        const linkMaps = `https://www.google.com/maps?q=$${info.lat},${info.lng}`;
-                        const card = `
-                            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col">
-                                <div class="flex items-center gap-3 mb-3 border-b border-slate-100 pb-3">
-                                    <div class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-black text-lg uppercase">${cobrador.charAt(0)}</div>
-                                    <div>
-                                        <h4 class="font-black text-slate-800 uppercase">${cobrador}</h4>
-                                        <p class="text-[10px] font-bold text-emerald-600"><i class="fas fa-clock mr-1"></i> Última vez: ${info.ultima_vez}</p>
-                                    </div>
-                                </div>
-                                <a href="${linkMaps}" target="_blank" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 rounded-lg text-xs text-center transition-colors shadow flex justify-center items-center gap-2">
-                                    <i class="fas fa-external-link-alt"></i> Abrir en Google Maps
-                                </a>
-                            </div>
-                        `;
-                        contenedor.innerHTML += card;
-                    }
-                })
-                .catch(err => console.error("Error al obtener ubicaciones", err));
-        }
 
         function toggleSubmenu(menuId, iconId) {
             const menu = document.getElementById(menuId);

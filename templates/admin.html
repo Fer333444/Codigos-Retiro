@@ -97,7 +97,7 @@
         </header>
 
         <div id="mainScroll" class="flex-1 overflow-auto p-4 md:p-8 bg-slate-50 relative custom-scrollbar">
-            <div class="max-w-6xl mx-auto">
+            <div class="max-w-6xl mx-auto" id="contenidoDinamico">
                 
                 {% with messages = get_flashed_messages(with_categories=true) %}
                   {% if messages %}
@@ -175,7 +175,7 @@
                         <button onclick="abrirMapa()" class="bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm whitespace-nowrap">
                             <i class="fas fa-map-marker-alt"></i> Mapa Cobradores
                         </button>
-                        <form action="/toggle_auto" method="POST" class="m-0">
+                        <form action="/toggle_auto" method="POST" class="m-0 form-mantener-scroll">
                             <button type="submit" class="border px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm flex items-center gap-2 whitespace-nowrap {% if auto_asignar %}bg-blue-50 border-blue-200 text-blue-700{% else %}bg-white border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
                                 <i class="fas fa-robot"></i> Auto-Asignar
                                 <div class="w-8 h-4 rounded-full relative transition-colors {% if auto_asignar %}bg-blue-500{% else %}bg-slate-300{% endif %}">
@@ -192,7 +192,7 @@
                         <p class="text-sm font-bold uppercase tracking-widest">No hay retiros pendientes en este momento</p>
                     </div>
                 {% else %}
-                    <div class="space-y-4">
+                    <div class="space-y-5">
                         {% for r in activos %}
                         
                         {% set border_color = 'border-slate-800' %}
@@ -204,84 +204,86 @@
                             {% set border_color = 'border-emerald-500' %}
                         {% endif %}
 
-                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-sm overflow-hidden flex flex-row relative group">
+                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-md overflow-hidden flex flex-col lg:flex-row relative group transition-all duration-300 hover:shadow-lg">
                             
-                            <button onclick="abrirModalPapelera({{ r.id }}, '{{ r.monto }}', '{{ r.usuario }}')" class="absolute top-3 right-3 text-slate-300 hover:text-rose-600 bg-white border border-transparent hover:border-rose-200 rounded p-1.5 transition-colors z-10" title="Eliminar (Mover a papelera)">
+                            <button onclick="abrirModalPapelera({{ r.id }}, '{{ r.monto }}', '{{ r.usuario }}')" class="absolute top-3 right-3 text-slate-400 hover:text-rose-600 bg-white/90 backdrop-blur-sm border border-slate-200 hover:border-rose-200 rounded-lg p-2.5 transition-colors z-10 shadow-sm" title="Eliminar (Mover a papelera)">
                                 <i class="fas fa-trash-alt"></i>
                             </button>
 
-                            <div class="w-24 sm:w-32 bg-slate-100 border-r border-slate-200 p-2 flex items-center justify-center shrink-0">
+                            <div class="w-full lg:w-40 h-48 lg:h-auto bg-slate-100 border-b lg:border-b-0 lg:border-r border-slate-200 p-3 flex items-center justify-center shrink-0 relative">
                                 {% if r.imagen %}
-    {% set imagenes = r.imagen.split(',') %}
-    <a href="{{ url_for('ver_imagen', filename=imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
-        <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-200 shadow-sm">
-        {% if imagenes|length > 1 %}
-            <span class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] font-bold px-1.5 rounded">+{{ imagenes|length - 1 }}</span>
-        {% endif %}
-    </a>
-{% else %}
-    <i class="fas fa-image text-slate-300 text-3xl"></i>
-{% endif %}
+                                    {% set imagenes = r.imagen.split(',') %}
+                                    <a href="{{ url_for('ver_imagen', filename=imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
+                                        <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-300/50 shadow-sm">
+                                        {% if imagenes|length > 1 %}
+                                            <span class="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow">+{{ imagenes|length - 1 }}</span>
+                                        {% endif %}
+                                    </a>
+                                {% else %}
+                                    <i class="fas fa-image text-slate-300 text-4xl"></i>
+                                {% endif %}
                             </div>
                             
-                            <div class="p-3 sm:p-5 flex-1 flex flex-col justify-between min-w-0">
-                                <div class="flex flex-wrap justify-between items-start mb-3 gap-2">
-                                    <div class="flex-1 min-w-0 pr-8">
-                                        <span class="text-xl sm:text-2xl font-black text-green-600">${{ r.monto }}</span>
+                            <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between min-w-0">
+                                
+                                <div class="flex flex-col sm:flex-row justify-between items-start mb-4 gap-3 pr-12">
+                                    <div class="flex-1 min-w-0 w-full">
+                                        <span class="text-3xl font-black text-green-600 block sm:inline leading-none">${{ r.monto }}</span>
                                         
                                         {% set color_banco = 'text-slate-500' %}
-                                        {% if r.banco|lower == 'pichincha' %} {% set color_banco = 'text-yellow-500' %}
+                                        {% if r.banco|lower == 'pichincha' %} {% set color_banco = 'text-yellow-600' %}
                                         {% elif r.banco|lower == 'guayaquil' %} {% set color_banco = 'text-purple-600' %}
                                         {% elif r.banco|lower == 'produbanco' %} {% set color_banco = 'text-[#8b4513]' %}
                                         {% endif %}
                                         
-                                        <span class="text-[10px] sm:text-xs font-black {{ color_banco }} uppercase ml-1 sm:ml-2 tracking-widest truncate block sm:inline">{{ r.banco }} - {{ r.usuario }}</span>
+                                        <span class="text-xs sm:text-sm font-black {{ color_banco }} uppercase mt-2 sm:mt-0 sm:ml-3 tracking-widest break-words block sm:inline">{{ r.banco }} <span class="text-slate-400 mx-1 hidden sm:inline">•</span><br class="sm:hidden"> {{ r.usuario }}</span>
                                     </div>
-                                    <div class="shrink-0 text-right">
+                                    
+                                    <div class="shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
                                         {% if r.expira_timestamp %}
-                                            <span class="cronometro-retiro text-[10px] sm:text-xs font-black text-blue-600" data-expira="{{ r.expira_timestamp }}">
+                                            <span class="cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 inline-block shadow-sm" data-expira="{{ r.expira_timestamp }}">
                                                 <i class="fas fa-spinner fa-spin"></i>
                                             </span>
                                         {% elif r.hora_limite %}
-                                            <span class="text-[10px] sm:text-xs font-bold text-rose-600"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
+                                            <span class="w-full sm:w-auto text-center text-[10px] sm:text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 inline-block shadow-sm"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
                                         {% endif %}
                                     </div>
                                 </div>
 
-                                <div class="bg-slate-50 rounded-lg p-2.5 sm:p-3 text-[10px] sm:text-xs font-mono text-slate-600 space-y-1 mb-4 border border-slate-100">
-                                    <p class="font-bold text-slate-700 mb-1.5 uppercase tracking-widest border-b border-slate-200 pb-1">Historial de eventos:</p>
+                                <div class="bg-slate-50 rounded-lg p-3 sm:p-4 text-[10px] sm:text-xs font-mono text-slate-600 space-y-1.5 mb-4 border border-slate-200 shadow-inner">
+                                    <p class="font-bold text-slate-700 mb-2 uppercase tracking-widest border-b border-slate-200 pb-1">Historial de eventos:</p>
                                     {% for evento in r.historial %}
                                         {% if 'Reasignado' in evento %}
-                                            <p class="text-rose-600 font-bold"><i class="fas fa-exchange-alt mr-1 text-rose-400"></i> {{ evento }}</p>
+                                            <p class="text-rose-600 font-bold leading-tight"><i class="fas fa-exchange-alt mr-1 text-rose-400"></i> {{ evento }}</p>
                                         {% elif 'Asignado' in evento %}
-                                            <p class="text-blue-600 font-bold"><i class="fas fa-user-check mr-1 text-blue-400"></i> {{ evento }}</p>
+                                            <p class="text-blue-600 font-bold leading-tight"><i class="fas fa-user-check mr-1 text-blue-400"></i> {{ evento }}</p>
                                         {% elif 'Creado' in evento %}
-                                            <p class="text-slate-500 font-medium"><i class="fas fa-caret-right mr-1 text-slate-300"></i> {{ evento }}</p>
+                                            <p class="text-slate-500 font-medium leading-tight"><i class="fas fa-caret-right mr-1 text-slate-300"></i> {{ evento }}</p>
                                         {% else %}
-                                            <p class="text-slate-500"><i class="fas fa-angle-right mr-1 text-slate-300"></i> {{ evento }}</p>
+                                            <p class="text-slate-500 leading-tight"><i class="fas fa-angle-right mr-1 text-slate-300"></i> {{ evento }}</p>
                                         {% endif %}
                                     {% endfor %}
                                 </div>
 
-                                <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2 rounded-lg border border-slate-200 mt-auto">
-                                    <form action="/asignar" method="POST" class="flex flex-1 gap-2 m-0 form-mantener-scroll">
+                                <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto">
+                                    <form action="/asignar" method="POST" class="flex flex-col sm:flex-row flex-1 gap-2 m-0 form-mantener-scroll">
                                         <input type="hidden" name="id" value="{{ r.id }}">
-                                        <select name="trabajador" required class="flex-1 text-[10px] sm:text-xs bg-white border border-slate-300 rounded px-2 py-2 font-bold text-slate-700 outline-none focus:border-blue-500">
+                                        <select name="trabajador" required class="flex-1 text-xs sm:text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm">
                                             <option value="" disabled selected>Asignar manual...</option>
                                             {% for c in cobradores %}
                                             <option value="{{ c }}">{{ c|capitalize }}</option>
                                             {% endfor %}
                                         </select>
-                                        <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] sm:text-xs px-3 sm:px-4 py-2 rounded uppercase tracking-widest transition-colors shadow-sm shrink-0">Confirmar</button>
+                                        <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white font-black text-xs px-4 py-2.5 rounded-lg uppercase tracking-widest transition-colors shadow-sm shrink-0">Confirmar</button>
                                     </form>
                                     
                                     {% if r.asignado_a %}
-                                        <span class="bg-green-600 text-white text-[10px] sm:text-xs font-black px-3 py-2 rounded shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
-                                            <i class="fas fa-user-check mr-1.5"></i> {{ r.asignado_a }}
+                                        <span class="bg-green-600 text-white text-xs font-black px-4 py-2.5 rounded-lg shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest w-full sm:w-auto">
+                                            <i class="fas fa-user-check mr-2"></i> {{ r.asignado_a }}
                                         </span>
                                     {% else %}
-                                        <span class="bg-slate-500 text-white text-[10px] sm:text-xs font-black px-3 py-2 rounded shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
-                                            <i class="fas fa-user-times mr-1.5"></i> SIN ASIGNAR
+                                        <span class="bg-slate-500 text-white text-xs font-black px-4 py-2.5 rounded-lg shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest w-full sm:w-auto">
+                                            <i class="fas fa-user-times mr-2"></i> SIN ASIGNAR
                                         </span>
                                     {% endif %}
                                 </div>
@@ -318,7 +320,7 @@
                 <button onclick="cerrarModalPapelera()" class="text-rose-400 hover:text-rose-600"><i class="fas fa-times-circle text-2xl"></i></button>
             </div>
             
-            <form action="/mover_papelera" method="POST" class="p-6 space-y-4 bg-white">
+            <form action="/mover_papelera" method="POST" class="p-6 space-y-4 bg-white form-mantener-scroll">
                 <input type="hidden" name="id" id="papelera_id">
                 <p class="text-sm font-bold text-slate-600">Vas a eliminar el retiro de <strong id="papelera_info" class="text-slate-800"></strong></p>
                 <div>
@@ -340,16 +342,23 @@
             document.getElementById('modalPapelera').classList.add('hidden');
         }
 
+        // ==========================================
+        // 1. SISTEMA DE RESTAURACIÓN DE SCROLL
+        // ==========================================
         document.addEventListener("DOMContentLoaded", function() { 
             var mainScroll = document.getElementById('mainScroll');
             var savedScrollPos = sessionStorage.getItem('scrollpos_admin');
             
             if (savedScrollPos && mainScroll) {
-                mainScroll.scrollTop = savedScrollPos;
-                sessionStorage.removeItem('scrollpos_admin'); 
+                // Pequeño delay para asegurar que el contenido ya cargó antes de hacer scroll
+                setTimeout(() => {
+                    mainScroll.scrollTop = parseInt(savedScrollPos, 10);
+                    sessionStorage.removeItem('scrollpos_admin'); 
+                }, 50);
             }
         });
 
+        // Enganchar el guardado de scroll a todos los formularios con la clase
         document.querySelectorAll('.form-mantener-scroll').forEach(form => {
             form.addEventListener('submit', function() {
                 var mainScroll = document.getElementById('mainScroll');
@@ -359,6 +368,49 @@
             });
         });
 
+        // ==========================================
+        // 2. SISTEMA DE REFRESCAMIENTO SILENCIOSO (AJAX)
+        // ==========================================
+        function refrescarPanelSilencioso() {
+            // Solo refrescamos si no hay modales abiertos (para no interrumpir al usuario)
+            if(!document.getElementById('modalPapelera').classList.contains('hidden') || 
+               !document.getElementById('modalMapa').classList.contains('hidden')) {
+                return;
+            }
+
+            fetch(window.location.href)
+                .then(response => response.text())
+                .then(html => {
+                    // Extraer solo la parte del contenido dinámico usando DOMParser
+                    const parser = new DOMParser();
+                    const doc = parser.parseParseFromString(html, 'text/html');
+                    const nuevoContenido = doc.getElementById('contenidoDinamico');
+                    
+                    if (nuevoContenido) {
+                        const mainScroll = document.getElementById('mainScroll');
+                        const scrollActual = mainScroll.scrollTop; // Guardamos dónde está mirando
+                        
+                        document.getElementById('contenidoDinamico').innerHTML = nuevoContenido.innerHTML;
+                        
+                        // Re-asignamos eventos a los nuevos botones que llegaron con el HTML fresco
+                        document.querySelectorAll('.form-mantener-scroll').forEach(form => {
+                            form.addEventListener('submit', function() {
+                                sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
+                            });
+                        });
+                        
+                        mainScroll.scrollTop = scrollActual; // Restauramos la vista al milímetro
+                    }
+                })
+                .catch(err => console.log('Silenced refresh error', err));
+        }
+
+        // Ejecutar el refresco silencioso cada 15 segundos
+        setInterval(refrescarPanelSilencioso, 15000);
+
+        // ==========================================
+        // RESTO DE FUNCIONES NORMALES
+        // ==========================================
         function actualizarCronometros() {
             const timers = document.querySelectorAll('.cronometro-retiro');
             const ahora = Date.now() / 1000; 
@@ -371,7 +423,7 @@
 
                 if (diff <= 0) {
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
-                    timer.className = 'cronometro-retiro text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest';
+                    timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 inline-block shadow-sm uppercase tracking-widest';
                 } else {
                     const horas = Math.floor(diff / 3600);
                     const minutos = Math.floor((diff % 3600) / 60);
@@ -384,9 +436,9 @@
                     timer.innerHTML = `<i class="fas fa-stopwatch mr-1"></i> EXPIRA EN: ${hStr}:${mStr}:${sStr}`;
                     
                     if (horas === 0 && minutos < 30) {
-                        timer.className = 'cronometro-retiro text-[10px] sm:text-xs font-black text-orange-500 animate-pulse uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-orange-500 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg inline-block shadow-sm animate-pulse uppercase tracking-widest';
                     } else {
-                        timer.className = 'cronometro-retiro text-[10px] sm:text-xs font-black text-blue-600 uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg inline-block shadow-sm uppercase tracking-widest';
                     }
                 }
             });
@@ -421,7 +473,7 @@
                     }
 
                     for (const [cobrador, info] of Object.entries(data)) {
-                        const linkMaps = `https://www.google.com/maps?q=${info.lat},${info.lng}`;
+                        const linkMaps = `https://www.google.com/maps?q=$${info.lat},${info.lng}`;
                         const card = `
                             <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col">
                                 <div class="flex items-center gap-3 mb-3 border-b border-slate-100 pb-3">

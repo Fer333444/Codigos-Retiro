@@ -65,13 +65,21 @@
                         {% for r in registros %}
                         
                         {% set border_color = 'border-slate-800' %}
-                        {% if r.get('asignacion_estado') == 'asignado' %} {% set border_color = 'border-emerald-500' %}
+                        {% if r.estado == 'expirado' %}
+                            {% set border_color = 'border-rose-500' %}
+                        {% elif r.get('asignacion_estado') == 'asignado' %} {% set border_color = 'border-emerald-500' %}
                         {% elif r.get('asignacion_estado') == 'reasignado' %} {% set border_color = 'border-rose-500' %}
                         {% elif r.asignado_a %} {% set border_color = 'border-emerald-500' %}
                         {% endif %}
 
-                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-sm overflow-hidden flex flex-col sm:flex-row tarjeta-retiro">
+                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-sm overflow-hidden flex flex-col sm:flex-row tarjeta-retiro relative transition-colors duration-500">
                             
+                            {% if r.estado == 'expirado' %}
+                                <div class="badge-vencido absolute top-0 right-0 bg-rose-600 text-white font-black px-4 py-1 rounded-bl-xl text-xs uppercase shadow-md z-10">
+                                    <i class="fas fa-clock mr-1"></i> Vencido
+                                </div>
+                            {% endif %}
+
                             <div class="w-full sm:w-32 bg-slate-100 border-b sm:border-b-0 sm:border-r border-slate-200 p-2 flex items-center justify-center shrink-0 h-32 sm:h-auto">
                                 {% if r.imagen %}
                                     {% set imagenes = r.imagen.split(',') %}
@@ -88,7 +96,7 @@
                             
                             <div class="p-3 sm:p-5 flex-1 flex flex-col justify-between min-w-0">
                                 
-                                <div class="flex flex-wrap justify-between items-start mb-3 gap-2">
+                                <div class="flex flex-wrap justify-between items-start mb-3 gap-2 mt-4 sm:mt-0">
                                     <div class="flex-1 min-w-0">
                                         <span class="text-xl sm:text-2xl font-black text-green-600">${{ r.monto }}</span>
                                         
@@ -101,7 +109,9 @@
                                         <span class="text-[10px] sm:text-xs font-black {{ color_banco }} uppercase ml-1 sm:ml-2 tracking-widest truncate block sm:inline"><i class="fas fa-university mr-1"></i> {{ r.banco }}</span>
                                     </div>
                                     <div class="shrink-0 text-right bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg shadow-sm">
-                                        {% if r.expira_timestamp %}
+                                        {% if r.estado == 'expirado' %}
+                                            <span class="text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest"><i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO</span>
+                                        {% elif r.expira_timestamp %}
                                             <span class="cronometro-retiro text-[10px] sm:text-xs font-black text-orange-600" data-expira="{{ r.expira_timestamp }}">
                                                 <i class="fas fa-spinner fa-spin"></i> Cargando...
                                             </span>
@@ -278,6 +288,19 @@
                 if (diff <= 0) {
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
                     timer.className = 'cronometro-retiro text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest';
+                    
+                    // CUANDO EL TIEMPO LLEGA A 0 EN VIVO, INYECTAMOS LA ETIQUETA ROJA
+                    const card = timer.closest('.tarjeta-retiro');
+                    if (card && !card.querySelector('.badge-vencido')) {
+                        card.classList.remove('border-emerald-500', 'border-slate-800');
+                        card.classList.add('border-rose-500');
+                        
+                        const badge = document.createElement('div');
+                        badge.className = 'badge-vencido absolute top-0 right-0 bg-rose-600 text-white font-black px-4 py-1 rounded-bl-xl text-xs uppercase shadow-md z-10';
+                        badge.innerHTML = '<i class="fas fa-clock mr-1"></i> Vencido';
+                        card.appendChild(badge);
+                    }
+
                 } else {
                     const horas = Math.floor(diff / 3600);
                     const minutos = Math.floor((diff % 3600) / 60);

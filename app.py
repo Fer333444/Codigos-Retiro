@@ -1410,7 +1410,7 @@ def vista_trabajador(nombre):
         flash('Tu rol no te permite entrar a la bandeja de otros cobradores.', 'error')
         return redirect(ruta_por_rol(session.get('rol'), session.get('usuario')))
         
-    mis_activos = [r for r in registros if r.get('asignado_a') == nombre and r['estado'] == 'activo']
+    mis_activos = [r for r in registros if r.get('asignado_a') == nombre and r['estado'] in ['activo', 'expirado']]
     return render_template('trabajador.html', registros=mis_activos, nombre=nombre.capitalize(), mi_usuario=session['usuario'])
 
 if __name__ == '__main__':

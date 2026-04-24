@@ -162,6 +162,7 @@
                                         {% endif %}
                                     </div>
                                 </div>
+
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto">
                                     <button type="button" onclick="abrirModalRetirado('{{ r.id }}', '{{ r.monto }}', '{{ r.banco }}')" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-[11px] sm:text-xs flex justify-center items-center gap-2"><i class="fas fa-check-circle text-lg"></i> Marcar Retirado</button>
                                     
@@ -395,25 +396,54 @@
         let notificacionesActivas = false;
         const audioAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
-        function solicitarPermisoNotificaciones() {
+        // PON TU LLAVE PÚBLICA AQUÍ ABAJO (La que generaste con el script)
+        const PUBLIC_VAPID_KEY = 'BBDzqRX1xYG1YGUPSkoVOzSyt0I2hlliI7R1_OPsTtE5rZ_ek84h1enTso-1WM2t9nviJ9ds9Bk32sJaW_YCaZ4';
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        async function solicitarPermisoNotificaciones() {
             notificacionesActivas = true;
-            
-            // Truco para iOS: Tocar audio invisible para que Safari nos dé permiso de sonar después
-            audioAlerta.play().catch(e => console.log("Audio esperando primera iteración"));
-            
-            if ("Notification" in window && Notification.permission !== "denied") {
-                Notification.requestPermission().then(permission => {
-                    if (permission === "granted") {
-                        new Notification("¡Excelente!", { 
-                            body: "Te avisaré cuando lleguen nuevos códigos.",
-                            icon: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png"
-                        });
-                    }
-                });
+            audioAlerta.play().catch(e => console.log("Audio esperando"));
+
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                mostrarToast("❌ Permiso denegado. No llegarán notificaciones con la app cerrada.");
+                return;
             }
 
-            mostrarToast("🔔 Alertas sonoras y visuales activadas para esta sesión.");
-            document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
+            try {
+                // Registrar el Service Worker que creaste en el Paso 1
+                const register = await navigator.serviceWorker.register('/static/sw.js');
+                
+                // Suscribir usando tu llave pública VAPID
+                const subscription = await register.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+                });
+
+                // Enviar la suscripción al servidor Python
+                await fetch('/guardar_suscripcion', {
+                    method: 'POST',
+                    body: JSON.stringify(subscription),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                mostrarToast("✅ ¡Listo! Te llegarán alertas aunque cierres la pestaña.");
+                document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
+
+            } catch (error) {
+                console.error("Error activando notificaciones push:", error);
+                mostrarToast("⚠️ Error al conectar notificaciones en segundo plano.");
+            }
         }
 
         // Sistema para mostrar alertas visuales dentro de la app (In-App Toast para Celulares)

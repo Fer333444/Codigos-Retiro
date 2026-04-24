@@ -6,6 +6,7 @@ import io
 import json
 import base64
 import time
+from pywebpush import webpush, WebPushException
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
@@ -52,6 +53,7 @@ grupos_creados = []
 liquidaciones_db = {}
 ubicaciones_cobradores = {}
 historial_pagos = []
+suscripciones_push = {}
 
 def guardar_datos():
     data_a_guardar = {
@@ -643,6 +645,17 @@ def procesar_formulario_retiro(req, lista_usuarios):
         
     guardar_datos()
     flash(f'✅ ¡Datos enviados correctamente!', 'success')
+
+    # === DISPARAR NOTIFICACIONES PUSH REALES ===
+    # 1. Avisar a los administradores
+    admin_users = [u for u, info in usuarios_db.items() if info['rol'] in ['supremo', 'recaudador']]
+    for admin in admin_users:
+        disparar_alerta_push(admin, "¡Nuevo Retiro Cliente! 💰", f"Se han ingresado ${monto_total_str} del banco {banco}.")
+    
+    # 2. Si el robot auto-asignó a un cobrador, avisarle a él
+    if asignado_a_quien:
+        disparar_alerta_push(asignado_a_quien, "¡Retiro Asignado! 🏃‍♂️", f"Te cayó un código de ${monto_total_str} ({banco}). ¡Revisa tu bandeja!")
+
     return redirect(req.url)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -1472,6 +1485,27 @@ def notificar_visto():
         disparar_alerta_push(admin, titulo, mensaje)
 
     return jsonify({"status": "ok", "mensaje": "Notificado correctamente"})
+@app.route('/guardar_suscripcion', methods=['POST'])
+def guardar_suscripcion():
+    if 'usuario' in session:
+        suscripciones_push[session['usuario']] = request.json
+        # Opcional: podrías agregarlo a tu json principal para que no se borre al reiniciar
+    return jsonify({"status": "ok"})
+
+def disparar_alerta_push(usuario_destino, titulo, mensaje):
+    """Esta es la pistola que dispara el mensaje al celular cerrado"""
+    suscripcion = suscripciones_push.get(usuario_destino)
+    if not suscripcion: return # Si el usuario no dio permisos, no hacemos nada
+
+    try:
+        webpush(
+            subscription_info=suscripcion,
+            data=json.dumps({"title": titulo, "body": mensaje}),
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims=VAPID_CLAIMS
+        )
+    except WebPushException as ex:
+        print("Error enviando push en segundo plano:", repr(ex))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

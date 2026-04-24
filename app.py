@@ -1246,20 +1246,60 @@ def marcar_recibido():
     
     cobrador = request.form.get('cobrador')
     hora_actual = hora_ecuador().strftime('%H:%M')
-    hoy = hora_ecuador().strftime('%d/%m/%Y')
     usuario_sesion = session.get('usuario').capitalize()
     
-    count = 0
-    for r in registros:
-        if r.get('asignado_a') == cobrador and not r.get('liquidado', False):
-            if r['estado'] in ['retirado', 'fallido', 'fallido_revision', 'fusionado', 'saldado']:
-                r['liquidado'] = True
-                r['historial'].append(f"[{hora_actual}] 💼 Auditado en caja y liquidado por {usuario_sesion}.")
-                count += 1
+    # Recibimos los nuevos datos del formulario
+    try:
+        monto_recibido = float(request.form.get('monto_recibido', 0))
+    except:
+        monto_recibido = 0.0
+        
+    metodo_pago = request.form.get('metodo_pago', 'Efectivo')
+    
+    monto_restante = monto_recibido
+    count_liquidados = 0
+    
+    # Filtramos los registros del cobrador que están listos para liquidar y no han sido liquidados
+    registros_a_liquidar = [r for r in registros if r.get('asignado_a') == cobrador and not r.get('liquidado', False) and r['estado'] in ['retirado', 'fallido', 'fallido_revision', 'fusionado', 'saldado']]
+    
+    for r in registros_a_liquidar:
+        # Solo los 'retirado' suman dinero real que el cobrador tiene en mano y debe entregar
+        if r['estado'] == 'retirado':
+            try:
+                monto_registro = float(r['monto'])
+            except:
+                monto_registro = 0.0
                 
+            if monto_restante >= monto_registro:
+                # Pago completo de este código
+                r['liquidado'] = True
+                r['historial'].append(f"[{hora_actual}] 💼 Liquidado vía {metodo_pago} por {usuario_sesion}.")
+                monto_restante -= monto_registro
+                count_liquidados += 1
+            elif monto_restante > 0:
+                # Pago parcial: descuenta lo que se pagó, pero NO se liquida (se queda para mañana)
+                nuevo_saldo = round(monto_registro - monto_restante, 2)
+                r['monto'] = str(nuevo_saldo)
+                r['historial'].append(f"[{hora_actual}] ⚠️ Abono parcial de ${round(monto_restante, 2)} vía {metodo_pago}. Queda debiendo ${nuevo_saldo}.")
+                monto_restante = 0
+            else:
+                # Ya no queda dinero del pago, este registro se queda intacto para cobrarse mañana
+                pass
+        else:
+            # Si son fallidos o deudas, no implican efectivo físico. Se liquidan automáticamente para limpiar la pantalla.
+            r['liquidado'] = True
+            r['historial'].append(f"[{hora_actual}] 💼 Auditado y cerrado por {usuario_sesion}.")
+            count_liquidados += 1
+
     guardar_datos()
-    flash(f'✅ Se liquidaron y confirmaron en caja {count} registros de {cobrador.capitalize()}.', 'success')
-    return redirect(url_for('vista_reporte_diario'))
+    
+    if monto_restante == 0:
+        flash(f'✅ Se procesó el pago en {metodo_pago}. Códigos totalmente liquidados: {count_liquidados}.', 'success')
+    else:
+        # Si pagó de más, le avisamos al recaudador
+        flash(f'✅ Pago procesado en {metodo_pago}. Códigos liquidados: {count_liquidados}. Hubo un sobrante de ${round(monto_restante, 2)}.', 'success')
+        
+    return redirect(request.referrer)
 
 @app.route('/reportes')
 def vista_reportes():

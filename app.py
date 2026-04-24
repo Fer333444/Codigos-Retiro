@@ -46,6 +46,7 @@ enlaces_db = {}
 grupos_creados = [] 
 liquidaciones_db = {}
 ubicaciones_cobradores = {}
+historial_pagos = []
 
 def guardar_datos():
     data_a_guardar = {
@@ -1179,64 +1180,9 @@ def vista_reporte_diario():
     mis_permisos = session.get('permisos', [])
     if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_reporte_diario' not in mis_permisos: return redirect(url_for('login'))
     
-    # NUEVA LÓGICA: INCLUYE A LOS QUE TIENEN PERMISO DE PROCESAR
-    cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
-    reporte = []
-    
-    for c in cobradores:
-        total_efectivo = 0.0
-        fallidos_rapido = []
-        fechas_pendientes = []
-        
-        for r in registros:
-            if r.get('asignado_a') == c and not r.get('liquidado', False):
-                if r['estado'] in ['retirado', 'fallido', 'fallido_revision', 'fusionado', 'saldado']:
-                    try:
-                        fecha_sola = r['fecha'].split(' ')[0]
-                        fechas_pendientes.append(datetime.strptime(fecha_sola, "%d/%m/%Y"))
-                    except: pass
-                        
-                    if r['estado'] == 'retirado':
-                        total_efectivo += float(r['monto'])
-                    else:
-                        motivo_extraido = "Sin motivo específico"
-                        for evento in reversed(r['historial']):
-                            if 'Motivo:' in evento:
-                                motivo_extraido = evento.split('Motivo:')[1].strip()
-                                break
-                            elif 'NO SALIÓ' in evento:
-                                motivo_extraido = evento
-                                break
-                                
-                        fallidos_rapido.append({
-                            'id': r['id'],
-                            'monto': r['monto'],
-                            'usuario': r['usuario'],
-                            'estado': r['estado'],
-                            'motivo': motivo_extraido,
-                            'fecha': r['fecha'],
-                            'banco': r['banco']
-                        })
-        
-        if fechas_pendientes:
-            f_desde = min(fechas_pendientes).strftime("%d/%m/%Y")
-            f_hasta = max(fechas_pendientes).strftime("%d/%m/%Y")
-        else:
-            hoy_str = hora_ecuador().strftime("%d/%m/%Y")
-            f_desde = hoy_str
-            f_hasta = hoy_str
-            
-        reporte.append({
-            'cobrador': c,
-            'total': total_efectivo,
-            'fallidos': fallidos_rapido,
-            'fecha_desde': f_desde,
-            'fecha_hasta': f_hasta,
-            'tiene_pendientes': bool(fechas_pendientes)
-        })
-        
+    # Pasamos la nueva lista de pagos a la plantilla
     return render_template('reporte_diario.html', 
-                           reporte=reporte, 
+                           pagos_historial=historial_pagos, 
                            mi_usuario=session['usuario'], 
                            rol=session.get('rol'))
 
@@ -1290,6 +1236,19 @@ def marcar_recibido():
             r['liquidado'] = True
             r['historial'].append(f"[{hora_actual}] 💼 Auditado y cerrado por {usuario_sesion}.")
             count_liquidados += 1
+
+    # GUARDAR RECIBO EN EL HISTORIAL GLOBAL DE RECAUDACIÓN
+    if monto_recibido > 0:
+        nuevo_pago = {
+            'id_pago': len(historial_pagos) + 1,
+            'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"),
+            'cobrador': cobrador.capitalize(),
+            'monto': f"{monto_recibido:.2f}",
+            'metodo': metodo_pago,
+            'tipo': 'Liquidación Total' if monto_restante == 0 else 'Abono Parcial',
+            'receptor': usuario_sesion
+        }
+        historial_pagos.insert(0, nuevo_pago)
 
     guardar_datos()
     

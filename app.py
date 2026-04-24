@@ -23,6 +23,7 @@ VAPID_CLAIMS = {"sub": "mailto:contenido2025yt@gmail.com"}
 
 app = Flask(__name__)
 app.secret_key = "flujo_secreto_123"
+app.permanent_session_lifetime = timedelta(days=365)
 
 # ==========================================
 # 💾 SISTEMA DE DISCO DURO PERSISTENTE 💾
@@ -669,6 +670,7 @@ def login():
         username = request.form.get('username').lower()
         password = request.form.get('password')
         if username in usuarios_db and usuarios_db[username]['password'] == password:
+            session.permanent = True # <-- AGREGA ESTA LÍNEA AQUÍ
             session['usuario'] = username
             session['rol'] = usuarios_db[username]['rol']
             session['permisos'] = usuarios_db[username].get('permisos', [])

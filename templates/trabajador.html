@@ -450,7 +450,12 @@
         if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
 
         // --- SISTEMA HÍBRIDO DE NOTIFICACIONES PUSH (TOGGLE) ---
-        let totalCodigosActuales = document.querySelectorAll('.tarjeta-retiro').length || document.querySelectorAll('form[action="/asignar"]').length;
+        // NUEVA LÓGICA: Memorizamos los IDs exactos en lugar de contar la cantidad
+        let codigosVistos = new Set();
+        document.querySelectorAll('form[action="/asignar"] input[name="id"]').forEach(input => {
+            codigosVistos.add(input.value);
+        });
+
         let notificacionesActivas = false;
         const audioAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
@@ -624,16 +629,27 @@
                         if(typeof actualizarCronometros === 'function') actualizarCronometros();
                         if(mainScroll) mainScroll.scrollTop = scrollActual;
 
-                        // LÓGICA DE NOTIFICACIONES PARA TRABAJADOR
-                        let nuevosCodigosCount = document.querySelectorAll('.tarjeta-retiro').length;
+                        // LÓGICA DE NOTIFICACIONES (A PRUEBA DE MÚLTIPLES CÓDIGOS)
+                        let codigosNuevosEncontrados = 0;
                         
-                        if (nuevosCodigosCount > totalCodigosActuales && notificacionesActivas) {
+                        document.querySelectorAll('form[action="/asignar"] input[name="id"]').forEach(input => {
+                            if (!codigosVistos.has(input.value)) {
+                                codigosNuevosEncontrados++;
+                                codigosVistos.add(input.value);
+                            }
+                        });
+                        
+                        if (codigosNuevosEncontrados > 0 && notificacionesActivas) {
+                            // Reproducir el sonido una vez por la ráfaga de códigos
                             audioAlerta.play().catch(e => console.log(e));
                             
-                            // Mostrar In-App Toast si es iPhone o PC
-                            mostrarToast("¡Nuevo Retiro Asignado! 💰 Revisa tu bandeja.");
+                            // Mostrar una tarjeta flotante por CADA código nuevo (con un pequeño retraso para que no se encimen de golpe)
+                            for(let i = 0; i < codigosNuevosEncontrados; i++) {
+                                setTimeout(() => {
+                                    mostrarToast("¡Nuevo Retiro Asignado! 💰 Revisa tu bandeja.");
+                                }, i * 800); // 800ms de separación entre notificaciones
+                            }
                         }
-                        totalCodigosActuales = nuevosCodigosCount;
                     }
                 })
                 .catch(err => console.log('Silenced refresh error', err));

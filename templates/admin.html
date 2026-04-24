@@ -18,7 +18,9 @@
     <header class="md:hidden fixed top-0 w-full h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-40 shadow-sm">
         <div class="flex items-center gap-3">
             <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
-            <button class="btn-notificaciones text-yellow-500 hover:text-yellow-600 animate-bounce text-lg focus:outline-none" onclick="solicitarPermisoNotificaciones()" title="Activar Notificaciones"><i class="fas fa-bell"></i></button>
+            <button onclick="toggleNotificaciones()" class="btn-notificaciones text-slate-400 hover:text-slate-500 text-lg focus:outline-none transition-colors" title="Activar Notificaciones">
+                <i class="fas fa-bell-slash"></i>
+            </button>
         </div>
         <button id="btnMenuMovil" class="text-slate-600 hover:text-green-600 text-2xl focus:outline-none"><i class="fas fa-bars"></i></button>
     </header>
@@ -29,7 +31,9 @@
         <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
             <div class="flex items-center gap-3">
                 <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
-                <button class="btn-notificaciones text-yellow-500 hover:text-yellow-600 animate-bounce text-lg focus:outline-none" onclick="solicitarPermisoNotificaciones()" title="Activar Notificaciones"><i class="fas fa-bell"></i></button>
+                <button onclick="toggleNotificaciones()" class="btn-notificaciones text-slate-400 hover:text-slate-500 text-lg focus:outline-none transition-colors" title="Activar Notificaciones">
+                    <i class="fas fa-bell-slash"></i>
+                </button>
             </div>
             <button id="btnCerrarMenu" class="md:hidden text-slate-400 hover:text-red-500 text-xl focus:outline-none"><i class="fas fa-times"></i></button>
         </div>
@@ -466,9 +470,8 @@
         // VARIABLE GLOBAL PARA CONTAR LOS CÓDIGOS ACTUALES
         let totalCodigosActuales = document.querySelectorAll('form[action="/asignar"]').length;
 
-        // --- SISTEMA DE NOTIFICACIONES PUSH (Híbrido iOS/PC) ---
+        // --- SISTEMA HÍBRIDO DE NOTIFICACIONES PUSH (TOGGLE) ---
         let notificacionesActivas = false;
-        // Sonido de alerta compatible con todos los navegadores
         const audioAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
         // PON TU LLAVE PÚBLICA AQUÍ ABAJO (La que generaste con el script)
@@ -485,84 +488,112 @@
             return outputArray;
         }
 
-        // --- AUTO-REPARADOR Y SINCRONIZADOR SILENCIOSO ---
-        if ('serviceWorker' in navigator && 'PushManager' in window) {
-            navigator.serviceWorker.register('/sw.js').then(async function(register) {
-                // Si el celular ya dio permiso de notificaciones en el pasado...
-                if (Notification.permission === 'granted') {
-                    try {
-                        // 1. Destruimos sin piedad cualquier llave vieja o corrupta
-                        const oldSubscription = await register.pushManager.getSubscription();
-                        if (oldSubscription) {
-                            await oldSubscription.unsubscribe();
-                        }
-                        
-                        // 2. Creamos la nueva conexión limpia con la llave actual
-                        const subscription = await register.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
-                        });
-                        
-                        // 3. Se la enviamos a Render en modo fantasma
-                        await fetch('/guardar_suscripcion', {
-                            method: 'POST',
-                            body: JSON.stringify(subscription),
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                        
-                        // 4. Activamos todo y ocultamos la campana
-                        notificacionesActivas = true;
-                        document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
-                    } catch (e) {
-                        console.error("Error en el auto-reparador:", e);
-                    }
+        // FUNCIÓN PARA CAMBIAR EL COLOR Y ESTADO DEL BOTÓN
+        function setNotificationState(isActive) {
+            notificacionesActivas = isActive;
+            document.querySelectorAll('.btn-notificaciones').forEach(btn => {
+                if (isActive) {
+                    btn.classList.remove('text-slate-400', 'hover:text-slate-500');
+                    btn.classList.add('text-emerald-500', 'hover:text-emerald-600');
+                    btn.title = "Desactivar Notificaciones";
+                    btn.innerHTML = '<i class="fas fa-bell"></i>';
+                } else {
+                    btn.classList.remove('text-emerald-500', 'hover:text-emerald-600');
+                    btn.classList.add('text-slate-400', 'hover:text-slate-500');
+                    btn.title = "Activar Notificaciones";
+                    btn.innerHTML = '<i class="fas fa-bell-slash"></i>';
                 }
             });
         }
-        // --------------------------------------------------
 
-        async function solicitarPermisoNotificaciones() {
-            notificacionesActivas = true;
-            audioAlerta.play().catch(e => console.log("Audio esperando"));
-
-            const permission = await Notification.requestPermission();
-            if (permission !== 'granted') {
-                mostrarToast("❌ Permiso denegado. No llegarán notificaciones con la app cerrada.");
-                return;
+        // REVISAR ESTADO AL CARGAR LA PÁGINA
+        if ('Notification' in window && Notification.permission === 'granted') {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                navigator.serviceWorker.ready.then(async function(register) {
+                    const sub = await register.pushManager.getSubscription();
+                    if (sub) {
+                        setNotificationState(true);
+                    } else {
+                        setNotificationState(false);
+                    }
+                });
             }
+        } else {
+            setNotificationState(false);
+        }
 
-            try {
-                const register = await navigator.serviceWorker.register('/sw.js');
-                
-                const oldSubscription = await register.pushManager.getSubscription();
-                if (oldSubscription) {
-                    await oldSubscription.unsubscribe();
+        // FUNCIÓN PRINCIPAL DEL BOTÓN (PRENDER / APAGAR)
+        async function toggleNotificaciones() {
+            if (notificacionesActivas) {
+                // APAGAR NOTIFICACIONES
+                try {
+                    const register = await navigator.serviceWorker.getRegistration('/sw.js');
+                    if (register) {
+                        const sub = await register.pushManager.getSubscription();
+                        if (sub) await sub.unsubscribe();
+                    }
+                    setNotificationState(false);
+                    mostrarToast("🔕 Notificaciones silenciadas.");
+                } catch(e) {
+                    console.error(e);
+                }
+            } else {
+                // PRENDER NOTIFICACIONES
+                // Regla de Apple: Validar si está en modo "App"
+                const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                if (isIos && !window.navigator.standalone) {
+                    mostrarToast("⚠️ En iPhone, debes 'Agregar a Inicio' primero para recibir notificaciones.");
+                    return;
                 }
 
-                const subscription = await register.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
-                });
+                audioAlerta.play().catch(e => console.log("Audio esperando"));
 
-                await fetch('/guardar_suscripcion', {
-                    method: 'POST',
-                    body: JSON.stringify(subscription),
-                    headers: { 'Content-Type': 'application/json' }
-                });
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    mostrarToast("❌ Permiso denegado por el navegador.");
+                    return;
+                }
 
-                mostrarToast("✅ ¡Listo! Te llegarán alertas aunque cierres la pestaña.");
-                document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
+                try {
+                    const register = await navigator.serviceWorker.register('/sw.js');
+                    
+                    // Limpiar suscripción vieja
+                    const oldSubscription = await register.pushManager.getSubscription();
+                    if (oldSubscription) {
+                        await oldSubscription.unsubscribe();
+                    }
 
-            } catch (error) {
-                console.error("Error activando notificaciones push:", error);
-                mostrarToast("⚠️ Error al conectar notificaciones en segundo plano.");
+                    // Crear nueva suscripción
+                    const subscription = await register.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+                    });
+
+                    // Enviar a Python
+                    const response = await fetch('/guardar_suscripcion', {
+                        method: 'POST',
+                        body: JSON.stringify(subscription),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if(response.ok) {
+                        setNotificationState(true);
+                        mostrarToast("✅ ¡Conectado! Notificaciones en segundo plano activas.");
+                    } else {
+                        throw new Error("El servidor rechazó la suscripción.");
+                    }
+
+                } catch (error) {
+                    console.error("Error Push:", error);
+                    mostrarToast("⚠️ Error al conectar. Intenta borrar el caché del navegador.");
+                }
             }
         }
 
-        // Sistema para mostrar alertas visuales dentro de la app (In-App Toast para Celulares)
+        // Sistema para mostrar alertas visuales (In-App Toast)
         function mostrarToast(mensaje) {
             const toast = document.createElement('div');
-            toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-4 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center";
+            toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-4 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center max-w-[90vw]";
             toast.innerHTML = `<i class="fas fa-bell mr-3 text-2xl animate-pulse"></i> <span class="text-sm">${mensaje}</span>`;
             document.body.appendChild(toast);
             
@@ -576,9 +607,13 @@
         function refrescarPanelSilencioso() {
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
+            const modalRetirado = document.getElementById('modalRetirado');
+            const modalFallido = document.getElementById('modalFallido');
             
             if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
-               (modalRecibir && !modalRecibir.classList.contains('hidden'))) {
+               (modalRecibir && !modalRecibir.classList.contains('hidden')) ||
+               (modalRetirado && !modalRetirado.classList.contains('hidden')) ||
+               (modalFallido && !modalFallido.classList.contains('hidden'))) {
                 return;
             }
 
@@ -596,30 +631,27 @@
                     
                     if (nuevoContenido) {
                         const mainScroll = document.getElementById('mainScroll');
-                        const scrollActual = mainScroll.scrollTop; 
+                        const scrollActual = mainScroll ? mainScroll.scrollTop : 0; 
                         
                         document.getElementById('contenidoDinamico').innerHTML = nuevoContenido.innerHTML;
                         
-                        actualizarCronometros();
-                        mainScroll.scrollTop = scrollActual;
+                        document.querySelectorAll('.form-mantener-scroll').forEach(form => {
+                            form.addEventListener('submit', function() {
+                                if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
+                            });
+                        });
 
-                        // LÓGICA DE NOTIFICACIONES
+                        if(typeof actualizarCronometros === 'function') actualizarCronometros();
+                        if(mainScroll) mainScroll.scrollTop = scrollActual;
+
+                        // LÓGICA DE NOTIFICACIONES PARA ADMIN
                         let nuevosCodigosCount = document.querySelectorAll('form[action="/asignar"]').length;
                         
                         if (nuevosCodigosCount > totalCodigosActuales && notificacionesActivas) {
-                            // Reproducir sonido para TODOS los dispositivos
                             audioAlerta.play().catch(e => console.log(e));
                             
-                            // Mostrar notificación nativa si es PC/Android
-                            if ("Notification" in window && Notification.permission === "granted") {
-                                new Notification("¡Nuevo Retiro Ingresado! 💰", {
-                                    body: "Revisa tu bandeja, acaba de llegar un nuevo código.",
-                                    icon: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png"
-                                });
-                            } else {
-                                // Mostrar In-App Toast si es iPhone o no dio permisos nativos
-                                mostrarToast("¡Nuevo Retiro Ingresado! 💰 Revisa tu bandeja.");
-                            }
+                            // Si la página está abierta, mostrar Toast. El Push en segundo plano lo maneja el sw.js
+                            mostrarToast("¡Nuevo Retiro Ingresado! 💰 Revisa el panel.");
                         }
                         totalCodigosActuales = nuevosCodigosCount;
                     }
@@ -629,29 +661,70 @@
 
         setInterval(refrescarPanelSilencioso, 10000);
 
-        // --- SISTEMA DE UBICACIÓN ---
-        function enviarUbicacion() {
-            if ("geolocation" in navigator) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const lat = position.coords.latitude;
-                        const lng = position.coords.longitude;
-                        fetch('/actualizar_ubicacion', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ usuario: "{{ nombre }}", lat: lat, lng: lng })
-                        });
-                    },
-                    (error) => { console.warn("No se pudo obtener la ubicación", error); },
-                    { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
-                );
-            }
+        // 4. RESTO DE FUNCIONES NORMALES
+        function actualizarCronometros() {
+            const timers = document.querySelectorAll('.cronometro-retiro');
+            const ahora = Date.now() / 1000; 
+
+            timers.forEach(timer => {
+                const expira = parseFloat(timer.getAttribute('data-expira'));
+                if (!expira) return;
+
+                const diff = expira - ahora;
+
+                if (diff <= 0) {
+                    timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
+                    timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 inline-block shadow-sm uppercase tracking-widest';
+                } else {
+                    const horas = Math.floor(diff / 3600);
+                    const minutos = Math.floor((diff % 3600) / 60);
+                    const segundos = Math.floor(diff % 60);
+
+                    const hStr = horas.toString().padStart(2, '0');
+                    const mStr = minutos.toString().padStart(2, '0');
+                    const sStr = segundos.toString().padStart(2, '0');
+
+                    timer.innerHTML = `<i class="fas fa-stopwatch mr-1"></i> EXPIRA EN: ${hStr}:${mStr}:${sStr}`;
+                    
+                    if (horas === 0 && minutos < 30) {
+                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-orange-500 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg inline-block shadow-sm animate-pulse uppercase tracking-widest';
+                    } else {
+                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg inline-block shadow-sm uppercase tracking-widest';
+                    }
+                }
+            });
         }
         
-        enviarUbicacion();
-        setInterval(enviarUbicacion, 600000);
+        setInterval(actualizarCronometros, 1000);
+        actualizarCronometros();
 
+        function toggleSubmenu(menuId, iconId) {
+            const menu = document.getElementById(menuId);
+            const icon = document.getElementById(iconId);
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                menu.classList.add('flex');
+                icon.classList.add('rotate-180');
+            } else {
+                menu.classList.add('hidden');
+                menu.classList.remove('flex');
+                icon.classList.remove('rotate-180');
+            }
+        }
+
+        const btnMenuMovil = document.getElementById('btnMenuMovil');
+        const btnCerrarMenu = document.getElementById('btnCerrarMenu');
+        const sidebar = document.getElementById('sidebar');
+        const overlayMenu = document.getElementById('overlayMenu');
+
+        function toggleMenu() {
+            sidebar.classList.toggle('-translate-x-full');
+            overlayMenu.classList.toggle('hidden');
+        }
+
+        if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);
+        if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
+        if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
     </script>
-
 </body>
 </html>

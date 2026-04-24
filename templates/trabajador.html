@@ -19,6 +19,8 @@
     <main class="flex-1 flex flex-col h-screen overflow-hidden w-full relative">
         <header class="bg-white border-b border-slate-200 flex items-center justify-between px-3 sm:px-8 shadow-sm relative z-10 shrink-0 safe-top pb-2 pt-2 sm:pb-3 sm:pt-3">
             <div class="flex items-center gap-2 sm:gap-3 overflow-hidden">
+                <button id="btnMenuMovil" class="md:hidden text-slate-600 hover:text-green-600 text-xl focus:outline-none mr-2"><i class="fas fa-bars"></i></button>
+
                 <a href="/admin" class="shrink-0 text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 border border-slate-200 w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-lg transition-colors shadow-sm focus:outline-none flex items-center justify-center" title="Volver a Retiros Activos">
                     <i class="fas fa-arrow-left text-sm sm:text-base"></i>
                 </a>
@@ -26,8 +28,8 @@
                 <h1 class="text-sm sm:text-lg font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5 sm:gap-2 truncate">
                     <i class="fas fa-briefcase hidden sm:inline-block shrink-0"></i> 
                     <span class="truncate">Bandeja: {{ nombre }}</span>
-                    <button id="btnPushCobrador" onclick="solicitarPermisoNotificaciones()" class="btn-notificaciones text-yellow-500 hover:text-yellow-600 animate-bounce focus:outline-none ml-1 shrink-0" title="Activar Notificaciones">
-                        <i class="fas fa-bell text-sm sm:text-base"></i>
+                    <button onclick="toggleNotificaciones()" class="btn-notificaciones text-slate-400 hover:text-slate-500 focus:outline-none ml-1 shrink-0 transition-colors" title="Activar Notificaciones">
+                        <i class="fas fa-bell-slash text-sm sm:text-base"></i>
                     </button>
                 </h1>
             </div>
@@ -36,6 +38,47 @@
                 <a href="/logout" class="text-[10px] sm:text-xs font-bold text-rose-500 hover:text-rose-700 bg-rose-50 px-2 sm:px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 border border-rose-200 shadow-sm"><i class="fas fa-sign-out-alt"></i> <span class="hidden sm:inline">Salir</span></a>
             </div>
         </header>
+
+        <div id="overlayMenu" class="fixed inset-0 bg-slate-900/50 z-40 hidden md:hidden"></div>
+        <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-50">
+            <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+                </div>
+                <button id="btnCerrarMenu" class="md:hidden text-slate-400 hover:text-red-500 text-xl focus:outline-none"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+                {% set mis_permisos = session.get('permisos', []) %}
+                {% if rol == 'supremo' or 'crear_links' in mis_permisos %}
+                    <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-link w-5"></i> Links de Clientes</a>
+                {% endif %}
+                {% if rol == 'supremo' or 'gestionar_grupos' in mis_permisos %}
+                    <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-folder w-5"></i> Mis Grupos</a>
+                {% endif %}
+                {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
+                    <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-home w-5"></i> Retiros Activos</a>
+                {% endif %}
+                {% if rol in ['supremo', 'recaudador'] or 'ver_reporte_diario' in mis_permisos %}
+                    <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
+                {% endif %}
+                {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
+                    <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
+                {% endif %}
+                {% if rol == 'cobrador' or 'procesar_retiros' in mis_permisos %}
+                    <a href="/trabajador/{{ mi_usuario }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-blue-700 bg-blue-50 rounded-lg transition-colors"><i class="fas fa-briefcase w-5"></i> Mi Bandeja (Cobrar)</a>
+                {% endif %}
+                {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
+                    <a href="/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 rounded-lg hover:bg-rose-50 mt-2 border border-transparent hover:border-rose-200 transition-colors"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
+                {% endif %}
+            </nav>
+            <div class="p-4 border-t border-slate-200 shrink-0">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-bold text-slate-600 uppercase truncate">{{ mi_usuario }}</span>
+                    <a href="/logout" class="text-xs font-medium text-red-500 hover:underline"><i class="fas fa-sign-out-alt"></i> Salir</a>
+                </div>
+            </div>
+        </aside>
 
         <div class="flex-1 overflow-auto p-4 sm:p-8 bg-slate-50 custom-scrollbar" id="mainScroll">
             <div class="max-w-5xl mx-auto" id="contenidoDinamico">
@@ -391,8 +434,23 @@
             });
         }
 
-        // --- SISTEMA HÍBRIDO DE NOTIFICACIONES PUSH ---
-        let totalCodigosActuales = document.querySelectorAll('.tarjeta-retiro').length;
+        // --- FUNCIONES DEL CAJÓN MÓVIL (DRAWER) ---
+        const btnMenuMovil = document.getElementById('btnMenuMovil');
+        const btnCerrarMenu = document.getElementById('btnCerrarMenu');
+        const sidebar = document.getElementById('sidebar');
+        const overlayMenu = document.getElementById('overlayMenu');
+
+        function toggleMenu() {
+            if(sidebar) sidebar.classList.toggle('-translate-x-full');
+            if(overlayMenu) overlayMenu.classList.toggle('hidden');
+        }
+
+        if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);
+        if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
+        if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
+
+        // --- SISTEMA HÍBRIDO DE NOTIFICACIONES PUSH (TOGGLE) ---
+        let totalCodigosActuales = document.querySelectorAll('.tarjeta-retiro').length || document.querySelectorAll('form[action="/asignar"]').length;
         let notificacionesActivas = false;
         const audioAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
@@ -410,83 +468,105 @@
             return outputArray;
         }
 
-        // --- AUTO-REPARADOR Y SINCRONIZADOR SILENCIOSO ---
-        if ('serviceWorker' in navigator && 'PushManager' in window) {
-            navigator.serviceWorker.register('/sw.js').then(async function(register) {
-                if (Notification.permission === 'granted') {
-                    try {
-                        const oldSubscription = await register.pushManager.getSubscription();
-                        if (oldSubscription) {
-                            await oldSubscription.unsubscribe();
-                        }
-                        const subscription = await register.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
-                        });
-                        await fetch('/guardar_suscripcion', {
-                            method: 'POST',
-                            body: JSON.stringify(subscription),
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                        notificacionesActivas = true;
-                        document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
-                    } catch (e) {
-                        console.error("Error en el auto-reparador:", e);
-                    }
+        // FUNCIÓN PARA CAMBIAR EL COLOR Y ESTADO DEL BOTÓN
+        function setNotificationState(isActive) {
+            notificacionesActivas = isActive;
+            document.querySelectorAll('.btn-notificaciones').forEach(btn => {
+                if (isActive) {
+                    btn.classList.remove('text-slate-400', 'hover:text-slate-500');
+                    btn.classList.add('text-emerald-500', 'hover:text-emerald-600');
+                    btn.title = "Desactivar Notificaciones";
+                    btn.innerHTML = '<i class="fas fa-bell text-sm sm:text-base"></i>';
+                } else {
+                    btn.classList.remove('text-emerald-500', 'hover:text-emerald-600');
+                    btn.classList.add('text-slate-400', 'hover:text-slate-500');
+                    btn.title = "Activar Notificaciones";
+                    btn.innerHTML = '<i class="fas fa-bell-slash text-sm sm:text-base"></i>';
                 }
             });
         }
-        // --------------------------------------------------
 
-        async function solicitarPermisoNotificaciones() {
-            // Regla de Apple: Validar si está en modo "App"
-            const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            if (isIos && !window.navigator.standalone) {
-                mostrarToast("⚠️ En iPhone, debes 'Agregar a Inicio' primero para recibir notificaciones.");
-                return;
+        // REVISAR ESTADO AL CARGAR LA PÁGINA
+        if ('Notification' in window && Notification.permission === 'granted') {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                navigator.serviceWorker.ready.then(async function(register) {
+                    const sub = await register.pushManager.getSubscription();
+                    if (sub) {
+                        setNotificationState(true);
+                    } else {
+                        setNotificationState(false);
+                    }
+                });
             }
+        } else {
+            setNotificationState(false);
+        }
 
-            audioAlerta.play().catch(e => console.log("Audio esperando"));
-
-            const permission = await Notification.requestPermission();
-            if (permission !== 'granted') {
-                mostrarToast("❌ Permiso denegado por el navegador.");
-                return;
-            }
-
-            try {
-                const register = await navigator.serviceWorker.register('/sw.js');
-                
-                // Limpiar suscripción vieja manualmente al hacer clic
-                const oldSubscription = await register.pushManager.getSubscription();
-                if (oldSubscription) {
-                    await oldSubscription.unsubscribe();
+        // FUNCIÓN PRINCIPAL DEL BOTÓN (PRENDER / APAGAR)
+        async function toggleNotificaciones() {
+            if (notificacionesActivas) {
+                // APAGAR NOTIFICACIONES
+                try {
+                    const register = await navigator.serviceWorker.getRegistration('/sw.js');
+                    if (register) {
+                        const sub = await register.pushManager.getSubscription();
+                        if (sub) await sub.unsubscribe();
+                    }
+                    setNotificationState(false);
+                    mostrarToast("🔕 Notificaciones silenciadas.");
+                } catch(e) {
+                    console.error(e);
+                }
+            } else {
+                // PRENDER NOTIFICACIONES
+                // Regla de Apple: Validar si está en modo "App"
+                const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                if (isIos && !window.navigator.standalone) {
+                    mostrarToast("⚠️ En iPhone, debes 'Agregar a Inicio' primero para recibir notificaciones.");
+                    return;
                 }
 
-                // Crear nueva suscripción
-                const subscription = await register.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
-                });
+                audioAlerta.play().catch(e => console.log("Audio esperando"));
 
-                // Enviar a Python
-                const response = await fetch('/guardar_suscripcion', {
-                    method: 'POST',
-                    body: JSON.stringify(subscription),
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                if(response.ok) {
-                    notificacionesActivas = true;
-                    document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
-                    mostrarToast("✅ ¡Conectado! Notificaciones en segundo plano activas.");
-                } else {
-                    throw new Error("El servidor rechazó la suscripción.");
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    mostrarToast("❌ Permiso denegado por el navegador.");
+                    return;
                 }
 
-            } catch (error) {
-                console.error("Error Push:", error);
-                mostrarToast("⚠️ Error al conectar. Intenta borrar el caché del navegador.");
+                try {
+                    const register = await navigator.serviceWorker.register('/sw.js');
+                    
+                    // Limpiar suscripción vieja
+                    const oldSubscription = await register.pushManager.getSubscription();
+                    if (oldSubscription) {
+                        await oldSubscription.unsubscribe();
+                    }
+
+                    // Crear nueva suscripción
+                    const subscription = await register.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+                    });
+
+                    // Enviar a Python
+                    const response = await fetch('/guardar_suscripcion', {
+                        method: 'POST',
+                        body: JSON.stringify(subscription),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if(response.ok) {
+                        setNotificationState(true);
+                        mostrarToast("✅ ¡Conectado! Notificaciones en segundo plano activas.");
+                    } else {
+                        throw new Error("El servidor rechazó la suscripción.");
+                    }
+
+                } catch (error) {
+                    console.error("Error Push:", error);
+                    mostrarToast("⚠️ Error al conectar. Intenta borrar el caché del navegador.");
+                }
             }
         }
 
@@ -505,10 +585,14 @@
 
         // Refresco silencioso
         function refrescarPanelSilencioso() {
+            const modalPapelera = document.getElementById('modalPapelera');
+            const modalRecibir = document.getElementById('modalRecibir');
             const modalRetirado = document.getElementById('modalRetirado');
             const modalFallido = document.getElementById('modalFallido');
             
-            if((modalRetirado && !modalRetirado.classList.contains('hidden')) || 
+            if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
+               (modalRecibir && !modalRecibir.classList.contains('hidden')) ||
+               (modalRetirado && !modalRetirado.classList.contains('hidden')) ||
                (modalFallido && !modalFallido.classList.contains('hidden'))) {
                 return;
             }

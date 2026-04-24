@@ -396,7 +396,7 @@
         let notificacionesActivas = false;
         const audioAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
-        // PON TU LLAVE PÚBLICA AQUÍ ABAJO (La que generaste con el script)
+        // PON TU LLAVE PÚBLICA AQUÍ ABAJO
         const PUBLIC_VAPID_KEY = 'BA4g6c20PBoFoBjJCxJsdamujtNeGG4D7aLWr94FmWjEdJrzeljB4fS3f4GguyS9oMW4ImiphlexMV1s9A8KH8Q';
 
         function urlBase64ToUint8Array(base64String) {
@@ -413,29 +413,21 @@
         // --- AUTO-REPARADOR Y SINCRONIZADOR SILENCIOSO ---
         if ('serviceWorker' in navigator && 'PushManager' in window) {
             navigator.serviceWorker.register('/sw.js').then(async function(register) {
-                // Si el celular ya dio permiso de notificaciones en el pasado...
                 if (Notification.permission === 'granted') {
                     try {
-                        // 1. Destruimos sin piedad cualquier llave vieja o corrupta
                         const oldSubscription = await register.pushManager.getSubscription();
                         if (oldSubscription) {
                             await oldSubscription.unsubscribe();
                         }
-                        
-                        // 2. Creamos la nueva conexión limpia con la llave actual
                         const subscription = await register.pushManager.subscribe({
                             userVisibleOnly: true,
                             applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
                         });
-                        
-                        // 3. Se la enviamos a Render en modo fantasma
                         await fetch('/guardar_suscripcion', {
                             method: 'POST',
                             body: JSON.stringify(subscription),
                             headers: { 'Content-Type': 'application/json' }
                         });
-                        
-                        // 4. Activamos todo y ocultamos la campana
                         notificacionesActivas = true;
                         document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
                     } catch (e) {
@@ -447,60 +439,77 @@
         // --------------------------------------------------
 
         async function solicitarPermisoNotificaciones() {
-            notificacionesActivas = true;
+            // Regla de Apple: Validar si está en modo "App"
+            const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            if (isIos && !window.navigator.standalone) {
+                mostrarToast("⚠️ En iPhone, debes 'Agregar a Inicio' primero para recibir notificaciones.");
+                return;
+            }
+
             audioAlerta.play().catch(e => console.log("Audio esperando"));
 
             const permission = await Notification.requestPermission();
             if (permission !== 'granted') {
-                mostrarToast("❌ Permiso denegado. No llegarán notificaciones con la app cerrada.");
+                mostrarToast("❌ Permiso denegado por el navegador.");
                 return;
             }
 
             try {
                 const register = await navigator.serviceWorker.register('/sw.js');
                 
+                // Limpiar suscripción vieja manualmente al hacer clic
                 const oldSubscription = await register.pushManager.getSubscription();
                 if (oldSubscription) {
                     await oldSubscription.unsubscribe();
                 }
 
+                // Crear nueva suscripción
                 const subscription = await register.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
                 });
 
-                await fetch('/guardar_suscripcion', {
+                // Enviar a Python
+                const response = await fetch('/guardar_suscripcion', {
                     method: 'POST',
                     body: JSON.stringify(subscription),
                     headers: { 'Content-Type': 'application/json' }
                 });
 
-                mostrarToast("✅ ¡Listo! Te llegarán alertas aunque cierres la pestaña.");
-                document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
+                if(response.ok) {
+                    notificacionesActivas = true;
+                    document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
+                    mostrarToast("✅ ¡Conectado! Notificaciones en segundo plano activas.");
+                } else {
+                    throw new Error("El servidor rechazó la suscripción.");
+                }
 
             } catch (error) {
-                console.error("Error activando notificaciones push:", error);
-                mostrarToast("⚠️ Error al conectar notificaciones en segundo plano.");
+                console.error("Error Push:", error);
+                mostrarToast("⚠️ Error al conectar. Intenta borrar el caché del navegador.");
             }
         }
 
-        // Sistema para mostrar alertas visuales dentro de la app (In-App Toast para Celulares)
+        // Sistema para mostrar alertas visuales (In-App Toast)
         function mostrarToast(mensaje) {
             const toast = document.createElement('div');
-            toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-3 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center";
-            toast.innerHTML = `<i class="fas fa-bell mr-3 text-xl animate-pulse"></i> <span>${mensaje}</span>`;
+            toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-4 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center max-w-[90vw]";
+            toast.innerHTML = `<i class="fas fa-bell mr-3 text-2xl animate-pulse"></i> <span class="text-sm">${mensaje}</span>`;
             document.body.appendChild(toast);
             
             setTimeout(() => {
                 toast.style.opacity = '0';
                 setTimeout(() => toast.remove(), 500);
-            }, 4000);
+            }, 5000);
         }
 
         // Refresco silencioso
         function refrescarPanelSilencioso() {
-            if(!document.getElementById('modalRetirado').classList.contains('hidden') ||
-               !document.getElementById('modalFallido').classList.contains('hidden')) {
+            const modalRetirado = document.getElementById('modalRetirado');
+            const modalFallido = document.getElementById('modalFallido');
+            
+            if((modalRetirado && !modalRetirado.classList.contains('hidden')) || 
+               (modalFallido && !modalFallido.classList.contains('hidden'))) {
                 return;
             }
 
@@ -518,33 +527,27 @@
                     
                     if (nuevoContenido) {
                         const mainScroll = document.getElementById('mainScroll');
-                        const scrollActual = mainScroll.scrollTop; 
+                        const scrollActual = mainScroll ? mainScroll.scrollTop : 0; 
                         
                         document.getElementById('contenidoDinamico').innerHTML = nuevoContenido.innerHTML;
                         
                         document.querySelectorAll('.form-mantener-scroll').forEach(form => {
                             form.addEventListener('submit', function() {
-                                sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
+                                if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
                             });
                         });
 
-                        actualizarCronometros();
-                        mainScroll.scrollTop = scrollActual;
+                        if(typeof actualizarCronometros === 'function') actualizarCronometros();
+                        if(mainScroll) mainScroll.scrollTop = scrollActual;
 
-                        // VERIFICAR NUEVOS CÓDIGOS PARA NOTIFICAR
+                        // LÓGICA DE NOTIFICACIONES PARA TRABAJADOR
                         let nuevosCodigosCount = document.querySelectorAll('.tarjeta-retiro').length;
                         
                         if (nuevosCodigosCount > totalCodigosActuales && notificacionesActivas) {
                             audioAlerta.play().catch(e => console.log(e));
                             
-                            if ("Notification" in window && Notification.permission === "granted") {
-                                new Notification("¡Nuevo Retiro Asignado! 💰", {
-                                    body: "Revisa tu bandeja, te acaban de asignar un nuevo código.",
-                                    icon: "https://cdn-icons-png.flaticon.com/512/1828/1828640.png"
-                                });
-                            } else {
-                                mostrarToast("¡Nuevo Retiro Asignado! 💰 Revisa tu bandeja.");
-                            }
+                            // Mostrar In-App Toast si es iPhone o PC
+                            mostrarToast("¡Nuevo Retiro Asignado! 💰 Revisa tu bandeja.");
                         }
                         totalCodigosActuales = nuevosCodigosCount;
                     }
@@ -564,7 +567,7 @@
                         fetch('/actualizar_ubicacion', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ usuario: "{{ nombre }}", lat: lat, lng: lng })
+                            body: JSON.stringify({ usuario: "{{ nombre | default(mi_usuario) }}", lat: lat, lng: lng })
                         });
                     },
                     (error) => { console.warn("No se pudo obtener la ubicación", error); },

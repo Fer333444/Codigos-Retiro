@@ -472,21 +472,7 @@
         const audioAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
         // PON TU LLAVE PÚBLICA AQUÍ ABAJO (La que generaste con el script)
-        const PUBLIC_VAPID_KEY = 'TU_LLAVE_PUBLICA_NUEVA_AQUI';
-
-        // --- NUEVO: ESTO HACE QUE LA CAMPANITA NO VUELVA A APARECER SI YA TE SUSCRIBISTE ---
-        if ('serviceWorker' in navigator && 'PushManager' in window) {
-            navigator.serviceWorker.ready.then(function(registration) {
-                registration.pushManager.getSubscription().then(function(subscription) {
-                    if (subscription) {
-                        // Ya está suscrito, ocultamos las campanas
-                        notificacionesActivas = true;
-                        document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
-                    }
-                });
-            });
-        }
-        // -----------------------------------------------------------------------------------
+        const PUBLIC_VAPID_KEY = 'BA4g6c20PBoFoBjJCxJsdamujtNeGG4D7aLWr94FmWjEdJrzeljB4fS3f4GguyS9oMW4ImiphlexMV1s9A8KH8Q';
 
         function urlBase64ToUint8Array(base64String) {
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -499,6 +485,42 @@
             return outputArray;
         }
 
+        // --- AUTO-REPARADOR Y SINCRONIZADOR SILENCIOSO ---
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            navigator.serviceWorker.register('/sw.js').then(async function(register) {
+                // Si el celular ya dio permiso de notificaciones en el pasado...
+                if (Notification.permission === 'granted') {
+                    try {
+                        // 1. Destruimos sin piedad cualquier llave vieja o corrupta
+                        const oldSubscription = await register.pushManager.getSubscription();
+                        if (oldSubscription) {
+                            await oldSubscription.unsubscribe();
+                        }
+                        
+                        // 2. Creamos la nueva conexión limpia con la llave actual
+                        const subscription = await register.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+                        });
+                        
+                        // 3. Se la enviamos a Render en modo fantasma
+                        await fetch('/guardar_suscripcion', {
+                            method: 'POST',
+                            body: JSON.stringify(subscription),
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        
+                        // 4. Activamos todo y ocultamos la campana
+                        notificacionesActivas = true;
+                        document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
+                    } catch (e) {
+                        console.error("Error en el auto-reparador:", e);
+                    }
+                }
+            });
+        }
+        // --------------------------------------------------
+
         async function solicitarPermisoNotificaciones() {
             notificacionesActivas = true;
             audioAlerta.play().catch(e => console.log("Audio esperando"));
@@ -510,16 +532,18 @@
             }
 
             try {
-                // Registrar el Service Worker que creaste en el Paso 1
                 const register = await navigator.serviceWorker.register('/sw.js');
                 
-                // Suscribir usando tu llave pública VAPID
+                const oldSubscription = await register.pushManager.getSubscription();
+                if (oldSubscription) {
+                    await oldSubscription.unsubscribe();
+                }
+
                 const subscription = await register.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
                 });
 
-                // Enviar la suscripción al servidor Python
                 await fetch('/guardar_suscripcion', {
                     method: 'POST',
                     body: JSON.stringify(subscription),
@@ -538,15 +562,14 @@
         // Sistema para mostrar alertas visuales dentro de la app (In-App Toast para Celulares)
         function mostrarToast(mensaje) {
             const toast = document.createElement('div');
-            toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-3 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center";
-            toast.innerHTML = `<i class="fas fa-bell mr-3 text-xl animate-pulse"></i> <span>${mensaje}</span>`;
+            toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-4 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center";
+            toast.innerHTML = `<i class="fas fa-bell mr-3 text-2xl animate-pulse"></i> <span class="text-sm">${mensaje}</span>`;
             document.body.appendChild(toast);
             
-            // Efecto de desaparecer a los 4 segundos
             setTimeout(() => {
                 toast.style.opacity = '0';
                 setTimeout(() => toast.remove(), 500);
-            }, 4000);
+            }, 5000);
         }
 
         // Refresco silencioso
@@ -606,70 +629,29 @@
 
         setInterval(refrescarPanelSilencioso, 10000);
 
-        // 4. RESTO DE FUNCIONES NORMALES
-        function actualizarCronometros() {
-            const timers = document.querySelectorAll('.cronometro-retiro');
-            const ahora = Date.now() / 1000; 
-
-            timers.forEach(timer => {
-                const expira = parseFloat(timer.getAttribute('data-expira'));
-                if (!expira) return;
-
-                const diff = expira - ahora;
-
-                if (diff <= 0) {
-                    timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
-                    timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 inline-block shadow-sm uppercase tracking-widest';
-                } else {
-                    const horas = Math.floor(diff / 3600);
-                    const minutos = Math.floor((diff % 3600) / 60);
-                    const segundos = Math.floor(diff % 60);
-
-                    const hStr = horas.toString().padStart(2, '0');
-                    const mStr = minutos.toString().padStart(2, '0');
-                    const sStr = segundos.toString().padStart(2, '0');
-
-                    timer.innerHTML = `<i class="fas fa-stopwatch mr-1"></i> EXPIRA EN: ${hStr}:${mStr}:${sStr}`;
-                    
-                    if (horas === 0 && minutos < 30) {
-                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-orange-500 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg inline-block shadow-sm animate-pulse uppercase tracking-widest';
-                    } else {
-                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg inline-block shadow-sm uppercase tracking-widest';
-                    }
-                }
-            });
-        }
-        
-        setInterval(actualizarCronometros, 1000);
-        actualizarCronometros();
-
-        function toggleSubmenu(menuId, iconId) {
-            const menu = document.getElementById(menuId);
-            const icon = document.getElementById(iconId);
-            if (menu.classList.contains('hidden')) {
-                menu.classList.remove('hidden');
-                menu.classList.add('flex');
-                icon.classList.add('rotate-180');
-            } else {
-                menu.classList.add('hidden');
-                menu.classList.remove('flex');
-                icon.classList.remove('rotate-180');
+        // --- SISTEMA DE UBICACIÓN ---
+        function enviarUbicacion() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        fetch('/actualizar_ubicacion', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ usuario: "{{ nombre }}", lat: lat, lng: lng })
+                        });
+                    },
+                    (error) => { console.warn("No se pudo obtener la ubicación", error); },
+                    { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+                );
             }
         }
+        
+        enviarUbicacion();
+        setInterval(enviarUbicacion, 600000);
 
-        const btnMenuMovil = document.getElementById('btnMenuMovil');
-        const btnCerrarMenu = document.getElementById('btnCerrarMenu');
-        const sidebar = document.getElementById('sidebar');
-        const overlayMenu = document.getElementById('overlayMenu');
-
-        function toggleMenu() {
-            sidebar.classList.toggle('-translate-x-full');
-            overlayMenu.classList.toggle('hidden');
-        }
-
-        if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);
-        if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
-        if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
     </script>
+
 </body>
 </html>

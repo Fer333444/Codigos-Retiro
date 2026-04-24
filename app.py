@@ -1520,6 +1520,12 @@ def disparar_alerta_push(usuario_destino, titulo, mensaje):
         print(f"✅ Push enviado con éxito a {usuario_destino}")
     except WebPushException as ex:
         print(f"❌ Error enviando push a {usuario_destino}:", repr(ex))
+@app.route('/reset_push')
+def reset_push():
+    if session.get('rol') != 'supremo': return "No autorizado"
+    suscripciones_push.clear() # Borra todos los permisos viejos
+    guardar_datos()
+    return "✅ Todas las suscripciones push viejas han sido borradas de la base de datos. Pide a tus cobradores que le den a la campanita otra vez."
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

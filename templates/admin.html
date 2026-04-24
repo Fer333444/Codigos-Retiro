@@ -160,8 +160,19 @@
                                 <h4 class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Asignados (Pendientes)</h4>
                                 <p class="text-xl font-black text-blue-800">${{ "%.2f"|format(stats.asignados_valor) }}</p>
                             </div>
-                            <div class="text-right">
-                                <span class="bg-blue-200 text-blue-800 text-[10px] font-black px-3 py-1.5 rounded-full uppercase shadow-sm">{{ stats.asignados_count }} Códigos</span>
+                            <div class="text-right flex flex-col gap-1.5 items-end">
+                                <span class="bg-blue-200 text-blue-800 text-[10px] font-black px-3 py-1 rounded-full uppercase shadow-sm">{{ stats.asignados_count }} Códigos</span>
+                                
+                                {% set vistos = namespace(count=0) %}
+                                {% for r in activos %}
+                                    {% if r.asignado_a == cobrador and r.visto_por_cobrador %}
+                                        {% set vistos.count = vistos.count + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                <span class="bg-emerald-100 text-emerald-700 text-[10px] font-black px-3 py-1 rounded-full uppercase shadow-sm border border-emerald-200 flex items-center justify-center" title="Códigos marcados como vistos por el cobrador">
+                                    <i class="fas fa-eye mr-1"></i> {{ vistos.count }} Vistos
+                                </span>
                             </div>
                         </div>
 
@@ -377,7 +388,6 @@
             document.getElementById('modalPapelera').classList.add('hidden');
         }
 
-        // --- FUNCIONES DEL NUEVO MODAL DE RECIBIR DINERO ---
         function abrirModalRecibir(btnElement) {
             const cobrador = btnElement.getAttribute('data-cobrador');
             const monto = parseFloat(btnElement.getAttribute('data-monto')).toFixed(2);
@@ -388,7 +398,6 @@
             document.getElementById('recibir_cobrador_nombre').innerText = cobrador;
             document.getElementById('recibir_monto_display').innerText = "$" + monto;
             
-            // Llenar el input automáticamente con el total, pero permitir editarlo
             document.getElementById('input_monto_recibido').value = monto;
 
             const desgloseContainer = document.getElementById('recibir_desglose');
@@ -421,7 +430,6 @@
             document.getElementById('modalRecibir').classList.add('hidden');
         }
 
-        // 1. SISTEMA MAESTRO DE EVENTOS (DELEGACIÓN)
         document.body.addEventListener('click', function(event) {
             if (event.target.closest('.btn-abrir-papelera')) {
                 const btn = event.target.closest('.btn-abrir-papelera');
@@ -446,7 +454,6 @@
             }
         });
 
-        // 2. SISTEMA DE RESTAURACIÓN DE SCROLL
         document.addEventListener("DOMContentLoaded", function() { 
             var mainScroll = document.getElementById('mainScroll');
             var savedScrollPos = sessionStorage.getItem('scrollpos_admin');
@@ -468,7 +475,6 @@
         }
 
         // --- SISTEMA HÍBRIDO DE NOTIFICACIONES PUSH (TOGGLE) ---
-        // NUEVA LÓGICA: Memorizamos los IDs exactos en lugar de contar la cantidad
         let codigosVistos = new Set();
         document.querySelectorAll('form[action="/asignar"] input[name="id"]').forEach(input => {
             codigosVistos.add(input.value);
@@ -491,7 +497,6 @@
             return outputArray;
         }
 
-        // FUNCIÓN PARA CAMBIAR EL COLOR Y ESTADO DEL BOTÓN
         function setNotificationState(isActive) {
             notificacionesActivas = isActive;
             document.querySelectorAll('.btn-notificaciones').forEach(btn => {
@@ -509,7 +514,6 @@
             });
         }
 
-        // REVISAR ESTADO AL CARGAR LA PÁGINA
         if ('Notification' in window && Notification.permission === 'granted') {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
                 navigator.serviceWorker.ready.then(async function(register) {
@@ -525,10 +529,8 @@
             setNotificationState(false);
         }
 
-        // FUNCIÓN PRINCIPAL DEL BOTÓN (PRENDER / APAGAR)
         async function toggleNotificaciones() {
             if (notificacionesActivas) {
-                // APAGAR NOTIFICACIONES
                 try {
                     const register = await navigator.serviceWorker.getRegistration('/sw.js');
                     if (register) {
@@ -541,7 +543,6 @@
                     console.error(e);
                 }
             } else {
-                // PRENDER NOTIFICACIONES
                 const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
                 if (isIos && !window.navigator.standalone) {
                     mostrarToast("⚠️ En iPhone, debes 'Agregar a Inicio' primero para recibir notificaciones.");
@@ -589,7 +590,6 @@
             }
         }
 
-        // Sistema para mostrar alertas visuales (In-App Toast)
         function mostrarToast(mensaje) {
             const toast = document.createElement('div');
             toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-4 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center max-w-[90vw]";
@@ -602,7 +602,6 @@
             }, 5000);
         }
 
-        // Refresco silencioso
         function refrescarPanelSilencioso() {
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
@@ -639,7 +638,6 @@
                         if(typeof actualizarCronometros === 'function') actualizarCronometros();
                         if(mainScroll) mainScroll.scrollTop = scrollActual;
 
-                        // LÓGICA DE NOTIFICACIONES (A PRUEBA DE MÚLTIPLES CÓDIGOS)
                         let codigosNuevosEncontrados = 0;
                         
                         document.querySelectorAll('form[action="/asignar"] input[name="id"]').forEach(input => {
@@ -650,14 +648,12 @@
                         });
                         
                         if (codigosNuevosEncontrados > 0 && notificacionesActivas) {
-                            // Reproducir el sonido una vez por la ráfaga de códigos
                             audioAlerta.play().catch(e => console.log(e));
                             
-                            // Mostrar una tarjeta flotante por CADA código nuevo
                             for(let i = 0; i < codigosNuevosEncontrados; i++) {
                                 setTimeout(() => {
                                     mostrarToast("¡Nuevo Retiro Ingresado! 💰 Revisa el panel.");
-                                }, i * 800);
+                                }, i * 800); 
                             }
                         }
                     }
@@ -667,7 +663,6 @@
 
         setInterval(refrescarPanelSilencioso, 10000);
 
-        // 4. RESTO DE FUNCIONES NORMALES
         function actualizarCronometros() {
             const timers = document.querySelectorAll('.cronometro-retiro');
             const ahora = Date.now() / 1000; 
@@ -682,7 +677,6 @@
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
                     timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 inline-block shadow-sm uppercase tracking-widest';
                     
-                    // CUANDO EL TIEMPO LLEGA A 0 EN VIVO, INYECTAMOS LA ETIQUETA ROJA
                     const card = timer.closest('.tarjeta-retiro');
                     if (card && !card.querySelector('.badge-vencido')) {
                         card.classList.remove('border-emerald-500', 'border-slate-800');
@@ -737,8 +731,8 @@
         const overlayMenu = document.getElementById('overlayMenu');
 
         function toggleMenu() {
-            if(sidebar) sidebar.classList.toggle('-translate-x-full');
-            if(overlayMenu) overlayMenu.classList.toggle('hidden');
+            sidebar.classList.toggle('-translate-x-full');
+            overlayMenu.classList.toggle('hidden');
         }
 
         if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);

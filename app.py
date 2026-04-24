@@ -1434,6 +1434,39 @@ def vista_trabajador(nombre):
         
     mis_activos = [r for r in registros if r.get('asignado_a') == nombre and r['estado'] in ['activo', 'expirado']]
     return render_template('trabajador.html', registros=mis_activos, nombre=nombre.capitalize(), mi_usuario=session['usuario'])
+@app.route('/notificar_visto', methods=['POST'])
+def notificar_visto():
+    # Verificamos que quien presiona el botón sea un cobrador
+    if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in session.get('permisos', []): 
+        return jsonify({"error": "No autorizado"}), 403
+
+    data = request.json
+    registro_id = data.get('id')
+    cobrador_nombre = session.get('usuario').capitalize()
+    
+    banco = "Desconocido"
+    
+    # Buscamos el registro para marcarlo como visto y sacar el nombre del banco
+    for r in registros:
+        if r['id'] == int(registro_id):
+            banco = r.get('banco', 'Desconocido').capitalize()
+            r['visto_por_cobrador'] = True  # Guardamos que ya lo vio
+            break
+            
+    guardar_datos()
+
+    # Preparamos el mensaje Push
+    titulo = "👀 Código Visto"
+    mensaje = f"El cobrador {cobrador_nombre} ha recibido y visto el código de {banco}."
+    
+    # Filtramos SOLO a los usuarios que sean supremo o recaudador
+    admin_users = [u for u, info in usuarios_db.items() if info['rol'] in ['supremo', 'recaudador']]
+    
+    # Le disparamos la alerta a todos los jefes
+    for admin in admin_users:
+        disparar_alerta_push(admin, titulo, mensaje)
+
+    return jsonify({"status": "ok", "mensaje": "Notificado correctamente"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

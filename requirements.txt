@@ -3,3 +3,5 @@ openai
 httpx==0.27.2
 Werkzeug==3.0.1
 gunicorn==21.2.0
+pywebpush
+cryptography

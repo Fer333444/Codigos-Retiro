@@ -792,15 +792,17 @@ def toggle_auto():
 @app.route('/asignar', methods=['POST'])
 def asignar_trabajo():
     mis_permisos = session.get('permisos', [])
-    # Validamos permisos para que no entre cualquiera
-    if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_retiros' not in mis_permisos: 
+    
+    # 1. SOLUCIÓN PERMISOS: Ahora también deja entrar a quienes tengan 'procesar_retiros' (Cobradores)
+    if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_retiros' not in mis_permisos and 'procesar_retiros' not in mis_permisos: 
         return redirect(url_for('login'))
         
     registro_id = int(request.form.get('id'))
     trabajador = request.form.get('trabajador')
     
+    # 2. SOLUCIÓN REDIRECCIÓN: Si falla, regresa a la pestaña actual, no al admin
     if not trabajador:
-        return redirect(url_for('admin'))
+        return redirect(request.referrer)
         
     hora_actual = hora_ecuador().strftime('%H:%M')
     
@@ -810,7 +812,7 @@ def asignar_trabajo():
             
             if viejo_asignado == trabajador:
                 flash(f'El código ya estaba asignado a {trabajador.capitalize()}.', 'info')
-                return redirect(url_for('admin'))
+                return redirect(request.referrer)
                 
             if viejo_asignado and viejo_asignado != trabajador:
                 r['asignado_a'] = trabajador
@@ -827,7 +829,9 @@ def asignar_trabajo():
             
     guardar_datos()
     flash(f'Asignado a {trabajador.capitalize()} correctamente.', 'success')
-    return redirect(url_for('admin'))
+    
+    # 3. SOLUCIÓN FINAL: Regresa al usuario a la página exacta desde la que hizo la asignación
+    return redirect(request.referrer)
 # ==========================================
 # RUTAS DE PAPELERA DE RECICLAJE
 # ==========================================

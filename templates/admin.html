@@ -262,7 +262,7 @@
                                     
                                     <div class="shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
                                         {% if r.expira_timestamp %}
-                                            <span class="cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 px-3 py-1.5 rounded-lg border border-blue-200 inline-block shadow-sm" data-expira="{{ r.expira_timestamp }}">
+                                            <span class="cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 inline-block shadow-sm" data-expira="{{ r.expira_timestamp }}">
                                                 <i class="fas fa-spinner fa-spin"></i> Cargando...
                                             </span>
                                         {% elif r.hora_limite %}
@@ -455,7 +455,7 @@
             }
         });
 
-        // SOLUCIÓN: Usamos pointer-events y opacity en lugar de disabled para que sí se envíe el dato
+        // BLOQUE CORREGIDO: Evita doble clic y espera 50ms antes de procesar para garantizar el envío
         document.body.addEventListener('change', function(event) {
             if (event.target.classList.contains('select-trabajador')) {
                 const select = event.target;
@@ -467,7 +467,10 @@
                     
                     var mainScroll = document.getElementById('mainScroll');
                     if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
-                    select.closest('form').submit();
+                    
+                    setTimeout(() => {
+                        select.closest('form').submit();
+                    }, 50);
                 }
             }
         });
@@ -692,7 +695,19 @@
 
                 if (diff <= 0) {
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
-                    timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-rose-600 bg-white rounded-lg px-3 py-1.5 uppercase tracking-widest shadow-sm border border-rose-200';
+                    timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 inline-block shadow-sm uppercase tracking-widest';
+                    
+                    const card = timer.closest('.tarjeta-retiro');
+                    if (card && !card.querySelector('.badge-vencido')) {
+                        card.classList.remove('border-emerald-500', 'border-slate-800');
+                        card.classList.add('border-rose-500');
+                        
+                        const badge = document.createElement('div');
+                        badge.className = 'badge-vencido absolute top-0 right-0 bg-rose-600 text-white font-black px-4 py-1 rounded-bl-xl text-xs uppercase shadow-md z-10';
+                        badge.innerHTML = '<i class="fas fa-clock mr-1"></i> Vencido';
+                        card.appendChild(badge);
+                    }
+
                 } else {
                     const horas = Math.floor(diff / 3600);
                     const minutos = Math.floor((diff % 3600) / 60);
@@ -705,9 +720,9 @@
                     timer.innerHTML = `<i class="fas fa-stopwatch mr-1"></i> EXPIRA EN: ${hStr}:${mStr}:${sStr}`;
                     
                     if (horas === 0 && minutos < 30) {
-                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-orange-500 bg-white rounded-lg border border-orange-200 px-3 py-1.5 shadow-sm animate-pulse uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-orange-500 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg inline-block shadow-sm animate-pulse uppercase tracking-widest';
                     } else {
-                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 bg-white rounded-lg border border-blue-200 px-3 py-1.5 shadow-sm uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg inline-block shadow-sm uppercase tracking-widest';
                     }
                 }
             });
@@ -736,8 +751,8 @@
         const overlayMenu = document.getElementById('overlayMenu');
 
         function toggleMenu() {
-            sidebar.classList.toggle('-translate-x-full');
-            overlayMenu.classList.toggle('hidden');
+            if (sidebar) sidebar.classList.toggle('-translate-x-full');
+            if (overlayMenu) overlayMenu.classList.toggle('hidden');
         }
 
         if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);

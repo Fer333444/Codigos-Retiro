@@ -136,9 +136,13 @@
                                 <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Saldo en Efectivo</h4>
                                 <p class="text-4xl font-black text-emerald-600">${{ "%.2f"|format(stats.total_dia) }}</p>
                             </div>
-                            <div class="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-200">
-                                <i class="fas fa-wallet text-2xl"></i>
-                            </div>
+                            
+                            <button type="button" onclick="abrirModalRecibir('{{ cobrador }}', '{{ stats.total_dia }}')" class="flex flex-col items-center justify-center group focus:outline-none transition-transform transform hover:scale-105" title="Liquidar y recibir dinero">
+                                <div class="w-14 h-14 bg-emerald-100 group-hover:bg-emerald-200 rounded-full flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-300 transition-colors">
+                                    <i class="fas fa-wallet text-2xl"></i>
+                                </div>
+                                <span class="text-[9px] font-black text-emerald-700 mt-2 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 group-hover:bg-emerald-100 transition-colors shadow-sm">Recibir Dinero</span>
+                            </button>
                         </div>
                         
                         <div class="bg-blue-50/50 p-4 border-b border-blue-100 flex justify-between items-center">
@@ -312,9 +316,50 @@
         </div>
     </div>
 
+    <div id="modalRecibir" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
+            <div class="p-5 border-b border-slate-200 bg-emerald-50 flex justify-between items-center">
+                <h3 class="font-black text-emerald-700 text-lg uppercase tracking-widest"><i class="fas fa-hand-holding-usd mr-2"></i> Recibir Efectivo</h3>
+                <button onclick="cerrarModalRecibir()" class="text-emerald-400 hover:text-emerald-600 focus:outline-none"><i class="fas fa-times-circle text-2xl"></i></button>
+            </div>
+            
+            <form action="/marcar_recibido" method="POST" class="p-6 space-y-5 bg-white form-mantener-scroll">
+                <input type="hidden" name="cobrador" id="recibir_cobrador_input">
+                
+                <div class="text-center pt-2">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Liquidar caja de</p>
+                    <p class="text-2xl font-black text-blue-600 uppercase tracking-widest mb-5" id="recibir_cobrador_nombre">---</p>
+                    
+                    <div class="bg-slate-50 border border-slate-200 p-5 rounded-xl inline-block w-full shadow-inner">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Monto a Recibir y Limpiar</p>
+                        <p class="text-5xl font-black text-emerald-600" id="recibir_monto_display">$0.00</p>
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black py-4 rounded-xl shadow-md uppercase tracking-widest text-sm flex justify-center items-center gap-2 transition-colors">
+                        <i class="fas fa-check-double text-lg"></i> Confirmar y Recibir
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         function cerrarModalPapelera() {
             document.getElementById('modalPapelera').classList.add('hidden');
+        }
+
+        // --- FUNCIONES DEL NUEVO MODAL DE RECIBIR DINERO ---
+        function abrirModalRecibir(cobrador, monto) {
+            document.getElementById('recibir_cobrador_input').value = cobrador;
+            document.getElementById('recibir_cobrador_nombre').innerText = cobrador;
+            document.getElementById('recibir_monto_display').innerText = "$" + parseFloat(monto).toFixed(2);
+            document.getElementById('modalRecibir').classList.remove('hidden');
+        }
+
+        function cerrarModalRecibir() {
+            document.getElementById('modalRecibir').classList.add('hidden');
         }
 
         // 1. SISTEMA MAESTRO DE EVENTOS (DELEGACIÓN)
@@ -374,7 +419,7 @@
         function solicitarPermisoNotificaciones() {
             notificacionesActivas = true; // Activa notificaciones in-app
             
-            // Desbloquear audio en iOS (requiere interacción del usuario)
+            // Truco para iOS: Tocar audio invisible para que Safari nos dé permiso de sonar después
             audioAlerta.play().catch(e => console.log("Audio desbloqueado", e));
             
             // Intentar notificaciones nativas si están soportadas
@@ -408,7 +453,10 @@
         // 3. SISTEMA DE REFRESCAMIENTO SILENCIOSO
         function refrescarPanelSilencioso() {
             const modalPapelera = document.getElementById('modalPapelera');
-            if(modalPapelera && !modalPapelera.classList.contains('hidden')) {
+            const modalRecibir = document.getElementById('modalRecibir');
+            
+            if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
+               (modalRecibir && !modalRecibir.classList.contains('hidden'))) {
                 return;
             }
 

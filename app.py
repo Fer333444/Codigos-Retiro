@@ -628,7 +628,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
             historial_inicial.append(f"[{hora_actual}] 👤 Asignado a {mejor_cobrador.capitalize()} (Robot)")
 
     nuevo_registro = {
-        id': int(time.time() * 1000) + random.randint(1, 999),
+        'id': int(time.time() * 1000) + random.randint(1, 999), # <--- LÍNEA REPARADA
         'transaccion_id': transaccion_id, 
         'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"),
         'banco': banco, 

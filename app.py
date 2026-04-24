@@ -15,6 +15,11 @@ from openai import OpenAI
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") 
 openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
+# --- CONFIGURACIÓN DE NOTIFICACIONES PUSH (VAPID) ---
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
+VAPID_CLAIMS = {"sub": "mailto:contenido2025yt@gmail.com"}
+
 app = Flask(__name__)
 app.secret_key = "flujo_secreto_123"
 

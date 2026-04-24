@@ -173,6 +173,15 @@ def mantenimiento_datos():
     cambios_realizados = False
     hora_actual = hora_ecuador().strftime('%H:%M')
     tiempo_ahora = time.time()
+# --- 🛠️ AUTO-REPARADOR DE IDs DUPLICADOS ---
+    ids_vistos = set()
+    # Leemos la lista al revés para que los códigos viejos conserven su ID original
+    for r in reversed(registros):
+        if r.get('id') in ids_vistos:
+            # Si encontramos un clon, le damos un ID único basado en milisegundos
+            r['id'] = int(tiempo_ahora * 1000) + random.randint(1, 9999)
+            cambios_realizados = True
+        ids_vistos.add(r.get('id'))
     
     for r in registros:
         if r['estado'] == 'activo':
@@ -619,7 +628,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
             historial_inicial.append(f"[{hora_actual}] 👤 Asignado a {mejor_cobrador.capitalize()} (Robot)")
 
     nuevo_registro = {
-        'id': len(registros) + 1,
+        id': int(time.time() * 1000) + random.randint(1, 999),
         'transaccion_id': transaccion_id, 
         'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"),
         'banco': banco, 
@@ -1002,7 +1011,7 @@ def pago_alternativo():
         str_imagenes = ",".join(nombres_imagenes) if nombres_imagenes else None
 
         nuevo_ingreso = {
-            'id': len(registros) + 1,
+            'id': int(time.time() * 1000) + random.randint(1, 999),
             'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"),
             'banco': metodo, 
             'celular': 'Pago Manual',

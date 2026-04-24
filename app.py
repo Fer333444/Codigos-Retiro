@@ -1529,6 +1529,12 @@ def reset_push():
     suscripciones_push.clear() # Borra todos los permisos viejos
     guardar_datos()
     return "✅ Todas las suscripciones push viejas han sido borradas de la base de datos. Pide a tus cobradores que le den a la campanita otra vez."
+@app.route('/limpiar_fantasmas')
+def limpiar_fantasmas():
+    # Esto vacía la lista de permisos corruptos y guarda los cambios en el disco duro
+    suscripciones_push.clear()
+    guardar_datos()
+    return "✅ ¡Base de datos de notificaciones limpia! Dile a tus cobradores que vuelvan a activar la campanita."
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

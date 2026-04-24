@@ -435,10 +435,18 @@
             }
 
             try {
-                // Registrar el Service Worker que creaste en el Paso 1
+                // Registrar el Service Worker
                 const register = await navigator.serviceWorker.register('/sw.js');
                 
-                // Suscribir usando tu llave pública VAPID
+                // 👇 NUEVO: LIMPIADOR AUTOMÁTICO DE LLAVES VIEJAS 👇
+                const oldSubscription = await register.pushManager.getSubscription();
+                if (oldSubscription) {
+                    // Si encuentra un rastro viejo, lo destruye sin piedad
+                    await oldSubscription.unsubscribe();
+                }
+                // 👆 FIN DEL LIMPIADOR 👆
+
+                // Suscribir usando tu llave pública VAPID NUEVA
                 const subscription = await register.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)

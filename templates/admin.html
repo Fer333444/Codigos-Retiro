@@ -97,7 +97,7 @@
         </div>
     </aside>
 
-    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative w-full">
+    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative min-w-0">
         <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm relative z-10 w-full shrink-0">
             <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
             <div class="flex items-center gap-4">
@@ -177,7 +177,7 @@
                         </div>
 
                         <details class="group">
-                            <summary class="flex justify-between items-center cursor-pointer list-none p-4 bg-slate-50 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors">
+                            <summary class="flex justify-between items-center cursor-pointer list-none p-4 bg-slate-50 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors [&::-webkit-details-marker]:hidden">
                                 <span><i class="fas fa-times-circle text-rose-500 mr-1.5 text-sm"></i> Códigos Caídos Hoy ({{ stats.fallidos|length }})</span>
                                 <span class="transition group-open:rotate-180 text-slate-400"><i class="fas fa-chevron-down"></i></span>
                             </summary>
@@ -185,8 +185,8 @@
                                 {% if stats.fallidos %}
                                     {% for f in stats.fallidos %}
                                     <div class="flex justify-between border-b border-slate-100 pb-1.5">
-                                        <span class="font-bold text-slate-700">${{ f.monto }} <span class="font-medium text-slate-400 uppercase text-[10px] ml-1">{{ f.banco }}</span></span>
-                                        <span class="text-rose-600 uppercase font-black tracking-wider text-[9px] bg-rose-50 px-2 py-0.5 rounded">{{ f.estado }}</span>
+                                        <span class="font-bold text-slate-700 truncate max-w-[70%]">${{ f.monto }} <span class="font-medium text-slate-400 uppercase text-[10px] ml-1">{{ f.banco }}</span></span>
+                                        <span class="text-rose-600 uppercase font-black tracking-wider text-[9px] bg-rose-50 px-2 py-0.5 rounded shrink-0">{{ f.estado }}</span>
                                     </div>
                                     {% endfor %}
                                 {% else %}
@@ -286,9 +286,9 @@
                                     {% endfor %}
                                 </div>
 
-                                <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto">
+                                <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto justify-between">
                                     
-                                    <form action="/asignar" method="POST" class="flex flex-col sm:flex-row flex-1 m-0 w-full form-mantener-scroll">
+                                    <form action="/asignar" method="POST" class="flex flex-col sm:flex-row flex-1 m-0 w-full form-mantener-scroll max-w-[250px]">
                                         <input type="hidden" name="id" value="{{ r.id }}">
                                         <select name="trabajador" required class="select-trabajador w-full text-sm sm:text-base bg-white border-2 border-slate-300 rounded-xl px-4 py-3 font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm cursor-pointer transition-colors hover:bg-slate-50">
                                             <option value="" disabled selected>Asignar manual...</option>
@@ -298,15 +298,29 @@
                                         </select>
                                     </form>
                                     
-                                    {% if r.asignado_a %}
-                                        <span class="bg-green-600 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest w-full sm:w-auto h-full">
-                                            <i class="fas fa-user-check mr-2"></i> {{ r.asignado_a }}
-                                        </span>
-                                    {% else %}
-                                        <span class="bg-slate-500 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest w-full sm:w-auto h-full">
-                                            <i class="fas fa-user-times mr-2"></i> SIN ASIGNAR
-                                        </span>
-                                    {% endif %}
+                                    <div class="flex items-center gap-2">
+                                        {% if r.asignado_a %}
+                                            {% if r.visto_por_cobrador %}
+                                                <span class="bg-emerald-100 text-emerald-700 text-[10px] font-black px-4 py-3 rounded-xl shadow-sm border border-emerald-200 flex items-center justify-center uppercase tracking-widest">
+                                                    <i class="fas fa-check-double mr-1.5"></i> Leído
+                                                </span>
+                                            {% else %}
+                                                <span class="bg-rose-50 text-rose-600 text-[10px] font-black px-4 py-3 rounded-xl shadow-sm border border-rose-200 flex items-center justify-center uppercase tracking-widest animate-pulse">
+                                                    <i class="fas fa-eye-slash mr-1.5"></i> No Visto
+                                                </span>
+                                            {% endif %}
+                                        {% endif %}
+
+                                        {% if r.asignado_a %}
+                                            <span class="bg-green-600 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest h-full">
+                                                <i class="fas fa-user-check mr-2"></i> {{ r.asignado_a }}
+                                            </span>
+                                        {% else %}
+                                            <span class="bg-slate-500 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest h-full">
+                                                <i class="fas fa-user-times mr-2"></i> SIN ASIGNAR
+                                            </span>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -731,8 +745,8 @@
         const overlayMenu = document.getElementById('overlayMenu');
 
         function toggleMenu() {
-            sidebar.classList.toggle('-translate-x-full');
-            overlayMenu.classList.toggle('hidden');
+            if (sidebar) sidebar.classList.toggle('-translate-x-full');
+            if (overlayMenu) overlayMenu.classList.toggle('hidden');
         }
 
         if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);

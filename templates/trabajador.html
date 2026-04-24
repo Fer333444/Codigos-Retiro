@@ -397,7 +397,21 @@
         const audioAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
         // PON TU LLAVE PÚBLICA AQUÍ ABAJO (La que generaste con el script)
-        const PUBLIC_VAPID_KEY = 'BBDzqRX1xYG1YGUPSkoVOzSyt0I2hlliI7R1_OPsTtE5rZ_ek84h1enTso-1WM2t9nviJ9ds9Bk32sJaW_YCaZ4';
+        const PUBLIC_VAPID_KEY = 'BA4g6c20PBoFoBjJCxJsdamujtNeGG4D7aLWr94FmWjEdJrzeljB4fS3f4GguyS9oMW4ImiphlexMV1s9A8KH8Q';
+
+        // --- NUEVO: ESTO HACE QUE LA CAMPANITA NO VUELVA A APARECER SI YA TE SUSCRIBISTE ---
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            navigator.serviceWorker.ready.then(function(registration) {
+                registration.pushManager.getSubscription().then(function(subscription) {
+                    if (subscription) {
+                        // Ya está suscrito, ocultamos las campanas
+                        notificacionesActivas = true;
+                        document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
+                    }
+                });
+            });
+        }
+        // -----------------------------------------------------------------------------------
 
         function urlBase64ToUint8Array(base64String) {
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -422,8 +436,7 @@
 
             try {
                 // Registrar el Service Worker que creaste en el Paso 1
-                // CÁMBIALO A ESTO:
-const register = await navigator.serviceWorker.register('/sw.js');
+                const register = await navigator.serviceWorker.register('/sw.js');
                 
                 // Suscribir usando tu llave pública VAPID
                 const subscription = await register.pushManager.subscribe({
@@ -450,14 +463,14 @@ const register = await navigator.serviceWorker.register('/sw.js');
         // Sistema para mostrar alertas visuales dentro de la app (In-App Toast para Celulares)
         function mostrarToast(mensaje) {
             const toast = document.createElement('div');
-            toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-4 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center";
-            toast.innerHTML = `<i class="fas fa-bell mr-3 text-2xl animate-pulse"></i> <span class="text-sm">${mensaje}</span>`;
+            toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-3 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center";
+            toast.innerHTML = `<i class="fas fa-bell mr-3 text-xl animate-pulse"></i> <span>${mensaje}</span>`;
             document.body.appendChild(toast);
             
             setTimeout(() => {
                 toast.style.opacity = '0';
                 setTimeout(() => toast.remove(), 500);
-            }, 5000);
+            }, 4000);
         }
 
         // Refresco silencioso

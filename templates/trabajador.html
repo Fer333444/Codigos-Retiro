@@ -11,76 +11,93 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        .safe-top { padding-top: max(1rem, env(safe-area-inset-top)); }
     </style>
 </head>
 <body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
 
-    <main class="flex-1 flex flex-col h-screen overflow-hidden w-full relative">
-        <header class="bg-white border-b border-slate-200 flex items-center justify-between px-3 sm:px-8 shadow-sm relative z-10 shrink-0 safe-top pb-2 pt-2 sm:pb-3 sm:pt-3">
-            <div class="flex items-center gap-2 sm:gap-3 overflow-hidden">
-                <button id="btnMenuMovil" class="md:hidden text-slate-600 hover:text-green-600 text-xl focus:outline-none mr-2"><i class="fas fa-bars"></i></button>
-
-                <a href="/admin" class="shrink-0 text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 border border-slate-200 w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-lg transition-colors shadow-sm focus:outline-none flex items-center justify-center" title="Volver a Retiros Activos">
-                    <i class="fas fa-arrow-left text-sm sm:text-base"></i>
-                </a>
-                
-                <h1 class="text-sm sm:text-lg font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5 sm:gap-2 truncate">
-                    <i class="fas fa-briefcase hidden sm:inline-block shrink-0"></i> 
-                    <span class="truncate">Bandeja: {{ nombre }}</span>
-                    <button onclick="toggleNotificaciones()" class="btn-notificaciones text-slate-400 hover:text-slate-500 focus:outline-none ml-1 shrink-0 transition-colors" title="Activar Notificaciones">
-                        <i class="fas fa-bell-slash text-sm sm:text-base"></i>
-                    </button>
-                </h1>
+    <header class="md:hidden fixed top-0 w-full h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-40 shadow-sm">
+        <div class="flex items-center gap-3">
+            {% set mis_permisos = session.get('permisos', []) %}
+            {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
+            <a href="/admin" class="text-slate-500 hover:text-blue-600 focus:outline-none flex items-center justify-center">
+                <i class="fas fa-arrow-left text-lg"></i>
+            </a>
+            {% endif %}
+            <div class="font-black text-lg text-blue-600 uppercase truncate max-w-[150px]">
+                BANDEJA: {{ nombre }}
             </div>
-            <div class="flex items-center gap-2 sm:gap-4 shrink-0 pl-2">
-                <span class="hidden sm:inline text-[10px] sm:text-xs font-bold text-slate-500 uppercase">{{ mi_usuario }} (Cobrador)</span>
-                <a href="/logout" class="text-[10px] sm:text-xs font-bold text-rose-500 hover:text-rose-700 bg-rose-50 px-2 sm:px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 border border-rose-200 shadow-sm"><i class="fas fa-sign-out-alt"></i> <span class="hidden sm:inline">Salir</span></a>
+            <button onclick="toggleNotificaciones()" class="btn-notificaciones text-slate-400 hover:text-slate-500 text-lg focus:outline-none transition-colors" title="Activar Notificaciones">
+                <i class="fas fa-bell-slash"></i>
+            </button>
+        </div>
+        <button id="btnMenuMovil" class="text-slate-600 hover:text-green-600 text-2xl focus:outline-none"><i class="fas fa-bars"></i></button>
+    </header>
+
+    <div id="overlayMenu" class="fixed inset-0 bg-slate-900/50 z-40 hidden md:hidden"></div>
+
+    <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-50">
+        <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
+            </div>
+            <button id="btnCerrarMenu" class="md:hidden text-slate-400 hover:text-red-500 text-xl focus:outline-none"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            {% if rol == 'supremo' or 'crear_links' in mis_permisos %}
+                <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-link w-5"></i> Links de Clientes</a>
+            {% endif %}
+            {% if rol == 'supremo' or 'gestionar_grupos' in mis_permisos %}
+                <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-folder w-5"></i> Mis Grupos</a>
+            {% endif %}
+            {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
+                <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-home w-5"></i> Retiros Activos</a>
+            {% endif %}
+            {% if rol in ['supremo', 'recaudador'] or 'ver_reporte_diario' in mis_permisos %}
+                <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
+            {% endif %}
+            {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
+                <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
+            {% endif %}
+            {% if rol == 'cobrador' or 'procesar_retiros' in mis_permisos %}
+                <a href="/trabajador/{{ mi_usuario }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-blue-700 bg-blue-50 rounded-lg transition-colors"><i class="fas fa-briefcase w-5"></i> Mi Bandeja (Cobrar)</a>
+            {% endif %}
+            {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
+                <a href="/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 rounded-lg hover:bg-rose-50 mt-2 border border-transparent hover:border-rose-200 transition-colors"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
+            {% endif %}
+        </nav>
+
+        <div class="p-4 border-t border-slate-200 shrink-0">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-slate-600 uppercase truncate">{{ mi_usuario }}</span>
+                <a href="/logout" class="text-xs font-medium text-red-500 hover:underline"><i class="fas fa-sign-out-alt"></i> Salir</a>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative min-w-0">
+        
+        <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm relative z-10 w-full shrink-0">
+            <div class="flex items-center gap-4">
+                {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
+                <a href="/admin" class="text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 border border-slate-200 w-8 h-8 rounded-lg transition-colors shadow-sm flex items-center justify-center" title="Volver a Retiros Activos">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                {% endif %}
+                <h1 class="text-lg font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                    <i class="fas fa-briefcase"></i> Bandeja: {{ nombre }}
+                </h1>
+                <button onclick="toggleNotificaciones()" class="btn-notificaciones text-slate-400 hover:text-slate-500 text-lg focus:outline-none transition-colors ml-2" title="Activar Notificaciones">
+                    <i class="fas fa-bell-slash"></i>
+                </button>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }} (Cobrador)</span>
+                <a href="/logout" class="text-sm font-medium text-red-500 hover:underline">Cerrar sesión</a>
             </div>
         </header>
 
-        <div id="overlayMenu" class="fixed inset-0 bg-slate-900/50 z-40 hidden md:hidden"></div>
-        <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-50">
-            <div class="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
-                <div class="flex items-center gap-3">
-                    <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
-                </div>
-                <button id="btnCerrarMenu" class="md:hidden text-slate-400 hover:text-red-500 text-xl focus:outline-none"><i class="fas fa-times"></i></button>
-            </div>
-            
-            <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-                {% set mis_permisos = session.get('permisos', []) %}
-                {% if rol == 'supremo' or 'crear_links' in mis_permisos %}
-                    <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-link w-5"></i> Links de Clientes</a>
-                {% endif %}
-                {% if rol == 'supremo' or 'gestionar_grupos' in mis_permisos %}
-                    <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-folder w-5"></i> Mis Grupos</a>
-                {% endif %}
-                {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
-                    <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-home w-5"></i> Retiros Activos</a>
-                {% endif %}
-                {% if rol in ['supremo', 'recaudador'] or 'ver_reporte_diario' in mis_permisos %}
-                    <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
-                {% endif %}
-                {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
-                    <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
-                {% endif %}
-                {% if rol == 'cobrador' or 'procesar_retiros' in mis_permisos %}
-                    <a href="/trabajador/{{ mi_usuario }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-blue-700 bg-blue-50 rounded-lg transition-colors"><i class="fas fa-briefcase w-5"></i> Mi Bandeja (Cobrar)</a>
-                {% endif %}
-                {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
-                    <a href="/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 rounded-lg hover:bg-rose-50 mt-2 border border-transparent hover:border-rose-200 transition-colors"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
-                {% endif %}
-            </nav>
-            <div class="p-4 border-t border-slate-200 shrink-0">
-                <div class="flex items-center justify-between">
-                    <span class="text-sm font-bold text-slate-600 uppercase truncate">{{ mi_usuario }}</span>
-                    <a href="/logout" class="text-xs font-medium text-red-500 hover:underline"><i class="fas fa-sign-out-alt"></i> Salir</a>
-                </div>
-            </div>
-        </aside>
-
-        <div class="flex-1 overflow-auto p-4 sm:p-8 bg-slate-50 custom-scrollbar" id="mainScroll">
+        <div id="mainScroll" class="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 relative custom-scrollbar pb-24">
             <div class="max-w-5xl mx-auto" id="contenidoDinamico">
 
                 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -115,7 +132,7 @@
                         {% elif r.asignado_a %} {% set border_color = 'border-emerald-500' %}
                         {% endif %}
 
-                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-sm overflow-hidden flex flex-col sm:flex-row tarjeta-retiro relative transition-colors duration-500">
+                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-sm overflow-hidden flex flex-col sm:flex-row tarjeta-retiro relative transition-colors duration-500" data-id="{{ r.id }}">
                             
                             {% if r.estado == 'expirado' %}
                                 <div class="badge-vencido absolute top-0 right-0 bg-rose-600 text-white font-black px-4 py-1 rounded-bl-xl text-xs uppercase shadow-md z-10">
@@ -345,7 +362,6 @@
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
                     timer.className = 'cronometro-retiro text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest';
                     
-                    // CUANDO EL TIEMPO LLEGA A 0 EN VIVO, INYECTAMOS LA ETIQUETA ROJA
                     const card = timer.closest('.tarjeta-retiro');
                     if (card && !card.querySelector('.badge-vencido')) {
                         card.classList.remove('border-emerald-500', 'border-slate-800');
@@ -404,7 +420,6 @@
 
         // --- FUNCION PARA NOTIFICAR VISTO ---
         function notificarVisto(id, btnElement) {
-            // Cambiamos el texto mientras carga
             const originalText = btnElement.innerHTML;
             btnElement.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Avisando...';
             btnElement.disabled = true;
@@ -417,7 +432,6 @@
             .then(res => res.json())
             .then(data => {
                 if(data.status === 'ok') {
-                    // Transformamos el botón en la etiqueta "Visto"
                     const span = document.createElement('span');
                     span.className = 'text-[9px] font-black text-emerald-600 bg-emerald-100 px-2 py-1 rounded shadow-sm border border-emerald-200 transition-opacity animate-fade-in-up';
                     span.innerHTML = '<i class="fas fa-eye mr-1"></i> Visto';
@@ -427,7 +441,6 @@
                 }
             })
             .catch(e => {
-                // Si hay error, regresamos el botón a la normalidad
                 btnElement.innerHTML = originalText;
                 btnElement.disabled = false;
                 mostrarToast("❌ Hubo un error de conexión.");
@@ -441,8 +454,8 @@
         const overlayMenu = document.getElementById('overlayMenu');
 
         function toggleMenu() {
-            if(sidebar) sidebar.classList.toggle('-translate-x-full');
-            if(overlayMenu) overlayMenu.classList.toggle('hidden');
+            if (sidebar) sidebar.classList.toggle('-translate-x-full');
+            if (overlayMenu) overlayMenu.classList.toggle('hidden');
         }
 
         if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);
@@ -450,10 +463,11 @@
         if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
 
         // --- SISTEMA HÍBRIDO DE NOTIFICACIONES PUSH (TOGGLE) ---
-        // NUEVA LÓGICA: Memorizamos los IDs exactos en lugar de contar la cantidad
+        // NUEVA LÓGICA: Memorizamos los IDs exactos de cada tarjeta mostrada en pantalla
         let codigosVistos = new Set();
-        document.querySelectorAll('form[action="/asignar"] input[name="id"]').forEach(input => {
-            codigosVistos.add(input.value);
+        document.querySelectorAll('.tarjeta-retiro').forEach(card => {
+            const id = card.getAttribute('data-id');
+            if (id) codigosVistos.add(id);
         });
 
         let notificacionesActivas = false;
@@ -473,7 +487,6 @@
             return outputArray;
         }
 
-        // FUNCIÓN PARA CAMBIAR EL COLOR Y ESTADO DEL BOTÓN
         function setNotificationState(isActive) {
             notificacionesActivas = isActive;
             document.querySelectorAll('.btn-notificaciones').forEach(btn => {
@@ -491,7 +504,6 @@
             });
         }
 
-        // REVISAR ESTADO AL CARGAR LA PÁGINA
         if ('Notification' in window && Notification.permission === 'granted') {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
                 navigator.serviceWorker.ready.then(async function(register) {
@@ -507,10 +519,8 @@
             setNotificationState(false);
         }
 
-        // FUNCIÓN PRINCIPAL DEL BOTÓN (PRENDER / APAGAR)
         async function toggleNotificaciones() {
             if (notificacionesActivas) {
-                // APAGAR NOTIFICACIONES
                 try {
                     const register = await navigator.serviceWorker.getRegistration('/sw.js');
                     if (register) {
@@ -523,8 +533,6 @@
                     console.error(e);
                 }
             } else {
-                // PRENDER NOTIFICACIONES
-                // Regla de Apple: Validar si está en modo "App"
                 const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
                 if (isIos && !window.navigator.standalone) {
                     mostrarToast("⚠️ En iPhone, debes 'Agregar a Inicio' primero para recibir notificaciones.");
@@ -542,19 +550,16 @@
                 try {
                     const register = await navigator.serviceWorker.register('/sw.js');
                     
-                    // Limpiar suscripción vieja
                     const oldSubscription = await register.pushManager.getSubscription();
                     if (oldSubscription) {
                         await oldSubscription.unsubscribe();
                     }
 
-                    // Crear nueva suscripción
                     const subscription = await register.pushManager.subscribe({
                         userVisibleOnly: true,
                         applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
                     });
 
-                    // Enviar a Python
                     const response = await fetch('/guardar_suscripcion', {
                         method: 'POST',
                         body: JSON.stringify(subscription),
@@ -575,7 +580,6 @@
             }
         }
 
-        // Sistema para mostrar alertas visuales (In-App Toast)
         function mostrarToast(mensaje) {
             const toast = document.createElement('div');
             toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-4 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center max-w-[90vw]";
@@ -588,16 +592,11 @@
             }, 5000);
         }
 
-        // Refresco silencioso
         function refrescarPanelSilencioso() {
-            const modalPapelera = document.getElementById('modalPapelera');
-            const modalRecibir = document.getElementById('modalRecibir');
             const modalRetirado = document.getElementById('modalRetirado');
             const modalFallido = document.getElementById('modalFallido');
             
-            if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
-               (modalRecibir && !modalRecibir.classList.contains('hidden')) ||
-               (modalRetirado && !modalRetirado.classList.contains('hidden')) ||
+            if((modalRetirado && !modalRetirado.classList.contains('hidden')) || 
                (modalFallido && !modalFallido.classList.contains('hidden'))) {
                 return;
             }
@@ -629,25 +628,24 @@
                         if(typeof actualizarCronometros === 'function') actualizarCronometros();
                         if(mainScroll) mainScroll.scrollTop = scrollActual;
 
-                        // LÓGICA DE NOTIFICACIONES (A PRUEBA DE MÚLTIPLES CÓDIGOS)
+                        // LÓGICA DE NOTIFICACIONES
                         let codigosNuevosEncontrados = 0;
                         
-                        document.querySelectorAll('form[action="/asignar"] input[name="id"]').forEach(input => {
-                            if (!codigosVistos.has(input.value)) {
+                        document.querySelectorAll('.tarjeta-retiro').forEach(card => {
+                            const id = card.getAttribute('data-id');
+                            if (id && !codigosVistos.has(id)) {
                                 codigosNuevosEncontrados++;
-                                codigosVistos.add(input.value);
+                                codigosVistos.add(id);
                             }
                         });
                         
                         if (codigosNuevosEncontrados > 0 && notificacionesActivas) {
-                            // Reproducir el sonido una vez por la ráfaga de códigos
                             audioAlerta.play().catch(e => console.log(e));
                             
-                            // Mostrar una tarjeta flotante por CADA código nuevo (con un pequeño retraso para que no se encimen de golpe)
                             for(let i = 0; i < codigosNuevosEncontrados; i++) {
                                 setTimeout(() => {
                                     mostrarToast("¡Nuevo Retiro Asignado! 💰 Revisa tu bandeja.");
-                                }, i * 800); // 800ms de separación entre notificaciones
+                                }, i * 800); 
                             }
                         }
                     }
@@ -657,7 +655,6 @@
 
         setInterval(refrescarPanelSilencioso, 10000);
 
-        // --- SISTEMA DE UBICACIÓN ---
         function enviarUbicacion() {
             if ("geolocation" in navigator) {
                 navigator.geolocation.getCurrentPosition(

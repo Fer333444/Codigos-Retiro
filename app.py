@@ -1488,6 +1488,9 @@ def notificar_visto():
     # Le disparamos la alerta a todos los jefes
     for admin in admin_users:
         disparar_alerta_push(admin, titulo, mensaje)
+
+    # 👇 ESTA ES LA LÍNEA CRÍTICA QUE SE HABÍA BORRADO 👇
+    return jsonify({"status": "ok", "mensaje": "Notificado correctamente"})
 # --- RUTA MÁGICA PARA EL SERVICE WORKER ---
 # Esto engaña al navegador dándole permiso total al sw.js
 @app.route('/sw.js')

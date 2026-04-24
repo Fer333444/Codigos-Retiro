@@ -1544,6 +1544,29 @@ def limpiar_fantasmas():
     suscripciones_push.clear()
     guardar_datos()
     return "✅ ¡Base de datos de notificaciones limpia! Dile a tus cobradores que vuelvan a activar la campanita."
+@app.route('/recuperar_expirado', methods=['POST'])
+def recuperar_expirado():
+    mis_permisos = session.get('permisos', [])
+    if session.get('rol') not in ['supremo', 'reportes'] and 'ver_reportes' not in mis_permisos: 
+        return redirect(url_for('login'))
+        
+    registro_id = int(request.form.get('id'))
+    hora_actual = hora_ecuador().strftime('%H:%M')
+    
+    for r in registros:
+        if r['id'] == registro_id and r['estado'] == 'expirado':
+            r['estado'] = 'activo'
+            r['asignado_a'] = None
+            r['asignacion_estado'] = 'no_asignado'
+            r['visto_por_cobrador'] = False
+            # Le damos 2.5 horas extra de vida desde este momento
+            r['expira_timestamp'] = time.time() + (2.5 * 3600)
+            r['historial'].append(f"[{hora_actual}] ♻️ Recuperado a Retiros Activos por {session['usuario'].capitalize()}.")
+            break
+            
+    guardar_datos()
+    flash('✅ Código recuperado. Ha regresado a Retiros Activos.', 'success')
+    return redirect(request.referrer)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

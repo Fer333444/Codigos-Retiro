@@ -97,9 +97,7 @@
         </header>
 
         <div class="flex-1 overflow-auto p-8 bg-slate-50 custom-scroll">
-            <div class="max-w-6xl mx-auto">
-                
-                <div class="flex justify-between items-center mb-6">
+            <div class="max-w-6xl mx-auto"><div class="flex justify-between items-center mb-6">
                     <h2 class="text-3xl font-black text-slate-800 uppercase tracking-tight">Reporte: {{ vista }}</h2>
                     
                     {% if vista not in ['metricas'] %}
@@ -111,7 +109,6 @@
                 </div>
 
                 {% if vista == 'metricas' %}
-                    
                     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-lg font-black text-slate-700 uppercase tracking-widest"><i class="fas fa-chart-area text-purple-500 mr-2"></i> Actividad últimos 7 días</h3>
@@ -124,7 +121,6 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-12">
                         {% for cob, m in metricas.items() %}
                         <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden relative group transform transition-transform hover:-translate-y-1">
-                            
                             <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex flex-col items-center justify-center relative overflow-hidden">
                                 <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500"></div>
                                 <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg mb-3 border-4 border-white/20">
@@ -371,7 +367,17 @@
                                                     {% elif r.estado == 'fusionado' %}
                                                         <span class="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-1 rounded border border-slate-200 uppercase tracking-wider"><i class="fas fa-link mr-1"></i> Reposición (No suma)</span>
                                                     {% else %}
-                                                        <span class="text-[10px] text-orange-600 font-bold bg-white px-2 py-1 rounded border border-orange-200 uppercase tracking-wider">Vencido</span>
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="text-[10px] text-orange-600 font-bold bg-white px-2 py-1 rounded border border-orange-200 uppercase tracking-wider">Vencido</span>
+                                                            {% if r.estado == 'expirado' %}
+                                                            <form action="/recuperar_expirado" method="POST" class="m-0 inline-block" onsubmit="return confirm('¿Seguro que deseas reactivar este código y enviarlo a Retiros Activos?');">
+                                                                <input type="hidden" name="id" value="{{ r.id }}">
+                                                                <button type="submit" class="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-colors shadow-sm border border-emerald-200" title="Reactivar código">
+                                                                    <i class="fas fa-undo mr-1"></i> Recuperar
+                                                                </button>
+                                                            </form>
+                                                            {% endif %}
+                                                        </div>
                                                     {% endif %}
 
                                                     <form action="/mover_papelera" method="POST" class="m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
@@ -472,9 +478,7 @@
                             <span id="infoPagina" class="text-sm font-bold text-slate-600 bg-slate-100 px-4 py-2 rounded-lg border border-slate-200">Página 1</span>
                             <button id="btnNext" onclick="cambiarPagina(1)" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Siguiente <i class="fas fa-chevron-right ml-1"></i></button>
                         </div>
-                    {% endif %}
-
-                {% elif vista == 'completados' %}
+                    {% endif %}{% elif vista == 'completados' %}
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
                         <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">

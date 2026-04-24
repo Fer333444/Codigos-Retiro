@@ -97,7 +97,7 @@
         </div>
     </aside>
 
-    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative w-full">
+    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative min-w-0">
         <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm relative z-10 w-full shrink-0">
             <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
             <div class="flex items-center gap-4">
@@ -177,7 +177,7 @@
                         </div>
 
                         <details class="group">
-                            <summary class="flex justify-between items-center cursor-pointer list-none p-4 bg-slate-50 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors">
+                            <summary class="flex justify-between items-center cursor-pointer list-none p-4 bg-slate-50 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors [&::-webkit-details-marker]:hidden">
                                 <span><i class="fas fa-times-circle text-rose-500 mr-1.5 text-sm"></i> Códigos Caídos Hoy ({{ stats.fallidos|length }})</span>
                                 <span class="transition group-open:rotate-180 text-slate-400"><i class="fas fa-chevron-down"></i></span>
                             </summary>
@@ -185,8 +185,8 @@
                                 {% if stats.fallidos %}
                                     {% for f in stats.fallidos %}
                                     <div class="flex justify-between border-b border-slate-100 pb-1.5">
-                                        <span class="font-bold text-slate-700">${{ f.monto }} <span class="font-medium text-slate-400 uppercase text-[10px] ml-1">{{ f.banco }}</span></span>
-                                        <span class="text-rose-600 uppercase font-black tracking-wider text-[9px] bg-rose-50 px-2 py-0.5 rounded">{{ f.estado }}</span>
+                                        <span class="font-bold text-slate-700 truncate max-w-[70%]">${{ f.monto }} <span class="font-medium text-slate-400 uppercase text-[10px] ml-1">{{ f.banco }}</span></span>
+                                        <span class="text-rose-600 uppercase font-black tracking-wider text-[9px] bg-rose-50 px-2 py-0.5 rounded shrink-0">{{ f.estado }}</span>
                                     </div>
                                     {% endfor %}
                                 {% else %}
@@ -225,24 +225,35 @@
                             {% set border_color = 'border-emerald-500' %}
                         {% endif %}
 
-                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-md overflow-hidden flex flex-col lg:flex-row relative group transition-all duration-300 hover:shadow-lg tarjeta-retiro">
+                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-md overflow-hidden flex flex-col lg:flex-row relative group transition-all duration-300 hover:shadow-lg tarjeta-retiro" data-id="{{ r.id }}">
                             
                             <button type="button" class="btn-abrir-papelera absolute top-3 right-3 text-slate-400 hover:text-rose-600 bg-white/90 backdrop-blur-sm border border-slate-200 hover:border-rose-200 rounded-lg p-2.5 transition-colors z-10 shadow-sm cursor-pointer" data-id="{{ r.id }}" data-monto="{{ r.monto }}" data-usuario="{{ r.usuario }}" title="Eliminar (Mover a papelera)">
                                 <i class="fas fa-trash-alt pointer-events-none"></i>
                             </button>
 
-                            <div class="w-full lg:w-40 h-48 lg:h-auto bg-slate-100 border-b lg:border-b-0 lg:border-r border-slate-200 p-3 flex items-center justify-center shrink-0 relative">
-                                {% if r.imagen %}
-                                    {% set imagenes = r.imagen.split(',') %}
-                                    <a href="{{ url_for('ver_imagen', filename=imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
-                                        <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-300/50 shadow-sm">
-                                        {% if imagenes|length > 1 %}
-                                            <span class="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow">+{{ imagenes|length - 1 }}</span>
-                                        {% endif %}
-                                    </a>
-                                {% else %}
-                                    <i class="fas fa-image text-slate-300 text-4xl"></i>
-                                {% endif %}
+                            <div class="w-full lg:w-48 flex flex-col bg-slate-100 border-b lg:border-b-0 lg:border-r border-slate-200 shrink-0">
+                                <div class="flex-1 p-3 flex items-center justify-center relative min-h-[12rem] lg:min-h-full">
+                                    {% if r.imagen %}
+                                        {% set imagenes = r.imagen.split(',') %}
+                                        <a href="{{ url_for('ver_imagen', filename=imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
+                                            <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-300/50 shadow-sm">
+                                            {% if imagenes|length > 1 %}
+                                                <span class="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow">+{{ imagenes|length - 1 }}</span>
+                                            {% endif %}
+                                        </a>
+                                    {% else %}
+                                        <i class="fas fa-image text-slate-300 text-4xl"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="p-2 border-t border-slate-200 bg-slate-50 flex items-center justify-center min-h-[40px]">
+                                    {% if r.expira_timestamp %}
+                                        <span class="cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-blue-600 px-2 py-1 uppercase tracking-widest shadow-sm rounded-lg bg-white border border-blue-200" data-expira="{{ r.expira_timestamp }}">
+                                            <i class="fas fa-spinner fa-spin"></i> Cargando...
+                                        </span>
+                                    {% elif r.hora_limite %}
+                                        <span class="w-full text-center text-[10px] sm:text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 uppercase tracking-widest shadow-sm rounded-lg border border-rose-200"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
+                                    {% endif %}
+                                </div>
                             </div>
                             
                             <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between min-w-0">
@@ -258,16 +269,6 @@
                                         {% endif %}
                                         
                                         <span class="text-xs sm:text-sm font-black {{ color_banco }} uppercase mt-2 sm:mt-0 sm:ml-3 tracking-widest break-words block sm:inline">{{ r.banco }} <span class="text-slate-400 mx-1 hidden sm:inline">•</span><br class="sm:hidden"> {{ r.usuario }}</span>
-                                    </div>
-                                    
-                                    <div class="shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
-                                        {% if r.expira_timestamp %}
-                                            <span class="cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 inline-block shadow-sm" data-expira="{{ r.expira_timestamp }}">
-                                                <i class="fas fa-spinner fa-spin"></i> Cargando...
-                                            </span>
-                                        {% elif r.hora_limite %}
-                                            <span class="w-full sm:w-auto text-center text-[10px] sm:text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 inline-block shadow-sm"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
-                                        {% endif %}
                                     </div>
                                 </div>
 
@@ -286,11 +287,11 @@
                                     {% endfor %}
                                 </div>
 
-                                <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto">
+                                <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto justify-between">
                                     
-                                    <form action="/asignar" method="POST" class="flex flex-col sm:flex-row flex-1 m-0 w-full form-mantener-scroll">
+                                    <form action="/asignar" method="POST" class="flex-1 min-w-[200px] max-w-xs m-0 form-mantener-scroll">
                                         <input type="hidden" name="id" value="{{ r.id }}">
-                                        <select name="trabajador" required class="select-trabajador w-full text-sm sm:text-base bg-white border-2 border-slate-300 rounded-xl px-4 py-3 font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm cursor-pointer transition-colors hover:bg-slate-50">
+                                        <select name="trabajador" required class="select-trabajador w-full text-sm sm:text-base bg-white border-2 border-slate-300 rounded-xl px-4 py-2.5 font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm cursor-pointer transition-colors hover:bg-slate-50">
                                             <option value="" disabled selected>Asignar manual...</option>
                                             {% for c in cobradores %}
                                             <option value="{{ c }}">{{ c|capitalize }}</option>
@@ -298,15 +299,27 @@
                                         </select>
                                     </form>
                                     
-                                    {% if r.asignado_a %}
-                                        <span class="bg-green-600 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest w-full sm:w-auto h-full">
-                                            <i class="fas fa-user-check mr-2"></i> {{ r.asignado_a }}
-                                        </span>
-                                    {% else %}
-                                        <span class="bg-slate-500 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest w-full sm:w-auto h-full">
-                                            <i class="fas fa-user-times mr-2"></i> SIN ASIGNAR
-                                        </span>
-                                    {% endif %}
+                                    <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                                        {% if r.asignado_a %}
+                                            {% if r.visto_por_cobrador %}
+                                                <span class="bg-emerald-100 text-emerald-700 text-[10px] font-black px-4 py-3 rounded-xl shadow-sm border border-emerald-200 uppercase tracking-widest">
+                                                    LEÍDO
+                                                </span>
+                                            {% else %}
+                                                <span class="bg-rose-50 text-rose-600 text-[10px] font-black px-4 py-3 rounded-xl shadow-sm border border-rose-200 uppercase tracking-widest animate-pulse">
+                                                    SIN VER
+                                                </span>
+                                            {% endif %}
+                                            
+                                            <span class="bg-green-600 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
+                                                <i class="fas fa-user-check mr-2"></i> {{ r.asignado_a }}
+                                            </span>
+                                        {% else %}
+                                            <span class="bg-slate-500 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
+                                                <i class="fas fa-user-times mr-2"></i> SIN ASIGNAR
+                                            </span>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -443,10 +456,15 @@
             }
         });
 
+        // REPARADO: EL SELECT YA NO SE CIERRA SI ESTÁS ELIGIENDO COBRADOR
         document.body.addEventListener('change', function(event) {
             if (event.target.classList.contains('select-trabajador')) {
                 const select = event.target;
                 if (select.value !== "") {
+                    const option = select.options[select.selectedIndex];
+                    option.text = "Asignando...";
+                    select.disabled = true; // Evitar doble clic
+                    
                     var mainScroll = document.getElementById('mainScroll');
                     if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
                     select.closest('form').submit();
@@ -474,7 +492,6 @@
             });
         }
 
-        // --- SISTEMA HÍBRIDO DE NOTIFICACIONES PUSH (TOGGLE) ---
         let codigosVistos = new Set();
         document.querySelectorAll('form[action="/asignar"] input[name="id"]').forEach(input => {
             codigosVistos.add(input.value);
@@ -483,7 +500,6 @@
         let notificacionesActivas = false;
         const audioAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
-        // PON TU LLAVE PÚBLICA AQUÍ ABAJO
         const PUBLIC_VAPID_KEY = 'BA4g6c20PBoFoBjJCxJsdamujtNeGG4D7aLWr94FmWjEdJrzeljB4fS3f4GguyS9oMW4ImiphlexMV1s9A8KH8Q';
 
         function urlBase64ToUint8Array(base64String) {
@@ -606,8 +622,10 @@
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
             
+            // BLOQUEO DE REFRESCO SI HAY MODALES O SI ESTÁS ELIGIENDO UN COBRADOR
             if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
-               (modalRecibir && !modalRecibir.classList.contains('hidden'))) {
+               (modalRecibir && !modalRecibir.classList.contains('hidden')) ||
+               (document.activeElement && document.activeElement.tagName === 'SELECT')) {
                 return;
             }
 
@@ -663,6 +681,7 @@
 
         setInterval(refrescarPanelSilencioso, 10000);
 
+        // TEMPORIZADOR REPARADO PARA ENCAJAR BAJO LA FOTO
         function actualizarCronometros() {
             const timers = document.querySelectorAll('.cronometro-retiro');
             const ahora = Date.now() / 1000; 
@@ -675,7 +694,7 @@
 
                 if (diff <= 0) {
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
-                    timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 inline-block shadow-sm uppercase tracking-widest';
+                    timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-rose-600 bg-white rounded-lg px-2 py-1 uppercase tracking-widest shadow-sm border border-rose-200';
                     
                     const card = timer.closest('.tarjeta-retiro');
                     if (card && !card.querySelector('.badge-vencido')) {
@@ -700,9 +719,9 @@
                     timer.innerHTML = `<i class="fas fa-stopwatch mr-1"></i> EXPIRA EN: ${hStr}:${mStr}:${sStr}`;
                     
                     if (horas === 0 && minutos < 30) {
-                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-orange-500 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg inline-block shadow-sm animate-pulse uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-orange-500 bg-white rounded-lg border border-orange-200 px-2 py-1 shadow-sm animate-pulse uppercase tracking-widest';
                     } else {
-                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg inline-block shadow-sm uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-blue-600 bg-white rounded-lg border border-blue-200 px-2 py-1 shadow-sm uppercase tracking-widest';
                     }
                 }
             });
@@ -731,8 +750,8 @@
         const overlayMenu = document.getElementById('overlayMenu');
 
         function toggleMenu() {
-            sidebar.classList.toggle('-translate-x-full');
-            overlayMenu.classList.toggle('hidden');
+            if (sidebar) sidebar.classList.toggle('-translate-x-full');
+            if (overlayMenu) overlayMenu.classList.toggle('hidden');
         }
 
         if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);

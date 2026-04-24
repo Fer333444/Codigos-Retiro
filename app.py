@@ -1492,7 +1492,9 @@ def notificar_visto():
 # Esto engaña al navegador dándole permiso total al sw.js
 @app.route('/sw.js')
 def serve_sw():
-    return app.send_static_file('sw.js')
+    import os
+    # Forzamos a que busque en la carpeta 'static' física del proyecto
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'sw.js')
 
 @app.route('/guardar_suscripcion', methods=['POST'])
 def guardar_suscripcion():

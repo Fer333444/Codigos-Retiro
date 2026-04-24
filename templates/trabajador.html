@@ -422,7 +422,8 @@
 
             try {
                 // Registrar el Service Worker que creaste en el Paso 1
-                const register = await navigator.serviceWorker.register('/static/sw.js');
+                // CÁMBIALO A ESTO:
+const register = await navigator.serviceWorker.register('/sw.js');
                 
                 // Suscribir usando tu llave pública VAPID
                 const subscription = await register.pushManager.subscribe({

@@ -471,41 +471,70 @@
         // Sonido de alerta compatible con todos los navegadores
         const audioAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
-        function solicitarPermisoNotificaciones() {
-            notificacionesActivas = true; // Activa notificaciones in-app
-            
-            // Truco para iOS: Tocar audio invisible para que Safari nos dé permiso de sonar después
-            audioAlerta.play().catch(e => console.log("Audio desbloqueado", e));
-            
-            // Intentar notificaciones nativas si están soportadas
-            if ("Notification" in window) {
-                Notification.requestPermission().then(permission => {
-                    if (permission === "granted") {
-                        new Notification("¡Activado!", { body: "Te avisaré de nuevos códigos." });
-                    }
-                });
+        // PON TU LLAVE PÚBLICA AQUÍ ABAJO (La que generaste con el script)
+        const PUBLIC_VAPID_KEY = 'BBDzqRX1xYG1YGUPSkoVOzSyt0I2hlliI7R1_OPsTtE5rZ_ek84h1enTso-1WM2t9nviJ9ds9Bk32sJaW_YCaZ4';
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
             }
-            
-            mostrarToast("🔔 Alertas sonoras y visuales activadas.");
-            // Ocultar todas las campanas
-            document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
+            return outputArray;
         }
 
-        // Sistema para mostrar alertas hermosas dentro de la app (Especial para iPhone)
+        async function solicitarPermisoNotificaciones() {
+            notificacionesActivas = true;
+            audioAlerta.play().catch(e => console.log("Audio esperando"));
+
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                mostrarToast("❌ Permiso denegado. No llegarán notificaciones con la app cerrada.");
+                return;
+            }
+
+            try {
+                // Registrar el Service Worker que creaste en el Paso 1
+                const register = await navigator.serviceWorker.register('/sw.js');
+                
+                // Suscribir usando tu llave pública VAPID
+                const subscription = await register.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+                });
+
+                // Enviar la suscripción al servidor Python
+                await fetch('/guardar_suscripcion', {
+                    method: 'POST',
+                    body: JSON.stringify(subscription),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                mostrarToast("✅ ¡Listo! Te llegarán alertas aunque cierres la pestaña.");
+                document.querySelectorAll('.btn-notificaciones').forEach(btn => btn.classList.add('hidden'));
+
+            } catch (error) {
+                console.error("Error activando notificaciones push:", error);
+                mostrarToast("⚠️ Error al conectar notificaciones en segundo plano.");
+            }
+        }
+
+        // Sistema para mostrar alertas visuales dentro de la app (In-App Toast para Celulares)
         function mostrarToast(mensaje) {
             const toast = document.createElement('div');
             toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-3 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center";
             toast.innerHTML = `<i class="fas fa-bell mr-3 text-xl animate-pulse"></i> <span>${mensaje}</span>`;
             document.body.appendChild(toast);
             
-            // Efecto de desaparecer a los 4 segundos
             setTimeout(() => {
                 toast.style.opacity = '0';
                 setTimeout(() => toast.remove(), 500);
             }, 4000);
         }
 
-        // 3. SISTEMA DE REFRESCAMIENTO SILENCIOSO
+        // Refresco silencioso
         function refrescarPanelSilencioso() {
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');

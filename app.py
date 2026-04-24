@@ -61,7 +61,9 @@ def guardar_datos():
         'sistema_config': sistema_config,
         'enlaces_db': enlaces_db,
         'grupos_creados': grupos_creados,
-        'usuarios_db': usuarios_db
+        'usuarios_db': usuarios_db,
+        'historial_pagos': historial_pagos,
+        'suscripciones_push': suscripciones_push # <-- AQUÍ GUARDAMOS LOS PERMISOS PUSH
     }
     try:
         with open(DATA_FILE, 'w', encoding='utf-8') as f:
@@ -70,7 +72,7 @@ def guardar_datos():
         print("Error crítico al guardar en disco:", e)
 
 def cargar_datos():
-    global registros, sistema_config, enlaces_db, grupos_creados, usuarios_db
+    global registros, sistema_config, enlaces_db, grupos_creados, usuarios_db, historial_pagos, suscripciones_push
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
@@ -83,6 +85,9 @@ def cargar_datos():
                 usuarios_cargados = data.get('usuarios_db', {})
                 if usuarios_cargados:
                     usuarios_db = usuarios_cargados
+                    
+                historial_pagos = data.get('historial_pagos', [])
+                suscripciones_push = data.get('suscripciones_push', {}) # <-- AQUÍ CARGAMOS LOS PERMISOS PUSH
             print("✅ Base de datos cargada exitosamente desde el Disco.")
         except Exception as e:
             print("Error crítico al cargar desde el disco:", e)
@@ -1483,19 +1488,25 @@ def notificar_visto():
     # Le disparamos la alerta a todos los jefes
     for admin in admin_users:
         disparar_alerta_push(admin, titulo, mensaje)
+# --- RUTA MÁGICA PARA EL SERVICE WORKER ---
+# Esto engaña al navegador dándole permiso total al sw.js
+@app.route('/sw.js')
+def serve_sw():
+    return app.send_static_file('sw.js')
 
-    return jsonify({"status": "ok", "mensaje": "Notificado correctamente"})
 @app.route('/guardar_suscripcion', methods=['POST'])
 def guardar_suscripcion():
     if 'usuario' in session:
         suscripciones_push[session['usuario']] = request.json
-        # Opcional: podrías agregarlo a tu json principal para que no se borre al reiniciar
+        guardar_datos() # <-- ¡CRÍTICO! AHORA SÍ SE GUARDA EN DISCO Y NO SE BORRA
     return jsonify({"status": "ok"})
 
 def disparar_alerta_push(usuario_destino, titulo, mensaje):
     """Esta es la pistola que dispara el mensaje al celular cerrado"""
     suscripcion = suscripciones_push.get(usuario_destino)
-    if not suscripcion: return # Si el usuario no dio permisos, no hacemos nada
+    if not suscripcion: 
+        print(f"No hay suscripción guardada para {usuario_destino}")
+        return
 
     try:
         webpush(
@@ -1504,8 +1515,9 @@ def disparar_alerta_push(usuario_destino, titulo, mensaje):
             vapid_private_key=VAPID_PRIVATE_KEY,
             vapid_claims=VAPID_CLAIMS
         )
+        print(f"✅ Push enviado con éxito a {usuario_destino}")
     except WebPushException as ex:
-        print("Error enviando push en segundo plano:", repr(ex))
+        print(f"❌ Error enviando push a {usuario_destino}:", repr(ex))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

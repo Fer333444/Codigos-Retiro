@@ -793,16 +793,21 @@ def toggle_auto():
 def asignar_trabajo():
     mis_permisos = session.get('permisos', [])
     
-    # 1. SOLUCIÓN PERMISOS: Ahora también deja entrar a quienes tengan 'procesar_retiros' (Cobradores)
     if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_retiros' not in mis_permisos and 'procesar_retiros' not in mis_permisos: 
         return redirect(url_for('login'))
         
-    registro_id = int(request.form.get('id'))
-    trabajador = request.form.get('trabajador')
+    # SALVAVIDAS: Si el celular envía un referrer nulo, usamos admin como ruta de emergencia segura
+    url_retorno = request.referrer or url_for('admin')
     
-    # 2. SOLUCIÓN REDIRECCIÓN: Si falla, regresa a la pestaña actual, no al admin
+    # Prevenimos que explote si mandan un formulario malformado sin ID
+    try:
+        registro_id = int(request.form.get('id', 0))
+    except (TypeError, ValueError):
+        return redirect(url_retorno)
+        
+    trabajador = request.form.get('trabajador')
     if not trabajador:
-        return redirect(request.referrer)
+        return redirect(url_retorno)
         
     hora_actual = hora_ecuador().strftime('%H:%M')
     
@@ -812,7 +817,7 @@ def asignar_trabajo():
             
             if viejo_asignado == trabajador:
                 flash(f'El código ya estaba asignado a {trabajador.capitalize()}.', 'info')
-                return redirect(request.referrer)
+                return redirect(url_retorno)
                 
             if viejo_asignado and viejo_asignado != trabajador:
                 r['asignado_a'] = trabajador
@@ -823,15 +828,16 @@ def asignar_trabajo():
                 r['asignacion_estado'] = 'asignado' 
                 r['historial'].append(f"[{hora_actual}] 👤 Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
             
-            # MANDAR PUSH DE ASIGNACIÓN MANUAL AL COBRADOR
+            # Si el Push falla, el try/except de arriba nos protege y continúa el flujo
             disparar_alerta_push(trabajador, "¡Nuevo Retiro Asignado! 🏃‍♂️", "Tienes un nuevo código de retiro listo en tu bandeja.")
             break
             
+    # El flujo ahora llegará seguro hasta aquí
     guardar_datos()
     flash(f'Asignado a {trabajador.capitalize()} correctamente.', 'success')
     
-    # 3. SOLUCIÓN FINAL: Regresa al usuario a la página exacta desde la que hizo la asignación
-    return redirect(request.referrer)
+    # 3. Retorno seguro garantizado (sin detonar Error 500)
+    return redirect(url_retorno)
 # ==========================================
 # RUTAS DE PAPELERA DE RECICLAJE
 # ==========================================
@@ -1526,6 +1532,11 @@ def disparar_alerta_push(usuario_destino, titulo, mensaje):
         print(f"No hay suscripción guardada para {usuario_destino}")
         return
 
+    # 1. SOLUCIÓN: Evitar crash si las llaves VAPID no existen en tu servidor
+    if not VAPID_PRIVATE_KEY:
+        print("⚠️ No hay VAPID_PRIVATE_KEY configurada. Omitiendo push.")
+        return
+
     try:
         webpush(
             subscription_info=suscripcion,
@@ -1534,7 +1545,8 @@ def disparar_alerta_push(usuario_destino, titulo, mensaje):
             vapid_claims=VAPID_CLAIMS
         )
         print(f"✅ Push enviado con éxito a {usuario_destino}")
-    except WebPushException as ex:
+    # 2. SOLUCIÓN: Usar "Exception" en lugar de "WebPushException" atrapará CUALQUIER error
+    except Exception as ex:
         print(f"❌ Error enviando push a {usuario_destino}:", repr(ex))
 @app.route('/reset_push')
 def reset_push():

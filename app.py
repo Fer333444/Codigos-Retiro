@@ -689,7 +689,15 @@ def admin():
     stats_cobradores = {}
     
     for c in cobradores:
-        stats_cobradores[c] = {'total_dia': 0.0, 'fallidos': [], 'asignados_count': 0, 'asignados_valor': 0.0}
+        # AGREGAMOS total_acumulado Y desglose_fechas
+        stats_cobradores[c] = {
+            'total_dia': 0.0, 
+            'total_acumulado': 0.0, 
+            'desglose_fechas': {}, 
+            'fallidos': [], 
+            'asignados_count': 0, 
+            'asignados_valor': 0.0
+        }
         
     for r in registros:
         asignado = r.get('asignado_a')
@@ -699,11 +707,26 @@ def admin():
                 try: stats_cobradores[asignado]['asignados_valor'] += float(r['monto'])
                 except: pass
                 
-            if r['fecha'].startswith(hoy_ecuador) and not r.get('liquidado', False):
+            # ACUMULAR DINERO NO LIQUIDADO SIN IMPORTAR EL DÍA
+            if not r.get('liquidado', False):
                 if r['estado'] == 'retirado':
-                    try: stats_cobradores[asignado]['total_dia'] += float(r['monto'])
+                    try:
+                        monto = float(r['monto'])
+                        stats_cobradores[asignado]['total_acumulado'] += monto
+                        
+                        # Agrupar por fecha
+                        fecha_corta = r['fecha'].split(' ')[0]
+                        if fecha_corta not in stats_cobradores[asignado]['desglose_fechas']:
+                            stats_cobradores[asignado]['desglose_fechas'][fecha_corta] = 0.0
+                        stats_cobradores[asignado]['desglose_fechas'][fecha_corta] += monto
+                        
+                        # Mantenemos el total de hoy por compatibilidad
+                        if r['fecha'].startswith(hoy_ecuador):
+                            stats_cobradores[asignado]['total_dia'] += monto
                     except: pass
-                elif r['estado'] in ['fallido', 'fallido_revision', 'expirado']:
+                    
+                # Solo mostrar fallidos de hoy en la tarjeta para no saturar la vista
+                elif r['estado'] in ['fallido', 'fallido_revision', 'expirado'] and r['fecha'].startswith(hoy_ecuador):
                     stats_cobradores[asignado]['fallidos'].append(r)
                 
     return render_template('admin.html', 

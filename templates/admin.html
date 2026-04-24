@@ -133,15 +133,21 @@
 
                         <div class="p-5 flex justify-between items-center border-b border-slate-100">
                             <div>
-                                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Saldo en Efectivo</h4>
-                                <p class="text-4xl font-black text-emerald-600">${{ "%.2f"|format(stats.total_dia) }}</p>
+                                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Saldo en Efectivo (Acumulado)</h4>
+                                <p class="text-4xl font-black text-emerald-600">${{ "%.2f"|format(stats.total_acumulado | default(stats.total_dia)) }}</p>
                             </div>
                             
-                            <button type="button" onclick="abrirModalRecibir('{{ cobrador }}', '{{ stats.total_dia }}')" class="flex flex-col items-center justify-center group focus:outline-none transition-transform transform hover:scale-105" title="Liquidar y recibir dinero">
+                            <button type="button" 
+                                    data-cobrador="{{ cobrador }}"
+                                    data-monto="{{ stats.total_acumulado | default(stats.total_dia) }}"
+                                    data-desglose="{{ stats.desglose_fechas | tojson | forceescape if stats.desglose_fechas else '{}' }}"
+                                    onclick="abrirModalRecibir(this)" 
+                                    class="flex flex-col items-center justify-center group focus:outline-none transition-transform transform hover:scale-105" title="Liquidar y recibir dinero">
                                 <div class="w-14 h-14 bg-emerald-100 group-hover:bg-emerald-200 rounded-full flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-300 transition-colors">
                                     <i class="fas fa-wallet text-2xl"></i>
                                 </div>
                                 <span class="text-[9px] font-black text-emerald-700 mt-2 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 group-hover:bg-emerald-100 transition-colors shadow-sm">Recibir Dinero</span>
+                                <span class="text-[10px] font-bold text-slate-500 mt-1">Total: ${{ "%.2f"|format(stats.total_acumulado | default(stats.total_dia)) }}</span>
                             </button>
                         </div>
                         
@@ -157,7 +163,7 @@
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer list-none p-4 bg-slate-50 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors">
-                                <span><i class="fas fa-times-circle text-rose-500 mr-1.5 text-sm"></i> Códigos Caídos ({{ stats.fallidos|length }})</span>
+                                <span><i class="fas fa-times-circle text-rose-500 mr-1.5 text-sm"></i> Códigos Caídos Hoy ({{ stats.fallidos|length }})</span>
                                 <span class="transition group-open:rotate-180 text-slate-400"><i class="fas fa-chevron-down"></i></span>
                             </summary>
                             <div class="bg-white p-4 border-t border-slate-200 max-h-40 overflow-y-auto text-xs space-y-2 custom-scrollbar shadow-inner">
@@ -323,22 +329,25 @@
                 <button onclick="cerrarModalRecibir()" class="text-emerald-400 hover:text-emerald-600 focus:outline-none"><i class="fas fa-times-circle text-2xl"></i></button>
             </div>
             
-            <form action="/marcar_recibido" method="POST" class="p-6 space-y-5 bg-white form-mantener-scroll">
+            <form action="/marcar_recibido" method="POST" class="p-6 space-y-4 bg-white form-mantener-scroll">
                 <input type="hidden" name="cobrador" id="recibir_cobrador_input">
                 
                 <div class="text-center pt-2">
                     <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Liquidar caja de</p>
                     <p class="text-2xl font-black text-blue-600 uppercase tracking-widest mb-5" id="recibir_cobrador_nombre">---</p>
                     
-                    <div class="bg-slate-50 border border-slate-200 p-5 rounded-xl inline-block w-full shadow-inner">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Monto a Recibir y Limpiar</p>
+                    <div class="bg-slate-50 border border-slate-200 p-5 rounded-xl inline-block w-full shadow-inner mb-2">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Monto Total a Recibir</p>
                         <p class="text-5xl font-black text-emerald-600" id="recibir_monto_display">$0.00</p>
                     </div>
+
+                    <div id="recibir_desglose" class="text-left text-xs font-bold text-slate-600 space-y-1 max-h-32 overflow-y-auto custom-scrollbar mt-3">
+                        </div>
                 </div>
 
-                <div class="pt-4">
+                <div class="pt-4 border-t border-slate-100">
                     <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black py-4 rounded-xl shadow-md uppercase tracking-widest text-sm flex justify-center items-center gap-2 transition-colors">
-                        <i class="fas fa-check-double text-lg"></i> Confirmar y Recibir
+                        <i class="fas fa-check-double text-lg"></i> Confirmar y Recibir Todo
                     </button>
                 </div>
             </form>
@@ -351,10 +360,38 @@
         }
 
         // --- FUNCIONES DEL NUEVO MODAL DE RECIBIR DINERO ---
-        function abrirModalRecibir(cobrador, monto) {
+        function abrirModalRecibir(btnElement) {
+            const cobrador = btnElement.getAttribute('data-cobrador');
+            const monto = btnElement.getAttribute('data-monto');
+            const desgloseStr = btnElement.getAttribute('data-desglose');
+
             document.getElementById('recibir_cobrador_input').value = cobrador;
             document.getElementById('recibir_cobrador_nombre').innerText = cobrador;
             document.getElementById('recibir_monto_display').innerText = "$" + parseFloat(monto).toFixed(2);
+
+            const desgloseContainer = document.getElementById('recibir_desglose');
+            desgloseContainer.innerHTML = ''; 
+
+            if (desgloseStr && desgloseStr !== '{}') {
+                try {
+                    const desglose = JSON.parse(desgloseStr);
+                    let html = '<p class="text-[9px] text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-1">Desglose por fechas pendientes:</p>';
+                    
+                    for (const [fecha, valor] of Object.entries(desglose)) {
+                        html += `
+                        <div class="flex justify-between items-center bg-white border border-slate-200 px-3 py-2 rounded-lg mb-1 shadow-sm">
+                            <span class="text-slate-500 font-mono tracking-wider"><i class="fas fa-calendar-day mr-2 text-slate-300"></i>${fecha}</span>
+                            <span class="text-emerald-600 font-black">$${parseFloat(valor).toFixed(2)}</span>
+                        </div>`;
+                    }
+                    desgloseContainer.innerHTML = html;
+                } catch (e) {
+                    console.error("Error parseando desglose", e);
+                }
+            } else {
+                desgloseContainer.innerHTML = '<p class="text-center text-slate-400 italic py-2 text-[10px]">No hay desglose histórico.</p>';
+            }
+
             document.getElementById('modalRecibir').classList.remove('hidden');
         }
 

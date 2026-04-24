@@ -791,7 +791,11 @@ def toggle_auto():
 
 @app.route('/asignar', methods=['POST'])
 def asignar_trabajo():
-    if session.get('rol') not in ['supremo', 'recaudador']: return redirect(url_for('login'))
+    mis_permisos = session.get('permisos', [])
+    # Validamos permisos para que no entre cualquiera
+    if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_retiros' not in mis_permisos: 
+        return redirect(url_for('login'))
+        
     registro_id = int(request.form.get('id'))
     trabajador = request.form.get('trabajador')
     
@@ -816,6 +820,9 @@ def asignar_trabajo():
                 r['asignado_a'] = trabajador
                 r['asignacion_estado'] = 'asignado' 
                 r['historial'].append(f"[{hora_actual}] 👤 Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
+            
+            # MANDAR PUSH DE ASIGNACIÓN MANUAL AL COBRADOR
+            disparar_alerta_push(trabajador, "¡Nuevo Retiro Asignado! 🏃‍♂️", "Tienes un nuevo código de retiro listo en tu bandeja.")
             break
             
     guardar_datos()

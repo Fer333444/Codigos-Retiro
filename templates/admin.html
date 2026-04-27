@@ -53,10 +53,6 @@
                 <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg transition-colors"><i class="fas fa-home w-5"></i> Retiros Activos</a>
             {% endif %}
             
-            {% if rol in ['supremo', 'recaudador'] or 'ver_reporte_diario' in mis_permisos %}
-                <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
-            {% endif %}
-            
             {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
                 <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
             {% endif %}
@@ -95,9 +91,7 @@
                 <a href="/logout" class="text-xs font-medium text-red-500 hover:underline"><i class="fas fa-sign-out-alt"></i> Salir</a>
             </div>
         </div>
-    </aside>
-
-    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative min-w-0">
+    </aside><main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative min-w-0">
         <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm relative z-10 w-full shrink-0">
             <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
             <div class="flex items-center gap-4">
@@ -123,8 +117,8 @@
             <div class="max-w-6xl mx-auto" id="contenidoDinamico">
                 
                 <div class="mb-4">
-                    <h2 class="text-2xl font-black text-slate-800 tracking-tight uppercase"><i class="fas fa-chart-pie text-blue-500 mr-2"></i> Reporte Diario en vivo</h2>
-                    <p class="text-xs font-bold text-slate-500">Resumen de cajas antes de liquidar.</p>
+                    <h2 class="text-2xl font-black text-slate-800 tracking-tight uppercase"><i class="fas fa-chart-pie text-blue-500 mr-2"></i> Resumen de Cajas en Vivo</h2>
+                    <p class="text-xs font-bold text-slate-500">Métricas y saldos antes de liquidar.</p>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
@@ -262,7 +256,7 @@
                                     
                                     <div class="shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
                                         {% if r.expira_timestamp %}
-                                            <span class="cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 inline-block shadow-sm" data-expira="{{ r.expira_timestamp }}">
+                                            <span class="cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 px-3 py-1.5 rounded-lg border border-blue-200 inline-block shadow-sm" data-expira="{{ r.expira_timestamp }}">
                                                 <i class="fas fa-spinner fa-spin"></i> Cargando...
                                             </span>
                                         {% elif r.hora_limite %}
@@ -328,9 +322,7 @@
 
             </div>
         </div>
-    </main>
-
-    <div id="modalPapelera" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
+    </main><div id="modalPapelera" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
         <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
             <div class="p-5 border-b border-slate-200 bg-rose-50 flex justify-between items-center">
                 <h3 class="font-black text-rose-700 text-lg uppercase tracking-widest"><i class="fas fa-trash-alt mr-2"></i> Mover a Papelera</h3>
@@ -455,7 +447,6 @@
             }
         });
 
-        // BLOQUE CORREGIDO: Evita doble clic y espera 50ms antes de procesar para garantizar el envío
         document.body.addEventListener('change', function(event) {
             if (event.target.classList.contains('select-trabajador')) {
                 const select = event.target;

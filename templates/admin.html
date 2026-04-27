@@ -201,13 +201,40 @@
                     </div>
                 </div>
 
-                <div class="mb-6 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3"><i class="fas fa-hand-pointer mr-1"></i> 1. Haz clic en un cobrador para empezar a asignar:</h3>
-                    <div class="flex gap-3 overflow-x-auto custom-scrollbar pb-2">
+                <div class="mb-6 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4"><i class="fas fa-hand-pointer mr-1"></i> 1. Haz clic en un cobrador para empezar a asignar:</h3>
+                    <div class="flex gap-4 overflow-x-auto custom-scrollbar pb-3">
                         {% for c in cobradores %}
-                        <button type="button" onclick="seleccionarCobrador('{{ c }}')" id="btn-cob-{{ c }}" class="btn-cobrador flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 min-w-[130px] transition-all focus:outline-none hover:border-blue-300 group">
-                            <span class="block text-sm font-black text-slate-700 group-hover:text-blue-600 uppercase transition-colors">{{ c }}</span>
-                            <span class="block text-[10px] font-bold text-slate-500 mt-1 bg-slate-100 px-2 py-0.5 rounded group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
+                        
+                        {% set btn_classes = 'border-indigo-400 hover:border-indigo-500 group-hover:text-indigo-600' %}
+                        {% set badge_classes = 'group-hover:bg-indigo-50 group-hover:text-indigo-600' %}
+                        {% set ring_color = 'ring-indigo-500' %}
+                        {% set bg_light = 'bg-indigo-50' %}
+                        {% set ring_light = 'ring-indigo-200' %}
+                        
+                        {% if c|lower == 'cristian' %}
+                            {% set btn_classes = 'border-blue-400 hover:border-blue-500 group-hover:text-blue-600' %}
+                            {% set badge_classes = 'group-hover:bg-blue-50 group-hover:text-blue-600' %}
+                            {% set ring_color = 'ring-blue-500' %}
+                            {% set bg_light = 'bg-blue-50' %}
+                            {% set ring_light = 'ring-blue-200' %}
+                        {% elif c|lower == 'jenny' %}
+                            {% set btn_classes = 'border-rose-400 hover:border-rose-500 group-hover:text-rose-600' %}
+                            {% set badge_classes = 'group-hover:bg-rose-50 group-hover:text-rose-600' %}
+                            {% set ring_color = 'ring-rose-500' %}
+                            {% set bg_light = 'bg-rose-50' %}
+                            {% set ring_light = 'ring-rose-200' %}
+                        {% elif c|lower == 'guillermo' %}
+                            {% set btn_classes = 'border-yellow-400 hover:border-yellow-500 group-hover:text-yellow-600' %}
+                            {% set badge_classes = 'group-hover:bg-yellow-50 group-hover:text-yellow-600' %}
+                            {% set ring_color = 'ring-yellow-400' %}
+                            {% set bg_light = 'bg-yellow-50' %}
+                            {% set ring_light = 'ring-yellow-200' %}
+                        {% endif %}
+
+                        <button type="button" onclick="seleccionarCobrador('{{ c }}', '{{ ring_color }}', '{{ bg_light }}', '{{ ring_light }}')" id="btn-cob-{{ c }}" class="btn-cobrador flex-shrink-0 bg-white border-2 {{ btn_classes.split(' ')[0] }} rounded-2xl px-6 py-4 min-w-[160px] transition-all focus:outline-none {{ btn_classes.split(' ')[1] }} group shadow-sm" data-bg="{{ bg_light }}" data-ring="{{ ring_light }}">
+                            <span class="block text-lg font-black text-slate-700 {{ btn_classes.split(' ')[2] }} uppercase transition-colors">{{ c }}</span>
+                            <span class="block text-xs font-bold text-slate-500 mt-1.5 bg-slate-100 px-2 py-1 rounded {{ badge_classes }} transition-colors">
                                 {% if c in stats_cobradores %}
                                     {{ stats_cobradores[c].asignados_count }} Asignados
                                 {% else %}
@@ -219,18 +246,18 @@
                     </div>
                 </div>
 
-                <div id="actionBarAsignacion" class="hidden bg-blue-600 text-white p-4 rounded-xl justify-between items-center mb-6 shadow-lg border border-blue-700 sticky top-4 z-30 transition-all duration-300">
+                <div id="actionBarAsignacion" class="hidden bg-slate-800 text-white p-4 rounded-xl justify-between items-center mb-6 shadow-lg border border-slate-700 sticky top-4 z-30 transition-all duration-300">
                     <div class="flex items-center gap-3">
-                        <div class="bg-blue-500 w-10 h-10 rounded-full flex items-center justify-center shadow-inner">
+                        <div class="bg-emerald-500 w-10 h-10 rounded-full flex items-center justify-center shadow-inner">
                             <i class="fas fa-check-double text-xl"></i>
                         </div>
                         <div>
-                            <p class="text-[10px] text-blue-200 uppercase font-bold tracking-widest">Enviar seleccionados a:</p>
-                            <p class="text-lg font-black uppercase tracking-widest text-yellow-300 leading-none mt-1" id="nombreCobradorAsignar"></p>
+                            <p class="text-[10px] text-slate-300 uppercase font-bold tracking-widest">Enviar seleccionados a:</p>
+                            <p class="text-lg font-black uppercase tracking-widest text-emerald-400 leading-none mt-1" id="nombreCobradorAsignar"></p>
                         </div>
                     </div>
-                    <button id="btnConfirmarAsignacion" onclick="confirmarAsignacion()" class="bg-white hover:bg-slate-100 text-blue-700 active:bg-slate-200 px-5 py-2.5 rounded-lg font-black text-sm uppercase shadow-md transition-colors flex items-center gap-2">
-                        Confirmar <i class="fas fa-paper-plane"></i>
+                    <button id="btnConfirmarAsignacion" onclick="confirmarAsignacion()" class="bg-white hover:bg-slate-100 text-slate-800 active:bg-slate-200 px-5 py-2.5 rounded-lg font-black text-sm uppercase shadow-md transition-colors flex items-center gap-2">
+                        Confirmar <i class="fas fa-paper-plane text-blue-500"></i>
                     </button>
                 </div>
 
@@ -244,12 +271,11 @@
                         {% for r in activos %}
                         
                         {% set border_color = 'border-slate-800' %}
-                        {% if not r.asignado_a %} 
-                            {% set border_color = 'border-slate-800' %}
-                        {% elif r.get('asignacion_estado') == 'reasignado' %} 
+                        {% if r.estado == 'expirado' %}
                             {% set border_color = 'border-rose-500' %}
-                        {% else %} 
-                            {% set border_color = 'border-emerald-500' %}
+                        {% elif r.get('asignacion_estado') == 'asignado' %} {% set border_color = 'border-emerald-500' %}
+                        {% elif r.get('asignacion_estado') == 'reasignado' %} {% set border_color = 'border-rose-500' %}
+                        {% elif r.asignado_a %} {% set border_color = 'border-emerald-500' %}
                         {% endif %}
 
                         <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-md overflow-hidden flex flex-col lg:flex-row relative group transition-all duration-300 hover:shadow-lg tarjeta-retiro" data-id="{{ r.id }}">
@@ -316,9 +342,9 @@
 
                                 <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto justify-between">
                                     
-                                    <label class="flex items-center gap-3 cursor-pointer group w-full sm:w-auto p-2 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors">
-                                        <input type="checkbox" value="{{ r.id }}" class="chk-asignar w-5 h-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500">
-                                        <span class="text-xs font-bold text-slate-600 uppercase group-hover:text-blue-700 transition-colors">Seleccionar</span>
+                                    <label class="flex items-center gap-3 cursor-pointer group w-full sm:w-auto p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors">
+                                        <input type="checkbox" value="{{ r.id }}" class="chk-asignar w-5 h-5 text-slate-600 border-slate-300 rounded focus:ring-transparent">
+                                        <span class="text-xs font-bold text-slate-600 uppercase group-hover:text-slate-800 transition-colors">Seleccionar</span>
                                     </label>
                                     
                                     <div class="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -477,27 +503,41 @@
         });
 
         // ==========================================
-        // LÓGICA DE ASIGNACIÓN MASIVA
+        // LÓGICA DE ASIGNACIÓN MASIVA Y COLORES
         // ==========================================
         let cobradorParaAsignar = null;
+        let colorAnilloActivo = 'ring-indigo-500'; // Color por defecto
 
-        function seleccionarCobrador(nombre) {
-            // Quitar estilos de selección a todos los botones
+        function seleccionarCobrador(nombre, ringColor, bgLight, ringLight) {
+            // 1. Quitar estilos de selección a TODOS los botones
             document.querySelectorAll('.btn-cobrador').forEach(b => {
-                b.classList.remove('bg-blue-50', 'border-blue-500', 'ring-4', 'ring-blue-200');
-                b.classList.add('bg-white', 'border-slate-200');
+                const bg = b.getAttribute('data-bg');
+                const ring = b.getAttribute('data-ring');
+                if(bg) b.classList.remove(bg);
+                if(ring) b.classList.remove('ring-4', ring);
+                b.classList.add('bg-white');
             });
             
-            // Aplicar estilo al botón seleccionado
+            // 2. Aplicar estilo e iluminar el botón del cobrador seleccionado
             const btn = document.getElementById('btn-cob-' + nombre);
             if (btn) {
-                btn.classList.remove('bg-white', 'border-slate-200');
-                btn.classList.add('bg-blue-50', 'border-blue-500', 'ring-4', 'ring-blue-200');
+                btn.classList.remove('bg-white');
+                btn.classList.add(bgLight, 'ring-4', ringLight);
             }
 
             cobradorParaAsignar = nombre;
+            colorAnilloActivo = ringColor;
             document.getElementById('nombreCobradorAsignar').innerText = nombre;
             
+            // 3. Actualizar el color del borde de los códigos (tarjetas) que ya estén marcados
+            document.querySelectorAll('.chk-asignar:checked').forEach(chk => {
+                const card = chk.closest('.tarjeta-retiro');
+                // Limpiamos los anillos de colores viejos
+                card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
+                // Ponemos el anillo del color del cobrador seleccionado
+                card.classList.add('ring-4', colorAnilloActivo);
+            });
+
             // Mostrar la barra de confirmación
             const actionBar = document.getElementById('actionBarAsignacion');
             actionBar.classList.remove('hidden');
@@ -517,7 +557,6 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Enviando...';
             btn.disabled = true;
 
-            // Enviar cada código asignado en segundo plano
             for (let chk of checkboxes) {
                 const id = chk.value;
                 const formData = new URLSearchParams();
@@ -535,24 +574,23 @@
                 }
             }
             
-            // Guardar posición del scroll y recargar página para ver los cambios
             var mainScroll = document.getElementById('mainScroll');
             if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
             window.location.reload();
         }
 
-        // Iluminar la tarjeta entera cuando se selecciona el checkbox
+        // Cuando marcan o desmarcan un código (filo de color)
         document.body.addEventListener('change', function(event) {
             if (event.target.classList.contains('chk-asignar')) {
                 const card = event.target.closest('.tarjeta-retiro');
                 if (event.target.checked) {
-                    card.classList.add('ring-4', 'ring-blue-400');
+                    card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
+                    card.classList.add('ring-4', colorAnilloActivo);
                 } else {
-                    card.classList.remove('ring-4', 'ring-blue-400');
+                    card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
                 }
             }
         });
-
 
         // Restaurar Scroll
         document.addEventListener("DOMContentLoaded", function() { 
@@ -705,7 +743,6 @@
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
             
-            // Pausar el refresco si hay modales abiertos o SI ESTAMOS ASIGNANDO CÓDIGOS (checkbox o cobrador seleccionado)
             const hasChecked = document.querySelector('.chk-asignar:checked') !== null;
             if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
                (modalRecibir && !modalRecibir.classList.contains('hidden')) ||
@@ -742,7 +779,6 @@
 
                         let codigosNuevosEncontrados = 0;
                         
-                        // Revisamos usando las casillas de verificación ahora (reemplazo del input hidden)
                         document.querySelectorAll('.chk-asignar').forEach(input => {
                             if (!codigosVistos.has(input.value)) {
                                 codigosNuevosEncontrados++;

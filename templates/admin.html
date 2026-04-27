@@ -11,6 +11,11 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* ESTILO PARA OCULTAR EL CHECKBOX PERO MANTENERLO FUNCIONAL */
+        .tarjeta-label input:checked ~ .tarjeta-contenido {
+            --tw-ring-color: transparent !important;
+        }
     </style>
 </head>
 <body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
@@ -269,13 +274,16 @@
                         {% set border_color = 'border-slate-800' %}
                         {% if r.estado == 'expirado' %}
                             {% set border_color = 'border-rose-500' %}
-                        {% elif r.get('asignacion_estado') == 'asignado' %} {% set border_color = 'border-emerald-500' %}
-                        {% elif r.get('asignacion_estado') == 'reasignado' %} {% set border_color = 'border-rose-500' %}
-                        {% elif r.asignado_a %} {% set border_color = 'border-emerald-500' %}
+                        {% elif r.asignado_a %} 
+                            {% set border_color = 'border-emerald-500' %}
                         {% endif %}
 
+                        {% if not r.asignado_a %}
                         <label class="tarjeta-label block cursor-pointer relative group/card">
                             <input type="checkbox" value="{{ r.id }}" class="chk-asignar absolute opacity-0 w-0 h-0">
+                        {% else %}
+                        <div class="relative block">
+                        {% endif %}
                             
                             <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-md overflow-hidden flex flex-col lg:flex-row relative transition-all duration-300 hover:shadow-lg tarjeta-retiro tarjeta-contenido" data-id="{{ r.id }}">
                                 
@@ -341,12 +349,18 @@
 
                                     <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto justify-between">
                                         
+                                        {% if not r.asignado_a %}
                                         <div class="flex items-center gap-3 w-full sm:w-auto p-2 bg-white border border-slate-200 rounded-lg group-hover/card:bg-slate-50 transition-colors pointer-events-none">
                                             <div class="w-5 h-5 border-2 border-slate-300 rounded flex items-center justify-center bg-white chk-visual transition-colors">
                                                 <i class="fas fa-check text-white text-[10px] opacity-0 transition-opacity"></i>
                                             </div>
                                             <span class="text-xs font-bold text-slate-600 uppercase transition-colors">Seleccionar</span>
                                         </div>
+                                        {% else %}
+                                        <div>
+                                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest"><i class="fas fa-lock"></i> Código Asignado</span>
+                                        </div>
+                                        {% endif %}
                                         
                                         <div class="flex flex-wrap items-center gap-2 sm:justify-end">
                                             {% if r.asignado_a %}
@@ -372,7 +386,12 @@
                                     </div>
                                 </div>
                             </div>
+                        {% if not r.asignado_a %}
                         </label>
+                        {% else %}
+                        </div>
+                        {% endif %}
+                        
                         {% endfor %}
                     </div>
                 {% endif %}
@@ -545,6 +564,7 @@
 
             cobradorParaAsignar = nombre;
             colorAnilloActivo = ringColor;
+            
             colorFondoActivo = ringColor.replace('ring-', 'bg-');
 
             document.getElementById('nombreCobradorAsignar').innerText = nombre;
@@ -672,7 +692,9 @@
         let codigosVistos = new Set();
         // Cambiamos el selector porque ya no usamos form
         document.querySelectorAll('.chk-asignar').forEach(input => {
-            codigosVistos.add(input.value);
+            if (input.value) {
+                codigosVistos.add(input.value);
+            }
         });
         
         let notificacionesActivas = false;
@@ -800,7 +822,7 @@
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
             
-            // Bloqueo de auto-refresco si hay checks activos para no perder la selección
+            // Bloqueo de auto-refresco modificado
             const hasChecked = document.querySelector('.chk-asignar:checked') !== null;
             if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
                (modalRecibir && !modalRecibir.classList.contains('hidden')) ||
@@ -839,7 +861,8 @@
                         
                         // Revisamos usando las casillas de verificación ahora (reemplazo del input hidden)
                         document.querySelectorAll('.chk-asignar').forEach(input => {
-                            if (!codigosVistos.has(input.value)) {
+                            // VERIFICAR QUE INPUT.VALUE EXISTE Y NO ESTÁ VACÍO ANTES DE LEER
+                            if (input.value && !codigosVistos.has(input.value)) {
                                 codigosNuevosEncontrados++;
                                 codigosVistos.add(input.value);
                             }

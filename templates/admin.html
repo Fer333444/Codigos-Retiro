@@ -11,11 +11,6 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        /* ESTILO PARA OCULTAR EL CHECKBOX PERO MANTENERLO FUNCIONAL */
-        .tarjeta-label input:checked ~ .tarjeta-contenido {
-            --tw-ring-color: transparent !important;
-        }
     </style>
 </head>
 <body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
@@ -550,7 +545,6 @@
 
             cobradorParaAsignar = nombre;
             colorAnilloActivo = ringColor;
-            
             colorFondoActivo = ringColor.replace('ring-', 'bg-');
 
             document.getElementById('nombreCobradorAsignar').innerText = nombre;
@@ -567,7 +561,9 @@
                 box.classList.add(colorFondoActivo, colorFondoActivo.replace('bg-', 'border-'));
             });
 
-            // Muestra la barra inferior al instante
+            // Actualiza el texto de los contadores en vivo
+            actualizarContadoresLive();
+
             const actionBar = document.getElementById('actionBarAsignacion');
             actionBar.classList.remove('hidden');
             actionBar.classList.add('flex', 'animate-fade-in-up');
@@ -804,7 +800,7 @@
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
             
-            // Bloqueo de auto-refresco modificado
+            // Bloqueo de auto-refresco si hay checks activos para no perder la selección
             const hasChecked = document.querySelector('.chk-asignar:checked') !== null;
             if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
                (modalRecibir && !modalRecibir.classList.contains('hidden')) ||

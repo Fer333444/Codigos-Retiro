@@ -232,7 +232,7 @@
                         {% elif c|lower == 'guillermo' %}
                             {% set btn_classes = 'border-yellow-400 hover:border-yellow-500 group-hover:text-yellow-600' %}
                             {% set badge_classes = 'group-hover:bg-yellow-50 group-hover:text-yellow-600' %}
-                            {% set ring_color = 'ring-yellow-500' %}
+                            {% set ring_color = 'ring-yellow-400' %}
                             {% set bg_light = 'bg-yellow-50' %}
                             {% set ring_light = 'ring-yellow-200' %}
                         {% endif %}
@@ -287,6 +287,31 @@
                                 <button type="button" class="btn-abrir-papelera absolute top-3 right-3 text-slate-400 hover:text-rose-600 bg-white/90 backdrop-blur-sm border border-slate-200 hover:border-rose-200 rounded-lg p-2.5 transition-colors z-20 shadow-sm cursor-pointer" data-id="{{ r.id }}" data-monto="{{ r.monto }}" data-usuario="{{ r.usuario }}" title="Eliminar (Mover a papelera)">
                                     <i class="fas fa-trash-alt pointer-events-none"></i>
                                 </button>
+
+                                <div class="w-full lg:w-48 flex flex-col bg-slate-100 border-b lg:border-b-0 lg:border-r border-slate-200 shrink-0">
+                                    <div class="flex-1 p-3 flex items-center justify-center relative min-h-[12rem] lg:min-h-full">
+                                        {% if r.imagen %}
+                                            {% set imagenes = r.imagen.split(',') %}
+                                            <div class="w-full h-full relative flex items-center justify-center">
+                                                <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-300/50 shadow-sm pointer-events-none">
+                                                {% if imagenes|length > 1 %}
+                                                    <span class="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow">+{{ imagenes|length - 1 }}</span>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <i class="fas fa-image text-slate-300 text-4xl"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="p-2 border-t border-slate-200 bg-slate-50 flex items-center justify-center min-h-[40px]">
+                                        {% if r.expira_timestamp %}
+                                            <span class="cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-blue-600 px-2 py-1 uppercase tracking-widest shadow-sm rounded-lg bg-white border border-blue-200" data-expira="{{ r.expira_timestamp }}">
+                                                <i class="fas fa-spinner fa-spin"></i> Cargando...
+                                            </span>
+                                        {% elif r.hora_limite %}
+                                            <span class="w-full text-center text-[10px] sm:text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 uppercase tracking-widest shadow-sm rounded-lg border border-rose-200"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
                                 
                                 <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between min-w-0">
                                     
@@ -301,18 +326,6 @@
                                             {% endif %}
                                             
                                             <span class="text-xs sm:text-sm font-black {{ color_banco }} uppercase mt-2 sm:mt-0 sm:ml-3 tracking-widest break-words block sm:inline">{{ r.banco }} <span class="text-slate-400 mx-1 hidden sm:inline">•</span><br class="sm:hidden"> {{ r.usuario }}</span>
-                                        </div>
-
-                                        <div class="shrink-0 w-full sm:w-auto mt-2 sm:mt-0 z-20">
-                                            <div class="p-2 bg-slate-50 flex items-center justify-center min-h-[40px] rounded-lg border border-slate-200">
-                                                {% if r.expira_timestamp %}
-                                                    <span class="cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-blue-600 uppercase tracking-widest" data-expira="{{ r.expira_timestamp }}">
-                                                        <i class="fas fa-spinner fa-spin"></i> Cargando...
-                                                    </span>
-                                                {% elif r.hora_limite %}
-                                                    <span class="w-full text-center text-[10px] sm:text-xs font-bold text-rose-600 uppercase tracking-widest"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
-                                                {% endif %}
-                                            </div>
                                         </div>
                                     </div>
 
@@ -329,29 +342,6 @@
                                                 <p class="text-slate-500 leading-tight"><i class="fas fa-angle-right mr-1 text-slate-300"></i> {{ evento }}</p>
                                             {% endif %}
                                         {% endfor %}
-                                    </div>
-
-                                    <div class="mb-4 z-20">
-                                        <button type="button" onclick="event.preventDefault(); toggleImagen('img-{{ r.id }}')" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs py-2 px-4 rounded-lg transition-colors border border-slate-300 shadow-sm flex items-center justify-center w-full sm:w-auto">
-                                            <i class="fas fa-camera mr-2"></i> Mostrar / Ocultar Captura
-                                        </button>
-                                        
-                                        <div id="img-{{ r.id }}" class="hidden mt-3 p-3 bg-slate-100 border border-slate-200 rounded-lg transition-all">
-                                            {% if r.imagen %}
-                                                {% set imagenes = r.imagen.split(',') %}
-                                                <div class="w-full relative flex items-center justify-center max-h-64">
-                                                    <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded shadow-sm pointer-events-none">
-                                                    {% if imagenes|length > 1 %}
-                                                        <span class="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow">+{{ imagenes|length - 1 }}</span>
-                                                    {% endif %}
-                                                </div>
-                                            {% else %}
-                                                <div class="py-6 flex flex-col items-center justify-center text-slate-400">
-                                                    <i class="fas fa-image text-3xl mb-2"></i>
-                                                    <span class="text-xs uppercase tracking-widest font-bold">Sin imagen adjunta</span>
-                                                </div>
-                                            {% endif %}
-                                        </div>
                                     </div>
 
                                     <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto justify-between">
@@ -462,16 +452,6 @@
     <script>
         function cerrarModalPapelera() {
             document.getElementById('modalPapelera').classList.add('hidden');
-        }
-        
-        // FUNCIÓN PARA DESPLEGAR IMAGEN
-        function toggleImagen(id) {
-            const imgDiv = document.getElementById(id);
-            if (imgDiv.classList.contains('hidden')) {
-                imgDiv.classList.remove('hidden');
-            } else {
-                imgDiv.classList.add('hidden');
-            }
         }
 
         function abrirModalRecibir(btnElement) {
@@ -587,6 +567,7 @@
                 box.classList.add(colorFondoActivo, colorFondoActivo.replace('bg-', 'border-'));
             });
 
+            // Muestra la barra inferior al instante
             const actionBar = document.getElementById('actionBarAsignacion');
             actionBar.classList.remove('hidden');
             actionBar.classList.add('flex', 'animate-fade-in-up');
@@ -627,9 +608,16 @@
             window.location.reload();
         }
 
-        // Iluminar el borde de la tarjeta y "chequear" el cuadro de la esquina
+        // Iluminar el borde de la tarjeta y "chequear" el cuadro
         document.body.addEventListener('change', function(event) {
             if (event.target.classList.contains('chk-asignar')) {
+                // Validación para evitar marcar sin seleccionar cobrador primero
+                if (!cobradorParaAsignar) {
+                    event.target.checked = false; // Lo desmarca
+                    mostrarToast("⚠️ Selecciona un cobrador arriba primero.");
+                    return;
+                }
+
                 const label = event.target.closest('.tarjeta-label');
                 const card = label.querySelector('.tarjeta-contenido');
                 const box = label.querySelector('.chk-visual');
@@ -640,7 +628,7 @@
                 box.className = box.className.replace(/\bbg-\w+-\d+\b/g, '').replace(/\bborder-\w+-\d+\b/g, '').trim();
 
                 if (event.target.checked) {
-                    // Encender
+                    // Encender con los colores del cobrador
                     card.classList.add('ring-4', colorAnilloActivo);
                     box.classList.remove('bg-white', 'border-slate-300');
                     box.classList.add(colorFondoActivo, colorFondoActivo.replace('bg-', 'border-'));
@@ -651,6 +639,7 @@
                     box.querySelector('i').classList.add('opacity-0'); // Ocultar palomita
                 }
                 
+                // Actualiza en tiempo real el contador "X Seleccionados"
                 actualizarContadoresLive();
             }
         });
@@ -888,7 +877,7 @@
 
                 if (diff <= 0) {
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
-                    timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest';
+                    timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-rose-600 bg-white rounded-lg border border-rose-200 px-2 py-1 shadow-sm uppercase tracking-widest';
                     
                     const card = timer.closest('.tarjeta-contenido');
                     if (card && !card.querySelector('.badge-vencido')) {
@@ -913,9 +902,9 @@
                     timer.innerHTML = `<i class="fas fa-stopwatch mr-1"></i> EXPIRA EN: ${hStr}:${mStr}:${sStr}`;
                     
                     if (horas === 0 && minutos < 30) {
-                        timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-orange-500 animate-pulse uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-orange-500 bg-white rounded-lg border border-orange-200 px-2 py-1 shadow-sm animate-pulse uppercase tracking-widest';
                     } else {
-                        timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-blue-600 uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-blue-600 bg-white rounded-lg border border-blue-200 px-2 py-1 shadow-sm uppercase tracking-widest';
                     }
                 }
             });

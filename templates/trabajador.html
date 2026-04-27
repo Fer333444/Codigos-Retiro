@@ -220,6 +220,10 @@
                                         {% if r.detalles.seguridad %}
                                             <span class="font-black text-slate-900 bg-white px-4 py-2 rounded-lg shadow-md border-2 border-slate-400 text-xl sm:text-2xl tracking-widest">Seg: {{ r.detalles.seguridad }}</span>
                                         {% endif %}
+                                        
+                                        {% if r.banco|lower == 'produbanco' and r.cedula %}
+                                            <span class="font-black text-[#8b4513] bg-white px-4 py-2 rounded-lg shadow-md border-2 border-[#8b4513] text-xl sm:text-2xl tracking-widest">C.I: {{ r.cedula }}</span>
+                                        {% endif %}
                                     </div>
                                 </div>
 
@@ -362,6 +366,7 @@
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
                     timer.className = 'cronometro-retiro text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest';
                     
+                    // CUANDO EL TIEMPO LLEGA A 0 EN VIVO, INYECTAMOS LA ETIQUETA ROJA
                     const card = timer.closest('.tarjeta-retiro');
                     if (card && !card.querySelector('.badge-vencido')) {
                         card.classList.remove('border-emerald-500', 'border-slate-800');
@@ -420,6 +425,7 @@
 
         // --- FUNCION PARA NOTIFICAR VISTO ---
         function notificarVisto(id, btnElement) {
+            // Cambiamos el texto mientras carga
             const originalText = btnElement.innerHTML;
             btnElement.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Avisando...';
             btnElement.disabled = true;
@@ -432,6 +438,7 @@
             .then(res => res.json())
             .then(data => {
                 if(data.status === 'ok') {
+                    // Transformamos el botón en la etiqueta "Visto"
                     const span = document.createElement('span');
                     span.className = 'text-[9px] font-black text-emerald-600 bg-emerald-100 px-2 py-1 rounded shadow-sm border border-emerald-200 transition-opacity animate-fade-in-up';
                     span.innerHTML = '<i class="fas fa-eye mr-1"></i> Visto';
@@ -441,6 +448,7 @@
                 }
             })
             .catch(e => {
+                // Si hay error, regresamos el botón a la normalidad
                 btnElement.innerHTML = originalText;
                 btnElement.disabled = false;
                 mostrarToast("❌ Hubo un error de conexión.");
@@ -454,8 +462,8 @@
         const overlayMenu = document.getElementById('overlayMenu');
 
         function toggleMenu() {
-            if (sidebar) sidebar.classList.toggle('-translate-x-full');
-            if (overlayMenu) overlayMenu.classList.toggle('hidden');
+            if(sidebar) sidebar.classList.toggle('-translate-x-full');
+            if(overlayMenu) overlayMenu.classList.toggle('hidden');
         }
 
         if(btnMenuMovil) btnMenuMovil.addEventListener('click', toggleMenu);
@@ -463,7 +471,7 @@
         if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
 
         // --- SISTEMA HÍBRIDO DE NOTIFICACIONES PUSH (TOGGLE) ---
-        // NUEVA LÓGICA: Memorizamos los IDs exactos de cada tarjeta mostrada en pantalla
+        // NUEVA LÓGICA: Memorizamos los IDs exactos en lugar de contar la cantidad
         let codigosVistos = new Set();
         document.querySelectorAll('.tarjeta-retiro').forEach(card => {
             const id = card.getAttribute('data-id');
@@ -487,6 +495,7 @@
             return outputArray;
         }
 
+        // FUNCIÓN PARA CAMBIAR EL COLOR Y ESTADO DEL BOTÓN
         function setNotificationState(isActive) {
             notificacionesActivas = isActive;
             document.querySelectorAll('.btn-notificaciones').forEach(btn => {
@@ -504,6 +513,7 @@
             });
         }
 
+        // REVISAR ESTADO AL CARGAR LA PÁGINA
         if ('Notification' in window && Notification.permission === 'granted') {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
                 navigator.serviceWorker.ready.then(async function(register) {
@@ -519,8 +529,10 @@
             setNotificationState(false);
         }
 
+        // FUNCIÓN PRINCIPAL DEL BOTÓN (PRENDER / APAGAR)
         async function toggleNotificaciones() {
             if (notificacionesActivas) {
+                // APAGAR NOTIFICACIONES
                 try {
                     const register = await navigator.serviceWorker.getRegistration('/sw.js');
                     if (register) {
@@ -533,6 +545,8 @@
                     console.error(e);
                 }
             } else {
+                // PRENDER NOTIFICACIONES
+                // Regla de Apple: Validar si está en modo "App"
                 const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
                 if (isIos && !window.navigator.standalone) {
                     mostrarToast("⚠️ En iPhone, debes 'Agregar a Inicio' primero para recibir notificaciones.");
@@ -550,16 +564,19 @@
                 try {
                     const register = await navigator.serviceWorker.register('/sw.js');
                     
+                    // Limpiar suscripción vieja
                     const oldSubscription = await register.pushManager.getSubscription();
                     if (oldSubscription) {
                         await oldSubscription.unsubscribe();
                     }
 
+                    // Crear nueva suscripción
                     const subscription = await register.pushManager.subscribe({
                         userVisibleOnly: true,
                         applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
                     });
 
+                    // Enviar a Python
                     const response = await fetch('/guardar_suscripcion', {
                         method: 'POST',
                         body: JSON.stringify(subscription),
@@ -580,6 +597,7 @@
             }
         }
 
+        // Sistema para mostrar alertas visuales (In-App Toast)
         function mostrarToast(mensaje) {
             const toast = document.createElement('div');
             toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-4 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center max-w-[90vw]";
@@ -592,6 +610,7 @@
             }, 5000);
         }
 
+        // Refresco silencioso
         function refrescarPanelSilencioso() {
             const modalRetirado = document.getElementById('modalRetirado');
             const modalFallido = document.getElementById('modalFallido');
@@ -655,6 +674,7 @@
 
         setInterval(refrescarPanelSilencioso, 10000);
 
+        // --- SISTEMA DE UBICACIÓN ---
         function enviarUbicacion() {
             if ("geolocation" in navigator) {
                 navigator.geolocation.getCurrentPosition(

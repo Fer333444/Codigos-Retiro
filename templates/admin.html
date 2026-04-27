@@ -12,7 +12,6 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        /* ESTILO PARA OCULTAR EL CHECKBOX PERO MANTENERLO FUNCIONAL */
         .tarjeta-label input:checked ~ .tarjeta-contenido {
             --tw-ring-color: transparent !important;
         }
@@ -274,8 +273,9 @@
                         {% set border_color = 'border-slate-800' %}
                         {% if r.estado == 'expirado' %}
                             {% set border_color = 'border-rose-500' %}
-                        {% elif r.asignado_a %} 
-                            {% set border_color = 'border-emerald-500' %}
+                        {% elif r.get('asignacion_estado') == 'asignado' %} {% set border_color = 'border-emerald-500' %}
+                        {% elif r.get('asignacion_estado') == 'reasignado' %} {% set border_color = 'border-rose-500' %}
+                        {% elif r.asignado_a %} {% set border_color = 'border-emerald-500' %}
                         {% endif %}
 
                         {% if not r.asignado_a %}
@@ -347,42 +347,32 @@
                                         {% endfor %}
                                     </div>
 
-                                    <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto justify-between">
+                                    <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto justify-end">
                                         
-                                        {% if not r.asignado_a %}
-                                        <div class="flex items-center gap-3 w-full sm:w-auto p-2 bg-white border border-slate-200 rounded-lg group-hover/card:bg-slate-50 transition-colors pointer-events-none">
-                                            <div class="w-5 h-5 border-2 border-slate-300 rounded flex items-center justify-center bg-white chk-visual transition-colors">
-                                                <i class="fas fa-check text-white text-[10px] opacity-0 transition-opacity"></i>
-                                            </div>
-                                            <span class="text-xs font-bold text-slate-600 uppercase transition-colors">Seleccionar</span>
-                                        </div>
-                                        {% else %}
-                                        <div>
-                                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest"><i class="fas fa-lock"></i> Código Asignado</span>
-                                        </div>
-                                        {% endif %}
-                                        
+                                        {% if r.asignado_a %}
                                         <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-                                            {% if r.asignado_a %}
-                                                {% if r.visto_por_cobrador %}
-                                                    <span class="bg-emerald-100 text-emerald-700 text-[10px] font-black px-4 py-3 rounded-xl shadow-sm border border-emerald-200 uppercase tracking-widest">
-                                                        LEÍDO
-                                                    </span>
-                                                {% else %}
-                                                    <span class="bg-rose-50 text-rose-600 text-[10px] font-black px-4 py-3 rounded-xl shadow-sm border border-rose-200 uppercase tracking-widest animate-pulse">
-                                                        SIN VER
-                                                    </span>
-                                                {% endif %}
-                                                
-                                                <span class="bg-green-600 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
-                                                    <i class="fas fa-user-check mr-2"></i> {{ r.asignado_a }}
+                                            {% if r.visto_por_cobrador %}
+                                                <span class="bg-emerald-100 text-emerald-700 text-[10px] font-black px-4 py-3 rounded-xl shadow-sm border border-emerald-200 uppercase tracking-widest">
+                                                    LEÍDO
                                                 </span>
                                             {% else %}
-                                                <span class="bg-slate-500 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
-                                                    <i class="fas fa-user-times mr-2"></i> SIN ASIGNAR
+                                                <span class="bg-rose-50 text-rose-600 text-[10px] font-black px-4 py-3 rounded-xl shadow-sm border border-rose-200 uppercase tracking-widest animate-pulse">
+                                                    SIN VER
                                                 </span>
                                             {% endif %}
+                                            
+                                            <span class="bg-green-600 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
+                                                <i class="fas fa-user-check mr-2"></i> {{ r.asignado_a }}
+                                            </span>
                                         </div>
+                                        {% else %}
+                                        <div class="flex items-center justify-end">
+                                            <span class="bg-slate-500 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
+                                                <i class="fas fa-user-times mr-2"></i> SIN ASIGNAR
+                                            </span>
+                                        </div>
+                                        {% endif %}
+
                                     </div>
                                 </div>
                             </div>
@@ -526,11 +516,10 @@
         });
 
         // ==========================================
-        // LÓGICA DE ASIGNACIÓN MASIVA CLICKABLE
+        // LÓGICA DE ASIGNACIÓN MASIVA Y COLORES
         // ==========================================
         let cobradorParaAsignar = null;
         let colorAnilloActivo = 'ring-indigo-500'; 
-        let colorFondoActivo = 'bg-indigo-500';
 
         function actualizarContadoresLive() {
             // Reiniciar todos los contadores a 0 visualmente
@@ -564,21 +553,15 @@
 
             cobradorParaAsignar = nombre;
             colorAnilloActivo = ringColor;
-            
-            colorFondoActivo = ringColor.replace('ring-', 'bg-');
 
             document.getElementById('nombreCobradorAsignar').innerText = nombre;
             
-            // Actualiza tarjetas ya marcadas
+            // Actualiza colores de los bordes de los que YA están seleccionados
             document.querySelectorAll('.chk-asignar:checked').forEach(chk => {
                 const card = chk.closest('.tarjeta-label').querySelector('.tarjeta-contenido');
-                const box = chk.closest('.tarjeta-label').querySelector('.chk-visual');
                 
                 card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
                 card.classList.add('ring-4', colorAnilloActivo);
-                
-                box.className = box.className.replace(/\bbg-\w+-\d+\b/g, '').replace(/\bborder-\w+-\d+\b/g, '').trim();
-                box.classList.add(colorFondoActivo, colorFondoActivo.replace('bg-', 'border-'));
             });
 
             // Actualiza el texto de los contadores en vivo
@@ -624,10 +607,9 @@
             window.location.reload();
         }
 
-        // Iluminar el borde de la tarjeta y "chequear" el cuadro
+        // Iluminar el borde de la tarjeta al hacer clic y actualizar contador
         document.body.addEventListener('change', function(event) {
             if (event.target.classList.contains('chk-asignar')) {
-                // Validación para evitar marcar sin seleccionar cobrador primero
                 if (!cobradorParaAsignar) {
                     event.target.checked = false; // Lo desmarca
                     mostrarToast("⚠️ Selecciona un cobrador arriba primero.");
@@ -636,34 +618,28 @@
 
                 const label = event.target.closest('.tarjeta-label');
                 const card = label.querySelector('.tarjeta-contenido');
-                const box = label.querySelector('.chk-visual');
                 
-                // Limpieza de clases previas en tarjeta
                 card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
-                // Limpieza de clases previas en checkbox visual
-                box.className = box.className.replace(/\bbg-\w+-\d+\b/g, '').replace(/\bborder-\w+-\d+\b/g, '').trim();
 
                 if (event.target.checked) {
-                    // Encender con los colores del cobrador
+                    // Prender filo de la tarjeta
                     card.classList.add('ring-4', colorAnilloActivo);
-                    box.classList.remove('bg-white', 'border-slate-300');
-                    box.classList.add(colorFondoActivo, colorFondoActivo.replace('bg-', 'border-'));
-                    box.querySelector('i').classList.remove('opacity-0'); // Mostrar palomita
-                } else {
-                    // Apagar
-                    box.classList.add('bg-white', 'border-slate-300');
-                    box.querySelector('i').classList.add('opacity-0'); // Ocultar palomita
                 }
-                
-                // Actualiza en tiempo real el contador "X Seleccionados"
+
+                // Llamar a la función que actualiza el número "X Seleccionados"
                 actualizarContadoresLive();
             }
         });
 
-        // Asegurarse de que todos los checks empiecen vacíos al cargar
         window.addEventListener('pageshow', () => {
-            document.querySelectorAll('.chk-asignar').forEach(chk => chk.checked = false);
-            document.querySelectorAll('.chk-visual i').forEach(i => i.classList.add('opacity-0'));
+            document.querySelectorAll('.chk-asignar').forEach(chk => {
+                chk.checked = false;
+                const label = chk.closest('.tarjeta-label');
+                if (label) {
+                    const card = label.querySelector('.tarjeta-contenido');
+                    if (card) card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
+                }
+            });
             actualizarContadoresLive();
         });
 
@@ -692,7 +668,7 @@
         let codigosVistos = new Set();
         // Cambiamos el selector porque ya no usamos form
         document.querySelectorAll('.chk-asignar').forEach(input => {
-            if (input.value) {
+            if(input.value) {
                 codigosVistos.add(input.value);
             }
         });
@@ -859,9 +835,8 @@
 
                         let codigosNuevosEncontrados = 0;
                         
-                        // Revisamos usando las casillas de verificación ahora (reemplazo del input hidden)
+                        // Revisamos usando las casillas de verificación ahora
                         document.querySelectorAll('.chk-asignar').forEach(input => {
-                            // VERIFICAR QUE INPUT.VALUE EXISTE Y NO ESTÁ VACÍO ANTES DE LEER
                             if (input.value && !codigosVistos.has(input.value)) {
                                 codigosNuevosEncontrados++;
                                 codigosVistos.add(input.value);

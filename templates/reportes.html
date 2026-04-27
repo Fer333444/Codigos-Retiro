@@ -94,7 +94,7 @@
             <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
             <div class="flex items-center gap-4">
                 <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }}</span>
-                <a href="/logout" class="text-sm font-medium text-red-500 hover:underline">Cerrar sesión</a>
+                <a href="/logout" class="text-sm font-medium text-red-500">Cerrar sesión</a>
             </div>
         </header>
 
@@ -307,14 +307,12 @@
                         </div>
                     {% else %}
                         <div class="grid grid-cols-1 gap-6">
-                            {% set suma_deuda_total = namespace(valor=0) %}
                             {% for usuario, deudas in deudas_agrupadas.items() %}
                             {% set total_deuda = namespace(valor=0) %}
                             {% set tiene_deuda_activa = namespace(estado=false) %}
                             {% for d in deudas %}
                                 {% if d.estado == 'fallido' %}
                                     {% set total_deuda.valor = total_deuda.valor + d.monto|float %}
-                                    {% set suma_deuda_total.valor = suma_deuda_total.valor + d.monto|float %}
                                     {% set tiene_deuda_activa.estado = true %}
                                 {% endif %}
                             {% endfor %}
@@ -472,11 +470,6 @@
                             {% endfor %}
                         </div>
 
-                        <div class="mt-6 bg-rose-50 border border-rose-200 rounded-xl p-5 flex justify-between items-center shadow-sm">
-                            <span class="text-sm font-black text-rose-800 uppercase tracking-widest"><i class="fas fa-exclamation-circle mr-2"></i> Total Deuda Firme Filtrada</span>
-                            <span class="text-3xl font-black text-rose-600">${{ "%.2f"|format(suma_deuda_total.valor) }}</span>
-                        </div>
-
                         <div id="paginacionControles" class="hidden flex justify-center items-center gap-4 mt-8 mb-8">
                             <button id="btnPrev" onclick="cambiarPagina(-1)" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><i class="fas fa-chevron-left mr-1"></i> Anterior</button>
                             <span id="infoPagina" class="text-sm font-bold text-slate-600 bg-slate-100 px-4 py-2 rounded-lg border border-slate-200">Página 1</span>
@@ -551,9 +544,7 @@
                         </div>
                     {% else %}
                         <div class="grid grid-cols-1 gap-4">
-                            {% set suma_exitosos = namespace(valor=0) %}
                             {% for r in exitosos %}
-                            {% set suma_exitosos.valor = suma_exitosos.valor + r.monto|float %}
                             <div class="bg-white rounded-xl border-l-4 border-emerald-500 p-4 md:p-5 flex flex-col md:flex-row gap-4 shadow-sm hover:shadow-md transition-shadow relative item-paginado">
                                 
                                 <form action="/mover_papelera" method="POST" class="absolute top-3 right-3 m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
@@ -597,11 +588,6 @@
                                 </div>
                             </div>
                             {% endfor %}
-                        </div>
-
-                        <div class="mt-6 bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex justify-between items-center shadow-sm">
-                            <span class="text-sm font-black text-emerald-800 uppercase tracking-widest"><i class="fas fa-wallet mr-2"></i> Total Ingresos Filtrados</span>
-                            <span class="text-3xl font-black text-emerald-600">${{ "%.2f"|format(suma_exitosos.valor) }}</span>
                         </div>
 
                         <div id="paginacionControles" class="hidden flex justify-center items-center gap-4 mt-8 mb-8">

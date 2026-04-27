@@ -1301,7 +1301,6 @@ def marcar_recibido():
 def vista_reportes():
     mis_permisos = session.get('permisos', [])
     
-    # REGLA ESTRICTA: Si no eres Supremo y no tienes la casilla marcada, te bloquea.
     if session.get('rol') != 'supremo' and 'ver_reportes' not in mis_permisos: 
         return redirect(url_for('login'))
     
@@ -1328,14 +1327,36 @@ def vista_reportes():
         try: fecha_hasta_obj = datetime.strptime(filtro_fecha_hasta, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
         except: pass
 
-    # FUNCIÓN PARA FILTRAR POR CLIENTE Y FECHA
+    # --- NUEVA LÓGICA DE FILTRADO EXACTO ---
     def pasa_filtros_basicos(r):
-        if filtro_cliente and r.get('usuario') != filtro_cliente: return False
+        # 1. Filtro por cliente (Para Completados, Historial y Por Usuario)
+        if vista in ['completados', 'historial', 'usuario'] and filtro_cliente:
+            if r.get('usuario') != filtro_cliente: return False
+            
+        # 2. Filtro por cobrador
+        if vista == 'cobradores' and filtro_cobrador:
+            if r.get('asignado_a') != filtro_cobrador: return False
+            
+        # 3. Filtro por valor
+        if vista == 'valor' and filtro_valor:
+            if str(r.get('monto')) != filtro_valor: return False
+            
+        # 4. Filtro por estado
+        if vista == 'estado' and filtro_estado:
+            if r.get('estado') != filtro_estado: return False
+            
+        # 5. Filtro por sucursal / forma de pago
+        if vista == 'sucursal' and filtro_sucursal:
+            if r.get('banco') != filtro_sucursal: return False
+
+        # 6. Filtro por fechas (APLICA SIEMPRE A TODO)
         try:
             fecha_registro_obj = datetime.strptime(r['fecha'], "%d/%m/%Y %H:%M")
             if fecha_desde_obj and fecha_registro_obj < fecha_desde_obj: return False
             if fecha_hasta_obj and fecha_registro_obj > fecha_hasta_obj: return False
-        except: pass
+        except: 
+            pass
+            
         return True
 
     metricas_cobradores = {}
@@ -1391,7 +1412,7 @@ def vista_reportes():
         datos_grafico['exitos'] = exitos_por_dia
         datos_grafico['fallos'] = fallos_por_dia
 
-    # APLICANDO FILTROS A COMPLETADOS E HISTORIAL
+    # APLICANDO FILTROS COMPLETOS A LAS TABLAS
     exitosos = [r for r in registros if r['estado'] == 'retirado' and pasa_filtros_basicos(r)]
     no_exitosos_raw = [r for r in registros if r['estado'] in ['expirado', 'fallido', 'saldado', 'fallido_revision', 'fusionado'] and pasa_filtros_basicos(r)]
     
@@ -1414,11 +1435,6 @@ def vista_reportes():
             continue
             
         if not pasa_filtros_basicos(r): continue
-        
-        if vista == 'valor' and filtro_valor and str(r['monto']) != filtro_valor: continue
-        if vista == 'usuario' and filtro_cliente and r['usuario'] != filtro_cliente: continue
-        if vista == 'estado' and filtro_estado and r['estado'] != filtro_estado: continue
-        if vista == 'sucursal' and filtro_sucursal and r['banco'] != filtro_sucursal: continue
         
         registros_tabla_dinamica.append(r)
             

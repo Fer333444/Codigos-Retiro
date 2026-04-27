@@ -79,6 +79,14 @@
                 </div>
             </div>
             {% endif %}
+
+            {% if rol == 'cobrador' or 'procesar_retiros' in mis_permisos %}
+                <a href="/trabajador/{{ mi_usuario }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-blue-600 rounded-lg hover:bg-blue-50 mt-4 border border-transparent hover:border-blue-200 transition-colors"><i class="fas fa-briefcase w-5"></i> Mi Bandeja (Cobrar)</a>
+            {% endif %}
+
+            {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
+                <a href="/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 rounded-lg hover:bg-rose-50 mt-2 border border-transparent hover:border-rose-200 transition-colors"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
+            {% endif %}
         </nav>
 
         <div class="p-4 border-t border-slate-200 shrink-0">
@@ -89,7 +97,7 @@
         </div>
     </aside>
 
-    <main class="flex-1 flex flex-col h-screen overflow-hidden pt-16 md:pt-0 relative w-full">
+    <main class="flex-1 flex flex-col h-screen overflow-hidden w-full relative">
         <header class="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-8 shadow-sm relative z-10 shrink-0">
             <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
             <div class="flex items-center gap-4">
@@ -130,11 +138,19 @@
                         <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 border-b border-slate-100 pb-3 gap-3">
                             
                             <h3 class="text-lg md:text-xl font-black text-slate-800 flex items-center group/titulo truncate">
-                                <i class="fas fa-folder-open text-blue-500 mr-2 text-xl md:text-2xl"></i>
+                                <i class="fas fa-folder-open text-blue-500 mr-2 text-xl md:text-2xl shrink-0"></i>
                                 <span class="truncate">{{ grupo }}</span>
+                                
                                 <button onclick="renombrarGrupo('{{ grupo }}')" class="ml-2 text-slate-300 hover:text-blue-600 transition-colors opacity-100 sm:opacity-0 sm:group-hover/titulo:opacity-100 shrink-0" title="Renombrar carpeta">
                                     <i class="fas fa-edit text-sm"></i>
                                 </button>
+
+                                <form action="/eliminar_grupo" method="POST" class="m-0 shrink-0 flex items-center" onsubmit="return confirm('¿Seguro que deseas eliminar el grupo \'{{ grupo }}\'? Los clientes pasarán a la lista General.');">
+                                    <input type="hidden" name="grupo" value="{{ grupo }}">
+                                    <button type="submit" class="ml-2 text-slate-300 hover:text-rose-600 transition-colors opacity-100 sm:opacity-0 sm:group-hover/titulo:opacity-100 shrink-0" title="Eliminar carpeta">
+                                        <i class="fas fa-trash-alt text-sm"></i>
+                                    </button>
+                                </form>
                             </h3>
                             
                             <button onclick="copiarLink('{{ base_url }}retiro_grupo/{{ grupo | urlencode }}')" class="w-full sm:w-auto bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white px-3 py-2 rounded-lg text-[10px] md:text-xs font-black uppercase tracking-wide transition-colors shadow-sm flex items-center justify-center gap-2 shrink-0">

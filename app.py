@@ -1592,6 +1592,31 @@ def recuperar_expirado():
     guardar_datos()
     flash('✅ Código recuperado. Ha regresado a Retiros Activos.', 'success')
     return redirect(request.referrer)
+@app.route('/eliminar_grupo', methods=['POST'])
+def eliminar_grupo():
+    mis_permisos = session.get('permisos', [])
+    if session.get('rol') != 'supremo' and 'gestionar_grupos' not in mis_permisos: 
+        return redirect(url_for('login'))
+        
+    grupo_a_borrar = request.form.get('grupo')
+    
+    if grupo_a_borrar and grupo_a_borrar in grupos_creados:
+        # 1. Lo borramos de la lista de grupos creados
+        grupos_creados.remove(grupo_a_borrar)
+        
+        # 2. Todos los clientes que estaban en este grupo regresan a "General"
+        contador = 0
+        for token, data in enlaces_db.items():
+            if data.get('grupo') == grupo_a_borrar:
+                data['grupo'] = 'General'
+                contador += 1
+                
+        guardar_datos()
+        flash(f'🗑️ Grupo "{grupo_a_borrar}" eliminado. {contador} clientes regresaron a General.', 'success')
+    else:
+        flash('Error: El grupo no existe o es inválido.', 'error')
+        
+    return redirect(url_for('vista_grupos'))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

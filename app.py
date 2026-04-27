@@ -222,8 +222,6 @@ def ruta_por_rol(rol, usuario):
         return f'/trabajador/{usuario}'
     elif 'ver_reportes' in permisos:
         return '/reportes'
-    elif 'ver_reporte_diario' in permisos:
-        return '/reporte_diario'
     elif 'gestionar_usuarios' in permisos:
         return '/usuarios'
         
@@ -1225,18 +1223,6 @@ def eliminar_usuario():
         flash('Error: Usuario no encontrado.', 'error')
         
     return redirect(url_for('lista_usuarios'))
-
-@app.route('/reporte_diario')
-def vista_reporte_diario():
-    mis_permisos = session.get('permisos', [])
-    if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_reporte_diario' not in mis_permisos: return redirect(url_for('login'))
-    
-    # Pasamos la nueva lista de pagos a la plantilla
-    return render_template('reporte_diario.html', 
-                           pagos_historial=historial_pagos, 
-                           mi_usuario=session['usuario'], 
-                           rol=session.get('rol'))
-
 @app.route('/marcar_recibido', methods=['POST'])
 def marcar_recibido():
     if session.get('rol') not in ['supremo', 'recaudador']: return redirect(url_for('login'))

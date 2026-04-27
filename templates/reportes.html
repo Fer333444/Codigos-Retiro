@@ -85,7 +85,9 @@
                 <a href="/trabajador/{{ mi_usuario }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-blue-600 rounded-lg hover:bg-blue-50 mt-4 border border-transparent hover:border-blue-200 transition-colors"><i class="fas fa-briefcase w-5"></i> Mi Bandeja (Cobrar)</a>
             {% endif %}
 
-            <a href="/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 rounded-lg hover:bg-rose-50 mt-2 border border-transparent hover:border-rose-200 transition-colors"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
+            {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
+                <a href="/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 rounded-lg hover:bg-rose-50 mt-2 border border-transparent hover:border-rose-200 transition-colors"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
+            {% endif %}
         </nav>
     </aside>
 
@@ -307,12 +309,14 @@
                         </div>
                     {% else %}
                         <div class="grid grid-cols-1 gap-6">
+                            {% set suma_deuda_total = namespace(valor=0) %}
                             {% for usuario, deudas in deudas_agrupadas.items() %}
                             {% set total_deuda = namespace(valor=0) %}
                             {% set tiene_deuda_activa = namespace(estado=false) %}
                             {% for d in deudas %}
                                 {% if d.estado == 'fallido' %}
                                     {% set total_deuda.valor = total_deuda.valor + d.monto|float %}
+                                    {% set suma_deuda_total.valor = suma_deuda_total.valor + d.monto|float %}
                                     {% set tiene_deuda_activa.estado = true %}
                                 {% endif %}
                             {% endfor %}
@@ -655,6 +659,7 @@
                             <table id="tablaExportar" class="w-full text-left text-sm text-slate-600 border-collapse whitespace-nowrap">
                                 <thead class="bg-slate-50 border-b border-slate-200">
                                     <tr class="text-[10px] uppercase text-slate-500 tracking-widest">
+                                        <th class="py-4 px-5 font-bold w-12 text-center">Foto</th>
                                         <th class="py-4 px-5 font-bold">Valor</th>
                                         <th class="py-4 px-5 font-bold">Usuario</th>
                                         <th class="py-4 px-5 font-bold">Estado</th>
@@ -666,12 +671,24 @@
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 bg-white">
                                     {% if not registros_tabla_dinamica %}
-                                        <tr><td colspan="7" class="py-10 text-center text-slate-400 italic font-medium">No se encontraron registros para los filtros seleccionados.</td></tr>
+                                        <tr><td colspan="8" class="py-10 text-center text-slate-400 italic font-medium">No se encontraron registros para los filtros seleccionados.</td></tr>
                                     {% else %}
                                         {% set suma_general = namespace(valor=0) %}
                                         {% for r in registros_tabla_dinamica %}
                                         {% set suma_general.valor = suma_general.valor + r.monto|float %}
                                         <tr class="hover:bg-slate-50 transition-colors">
+                                            <td class="py-3 px-5 text-center">
+                                                {% if r.imagen %}
+                                                    {% set img_url = url_for('ver_imagen', filename=r.imagen.split(',')[0]) %}
+                                                    <a href="{{ img_url }}" target="_blank" class="block w-10 h-10 rounded border border-slate-200 overflow-hidden mx-auto hover:shadow-md transition-shadow">
+                                                        <img src="{{ img_url }}" class="w-full h-full object-cover">
+                                                    </a>
+                                                {% else %}
+                                                    <div class="w-10 h-10 rounded bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto">
+                                                        <i class="fas fa-image text-slate-300"></i>
+                                                    </div>
+                                                {% endif %}
+                                            </td>
                                             <td class="py-3 px-5 font-black text-slate-800">${{ r.monto }}</td>
                                             <td class="py-3 px-5 font-bold text-slate-600">{{ r.usuario }}</td>
                                             <td class="py-3 px-5">

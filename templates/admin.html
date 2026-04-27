@@ -11,6 +11,11 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* ESTILO PARA OCULTAR EL CHECKBOX PERO MANTENERLO FUNCIONAL */
+        .tarjeta-label input:checked ~ .tarjeta-contenido {
+            --tw-ring-color: transparent !important;
+        }
     </style>
 </head>
 <body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
@@ -278,99 +283,105 @@
                         {% elif r.asignado_a %} {% set border_color = 'border-emerald-500' %}
                         {% endif %}
 
-                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-md overflow-hidden flex flex-col lg:flex-row relative group transition-all duration-300 hover:shadow-lg tarjeta-retiro" data-id="{{ r.id }}">
+                        <label class="tarjeta-label block cursor-pointer relative group/card">
+                            <input type="checkbox" value="{{ r.id }}" class="chk-asignar absolute opacity-0 w-0 h-0">
                             
-                            <button type="button" class="btn-abrir-papelera absolute top-3 right-3 text-slate-400 hover:text-rose-600 bg-white/90 backdrop-blur-sm border border-slate-200 hover:border-rose-200 rounded-lg p-2.5 transition-colors z-10 shadow-sm cursor-pointer" data-id="{{ r.id }}" data-monto="{{ r.monto }}" data-usuario="{{ r.usuario }}" title="Eliminar (Mover a papelera)">
-                                <i class="fas fa-trash-alt pointer-events-none"></i>
-                            </button>
-
-                            <div class="w-full lg:w-48 flex flex-col bg-slate-100 border-b lg:border-b-0 lg:border-r border-slate-200 shrink-0">
-                                <div class="flex-1 p-3 flex items-center justify-center relative min-h-[12rem] lg:min-h-full">
-                                    {% if r.imagen %}
-                                        {% set imagenes = r.imagen.split(',') %}
-                                        <a href="{{ url_for('ver_imagen', filename=imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
-                                            <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-300/50 shadow-sm">
-                                            {% if imagenes|length > 1 %}
-                                                <span class="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow">+{{ imagenes|length - 1 }}</span>
-                                            {% endif %}
-                                        </a>
-                                    {% else %}
-                                        <i class="fas fa-image text-slate-300 text-4xl"></i>
-                                    {% endif %}
-                                </div>
-                                <div class="p-2 border-t border-slate-200 bg-slate-50 flex items-center justify-center min-h-[40px]">
-                                    {% if r.expira_timestamp %}
-                                        <span class="cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-blue-600 px-2 py-1 uppercase tracking-widest shadow-sm rounded-lg bg-white border border-blue-200" data-expira="{{ r.expira_timestamp }}">
-                                            <i class="fas fa-spinner fa-spin"></i> Cargando...
-                                        </span>
-                                    {% elif r.hora_limite %}
-                                        <span class="w-full text-center text-[10px] sm:text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 uppercase tracking-widest shadow-sm rounded-lg border border-rose-200"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            
-                            <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between min-w-0">
+                            <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-md overflow-hidden flex flex-col lg:flex-row relative transition-all duration-300 hover:shadow-lg tarjeta-retiro tarjeta-contenido" data-id="{{ r.id }}">
                                 
-                                <div class="flex flex-col sm:flex-row justify-between items-start mb-4 gap-3 pr-12">
-                                    <div class="flex-1 min-w-0 w-full">
-                                        <span class="text-3xl font-black text-green-600 block sm:inline leading-none">${{ r.monto }}</span>
-                                        
-                                        {% set color_banco = 'text-slate-500' %}
-                                        {% if r.banco|lower == 'pichincha' %} {% set color_banco = 'text-yellow-600' %}
-                                        {% elif r.banco|lower == 'guayaquil' %} {% set color_banco = 'text-purple-600' %}
-                                        {% elif r.banco|lower == 'produbanco' %} {% set color_banco = 'text-[#8b4513]' %}
+                                <button type="button" class="btn-abrir-papelera absolute top-3 right-3 text-slate-400 hover:text-rose-600 bg-white/90 backdrop-blur-sm border border-slate-200 hover:border-rose-200 rounded-lg p-2.5 transition-colors z-20 shadow-sm cursor-pointer" data-id="{{ r.id }}" data-monto="{{ r.monto }}" data-usuario="{{ r.usuario }}" title="Eliminar (Mover a papelera)">
+                                    <i class="fas fa-trash-alt pointer-events-none"></i>
+                                </button>
+
+                                <div class="w-full lg:w-48 flex flex-col bg-slate-100 border-b lg:border-b-0 lg:border-r border-slate-200 shrink-0">
+                                    <div class="flex-1 p-3 flex items-center justify-center relative min-h-[12rem] lg:min-h-full">
+                                        {% if r.imagen %}
+                                            {% set imagenes = r.imagen.split(',') %}
+                                            <div class="w-full h-full relative flex items-center justify-center">
+                                                <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-300/50 shadow-sm pointer-events-none">
+                                                {% if imagenes|length > 1 %}
+                                                    <span class="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow">+{{ imagenes|length - 1 }}</span>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <i class="fas fa-image text-slate-300 text-4xl"></i>
                                         {% endif %}
-                                        
-                                        <span class="text-xs sm:text-sm font-black {{ color_banco }} uppercase mt-2 sm:mt-0 sm:ml-3 tracking-widest break-words block sm:inline">{{ r.banco }} <span class="text-slate-400 mx-1 hidden sm:inline">•</span><br class="sm:hidden"> {{ r.usuario }}</span>
+                                    </div>
+                                    <div class="p-2 border-t border-slate-200 bg-slate-50 flex items-center justify-center min-h-[40px]">
+                                        {% if r.expira_timestamp %}
+                                            <span class="cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-blue-600 px-2 py-1 uppercase tracking-widest shadow-sm rounded-lg bg-white border border-blue-200" data-expira="{{ r.expira_timestamp }}">
+                                                <i class="fas fa-spinner fa-spin"></i> Cargando...
+                                            </span>
+                                        {% elif r.hora_limite %}
+                                            <span class="w-full text-center text-[10px] sm:text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 uppercase tracking-widest shadow-sm rounded-lg border border-rose-200"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
+                                        {% endif %}
                                     </div>
                                 </div>
-
-                                <div class="bg-slate-50 rounded-lg p-3 sm:p-4 text-[10px] sm:text-xs font-mono text-slate-600 space-y-1.5 mb-4 border border-slate-200 shadow-inner">
-                                    <p class="font-bold text-slate-700 mb-2 uppercase tracking-widest border-b border-slate-200 pb-1">Historial de eventos:</p>
-                                    {% for evento in r.historial %}
-                                        {% if 'Reasignado' in evento %}
-                                            <p class="text-rose-600 font-bold leading-tight"><i class="fas fa-exchange-alt mr-1 text-rose-400"></i> {{ evento }}</p>
-                                        {% elif 'Asignado' in evento %}
-                                            <p class="text-blue-600 font-bold leading-tight"><i class="fas fa-user-check mr-1 text-blue-400"></i> {{ evento }}</p>
-                                        {% elif 'Creado' in evento %}
-                                            <p class="text-slate-500 font-medium leading-tight"><i class="fas fa-caret-right mr-1 text-slate-300"></i> {{ evento }}</p>
-                                        {% else %}
-                                            <p class="text-slate-500 leading-tight"><i class="fas fa-angle-right mr-1 text-slate-300"></i> {{ evento }}</p>
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-
-                                <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto justify-between">
+                                
+                                <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between min-w-0">
                                     
-                                    <label class="flex items-center gap-3 cursor-pointer group w-full sm:w-auto p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors">
-                                        <input type="checkbox" value="{{ r.id }}" class="chk-asignar w-5 h-5 text-slate-600 border-slate-300 rounded focus:ring-transparent">
-                                        <span class="text-xs font-bold text-slate-600 uppercase group-hover:text-slate-800 transition-colors">Seleccionar</span>
-                                    </label>
-                                    
-                                    <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-                                        {% if r.asignado_a %}
-                                            {% if r.visto_por_cobrador %}
-                                                <span class="bg-emerald-100 text-emerald-700 text-[10px] font-black px-4 py-3 rounded-xl shadow-sm border border-emerald-200 uppercase tracking-widest">
-                                                    LEÍDO
-                                                </span>
-                                            {% else %}
-                                                <span class="bg-rose-50 text-rose-600 text-[10px] font-black px-4 py-3 rounded-xl shadow-sm border border-rose-200 uppercase tracking-widest animate-pulse">
-                                                    SIN VER
-                                                </span>
+                                    <div class="flex flex-col sm:flex-row justify-between items-start mb-4 gap-3 pr-12">
+                                        <div class="flex-1 min-w-0 w-full">
+                                            <span class="text-3xl font-black text-green-600 block sm:inline leading-none">${{ r.monto }}</span>
+                                            
+                                            {% set color_banco = 'text-slate-500' %}
+                                            {% if r.banco|lower == 'pichincha' %} {% set color_banco = 'text-yellow-600' %}
+                                            {% elif r.banco|lower == 'guayaquil' %} {% set color_banco = 'text-purple-600' %}
+                                            {% elif r.banco|lower == 'produbanco' %} {% set color_banco = 'text-[#8b4513]' %}
                                             {% endif %}
                                             
-                                            <span class="bg-green-600 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
-                                                <i class="fas fa-user-check mr-2"></i> {{ r.asignado_a }}
-                                            </span>
-                                        {% else %}
-                                            <span class="bg-slate-500 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
-                                                <i class="fas fa-user-times mr-2"></i> SIN ASIGNAR
-                                            </span>
-                                        {% endif %}
+                                            <span class="text-xs sm:text-sm font-black {{ color_banco }} uppercase mt-2 sm:mt-0 sm:ml-3 tracking-widest break-words block sm:inline">{{ r.banco }} <span class="text-slate-400 mx-1 hidden sm:inline">•</span><br class="sm:hidden"> {{ r.usuario }}</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-slate-50 rounded-lg p-3 sm:p-4 text-[10px] sm:text-xs font-mono text-slate-600 space-y-1.5 mb-4 border border-slate-200 shadow-inner">
+                                        <p class="font-bold text-slate-700 mb-2 uppercase tracking-widest border-b border-slate-200 pb-1">Historial de eventos:</p>
+                                        {% for evento in r.historial %}
+                                            {% if 'Reasignado' in evento %}
+                                                <p class="text-rose-600 font-bold leading-tight"><i class="fas fa-exchange-alt mr-1 text-rose-400"></i> {{ evento }}</p>
+                                            {% elif 'Asignado' in evento %}
+                                                <p class="text-blue-600 font-bold leading-tight"><i class="fas fa-user-check mr-1 text-blue-400"></i> {{ evento }}</p>
+                                            {% elif 'Creado' in evento %}
+                                                <p class="text-slate-500 font-medium leading-tight"><i class="fas fa-caret-right mr-1 text-slate-300"></i> {{ evento }}</p>
+                                            {% else %}
+                                                <p class="text-slate-500 leading-tight"><i class="fas fa-angle-right mr-1 text-slate-300"></i> {{ evento }}</p>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+
+                                    <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto justify-between">
+                                        
+                                        <div class="flex items-center gap-3 w-full sm:w-auto p-2 bg-white border border-slate-200 rounded-lg group-hover/card:bg-blue-50 transition-colors pointer-events-none">
+                                            <div class="w-5 h-5 border-2 border-slate-300 rounded flex items-center justify-center bg-white chk-visual transition-colors">
+                                                <i class="fas fa-check text-white text-[10px]"></i>
+                                            </div>
+                                            <span class="text-xs font-bold text-slate-600 uppercase transition-colors">Seleccionar</span>
+                                        </div>
+                                        
+                                        <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                                            {% if r.asignado_a %}
+                                                {% if r.visto_por_cobrador %}
+                                                    <span class="bg-emerald-100 text-emerald-700 text-[10px] font-black px-4 py-3 rounded-xl shadow-sm border border-emerald-200 uppercase tracking-widest">
+                                                        LEÍDO
+                                                    </span>
+                                                {% else %}
+                                                    <span class="bg-rose-50 text-rose-600 text-[10px] font-black px-4 py-3 rounded-xl shadow-sm border border-rose-200 uppercase tracking-widest animate-pulse">
+                                                        SIN VER
+                                                    </span>
+                                                {% endif %}
+                                                
+                                                <span class="bg-green-600 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
+                                                    <i class="fas fa-user-check mr-2"></i> {{ r.asignado_a }}
+                                                </span>
+                                            {% else %}
+                                                <span class="bg-slate-500 text-white text-xs font-black px-4 py-3 rounded-xl shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
+                                                    <i class="fas fa-user-times mr-2"></i> SIN ASIGNAR
+                                                </span>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </label>
                         {% endfor %}
                     </div>
                 {% endif %}
@@ -490,7 +501,9 @@
         }
 
         document.body.addEventListener('click', function(event) {
+            // Permitir clic en el botón de borrar incluso si la tarjeta es clickeable
             if (event.target.closest('.btn-abrir-papelera')) {
+                event.preventDefault(); // Prevenir que el checkbox cambie
                 const btn = event.target.closest('.btn-abrir-papelera');
                 const id = btn.getAttribute('data-id');
                 const monto = btn.getAttribute('data-monto');
@@ -503,13 +516,13 @@
         });
 
         // ==========================================
-        // LÓGICA DE ASIGNACIÓN MASIVA Y COLORES
+        // LÓGICA DE ASIGNACIÓN MASIVA CLICKABLE
         // ==========================================
         let cobradorParaAsignar = null;
-        let colorAnilloActivo = 'ring-indigo-500'; // Color por defecto
+        let colorAnilloActivo = 'ring-indigo-500'; 
+        let colorFondoActivo = 'bg-indigo-500';
 
         function seleccionarCobrador(nombre, ringColor, bgLight, ringLight) {
-            // 1. Quitar estilos de selección a TODOS los botones
             document.querySelectorAll('.btn-cobrador').forEach(b => {
                 const bg = b.getAttribute('data-bg');
                 const ring = b.getAttribute('data-ring');
@@ -518,7 +531,6 @@
                 b.classList.add('bg-white');
             });
             
-            // 2. Aplicar estilo e iluminar el botón del cobrador seleccionado
             const btn = document.getElementById('btn-cob-' + nombre);
             if (btn) {
                 btn.classList.remove('bg-white');
@@ -527,18 +539,24 @@
 
             cobradorParaAsignar = nombre;
             colorAnilloActivo = ringColor;
+            
+            // Lógica para asignar el fondo del Checkbox (reemplazando ring- por bg-)
+            colorFondoActivo = ringColor.replace('ring-', 'bg-');
+
             document.getElementById('nombreCobradorAsignar').innerText = nombre;
             
-            // 3. Actualizar el color del borde de los códigos (tarjetas) que ya estén marcados
+            // Actualiza tarjetas ya marcadas
             document.querySelectorAll('.chk-asignar:checked').forEach(chk => {
-                const card = chk.closest('.tarjeta-retiro');
-                // Limpiamos los anillos de colores viejos
+                const card = chk.closest('.tarjeta-label').querySelector('.tarjeta-contenido');
+                const box = chk.closest('.tarjeta-label').querySelector('.chk-visual');
+                
                 card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
-                // Ponemos el anillo del color del cobrador seleccionado
                 card.classList.add('ring-4', colorAnilloActivo);
+                
+                box.className = box.className.replace(/\bbg-\w+-\d+\b/g, '').replace(/\bborder-\w+-\d+\b/g, '').trim();
+                box.classList.add(colorFondoActivo, colorFondoActivo.replace('bg-', 'border-'));
             });
 
-            // Mostrar la barra de confirmación
             const actionBar = document.getElementById('actionBarAsignacion');
             actionBar.classList.remove('hidden');
             actionBar.classList.add('flex', 'animate-fade-in-up');
@@ -579,18 +597,38 @@
             window.location.reload();
         }
 
-        // Cuando marcan o desmarcan un código (filo de color)
+        // Iluminar el borde de la tarjeta y "chequear" el cuadro de la esquina
         document.body.addEventListener('change', function(event) {
             if (event.target.classList.contains('chk-asignar')) {
-                const card = event.target.closest('.tarjeta-retiro');
+                const label = event.target.closest('.tarjeta-label');
+                const card = label.querySelector('.tarjeta-contenido');
+                const box = label.querySelector('.chk-visual');
+                
+                // Limpieza de clases previas en tarjeta
+                card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
+                // Limpieza de clases previas en checkbox visual
+                box.className = box.className.replace(/\bbg-\w+-\d+\b/g, '').replace(/\bborder-\w+-\d+\b/g, '').trim();
+
                 if (event.target.checked) {
-                    card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
+                    // Encender
                     card.classList.add('ring-4', colorAnilloActivo);
+                    box.classList.remove('bg-white', 'border-slate-300');
+                    box.classList.add(colorFondoActivo, colorFondoActivo.replace('bg-', 'border-'));
+                    box.querySelector('i').classList.remove('opacity-0'); // Mostrar palomita
                 } else {
-                    card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
+                    // Apagar
+                    box.classList.add('bg-white', 'border-slate-300');
+                    box.querySelector('i').classList.add('opacity-0'); // Ocultar palomita
                 }
             }
         });
+
+        // Asegurarse de que todos los checks empiecen vacíos al cargar (Fix para celulares que guardan caché de form)
+        window.addEventListener('pageshow', () => {
+            document.querySelectorAll('.chk-asignar').forEach(chk => chk.checked = false);
+            document.querySelectorAll('.chk-visual i').forEach(i => i.classList.add('opacity-0'));
+        });
+
 
         // Restaurar Scroll
         document.addEventListener("DOMContentLoaded", function() { 
@@ -614,6 +652,7 @@
         }
 
         let codigosVistos = new Set();
+        // Cambiamos el selector porque ya no usamos form
         document.querySelectorAll('.chk-asignar').forEach(input => {
             codigosVistos.add(input.value);
         });
@@ -743,6 +782,7 @@
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
             
+            // Bloqueo de auto-refresco modificado
             const hasChecked = document.querySelector('.chk-asignar:checked') !== null;
             if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
                (modalRecibir && !modalRecibir.classList.contains('hidden')) ||
@@ -816,7 +856,7 @@
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
                     timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-rose-600 bg-white rounded-lg border border-rose-200 px-2 py-1 shadow-sm uppercase tracking-widest';
                     
-                    const card = timer.closest('.tarjeta-retiro');
+                    const card = timer.closest('.tarjeta-contenido');
                     if (card && !card.querySelector('.badge-vencido')) {
                         card.classList.remove('border-emerald-500', 'border-slate-800');
                         card.classList.add('border-rose-500');

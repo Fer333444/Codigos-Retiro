@@ -46,10 +46,6 @@
                 <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
             {% endif %}
             
-            {% if rol in ['supremo', 'recaudador'] or 'ver_reporte_diario' in mis_permisos %}
-                <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
-            {% endif %}
-            
             {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
                 <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
             {% endif %}
@@ -70,6 +66,14 @@
                     <a href="/reportes?vista=sucursal" class="block py-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors">Por Forma Pago</a>
                 </div>
             </div>
+            {% endif %}
+
+            {% if rol == 'cobrador' or 'procesar_retiros' in mis_permisos %}
+                <a href="/trabajador/{{ mi_usuario }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-blue-600 rounded-lg hover:bg-blue-50 mt-4 border border-transparent hover:border-blue-200 transition-colors"><i class="fas fa-briefcase w-5"></i> Mi Bandeja (Cobrar)</a>
+            {% endif %}
+
+            {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
+                <a href="/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 rounded-lg hover:bg-rose-50 mt-2 border border-transparent hover:border-rose-200 transition-colors"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
             {% endif %}
         </nav>
 
@@ -295,13 +299,6 @@
                                 </div>
                             </label>
 
-                            <label class="checkbox-card relative cursor-pointer group">
-                                <input type="checkbox" name="permisos" value="ver_reporte_diario" id="edit_chk_ver_reporte_diario" class="peer sr-only">
-                                <div class="p-2.5 bg-white rounded border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-2">
-                                    <i class="fas fa-cash-register w-5 text-center text-slate-400 transition-colors"></i>
-                                    <span class="text-xs font-bold text-slate-700">Reporte Diario</span>
-                                </div>
-                            </label>
                         </div>
                     </div>
                 </form>
@@ -324,7 +321,6 @@
     </div>
 
     <script>
-        // Nota: Añadimos 'permisosList' como parámetro en la función.
         function abrirModalEditar(username, nombre, email, rol, estado, permisosList) {
             document.getElementById('edit_username').value = username;
             document.getElementById('edit_username_display').value = "@" + username;
@@ -335,10 +331,8 @@
             document.getElementById('edit_password').value = ""; 
             document.getElementById('delete_username').value = username;
             
-            // Primero, desmarcamos todos los checkboxes para no arrastrar basura del anterior edit
             document.querySelectorAll('input[name="permisos"]').forEach(chk => chk.checked = false);
 
-            // Marcamos los que el usuario tiene realmente guardados en la BD
             if (permisosList && Array.isArray(permisosList)) {
                 permisosList.forEach(permiso => {
                     const checkbox = document.getElementById('edit_chk_' + permiso);

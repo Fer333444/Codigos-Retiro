@@ -58,10 +58,6 @@
                 <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
             {% endif %}
             
-            {% if rol in ['supremo', 'recaudador'] or 'ver_reporte_diario' in mis_permisos %}
-                <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
-            {% endif %}
-            
             {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
                 <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
             {% endif %}
@@ -239,16 +235,6 @@
                                     </div>
                                 </label>
 
-                                <label class="checkbox-card relative cursor-pointer group">
-                                    <input type="checkbox" name="permisos" value="ver_reporte_diario" id="chk_ver_reporte_diario" class="peer sr-only">
-                                    <div class="p-3 bg-white rounded-lg border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-3">
-                                        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors group-hover:bg-slate-200">
-                                            <i class="fas fa-cash-register text-slate-400 transition-colors"></i>
-                                        </div>
-                                        <span class="text-xs font-bold text-slate-700">Ver Reporte Diario</span>
-                                    </div>
-                                </label>
-
                             </div>
                         </div>
                     </div>
@@ -268,15 +254,13 @@
         const rolSelect = document.getElementById('rolSelect');
         const drawerPermisos = document.getElementById('contenedorPermisos');
         
-        // Elementos de Checkboxes (Cuentan todos ahora)
         const chks = {
             'ver_retiros': document.getElementById('chk_ver_retiros'),
             'procesar_retiros': document.getElementById('chk_procesar_retiros'),
             'ver_reportes': document.getElementById('chk_ver_reportes'),
             'gestionar_usuarios': document.getElementById('chk_gestionar_usuarios'),
             'crear_links': document.getElementById('chk_crear_links'),
-            'gestionar_grupos': document.getElementById('chk_gestionar_grupos'),
-            'ver_reporte_diario': document.getElementById('chk_ver_reporte_diario')
+            'gestionar_grupos': document.getElementById('chk_gestionar_grupos')
         };
 
         function actualizarPermisosSugeridos() {
@@ -289,19 +273,15 @@
 
             drawerPermisos.classList.add('open');
 
-            // Limpiar todos
             Object.values(chks).forEach(c => c.checked = false);
 
-            // Asignar recomendados
             if(rol === 'cobrador') {
                 chks.ver_retiros.checked = true;
                 chks.procesar_retiros.checked = true;
             } else if(rol === 'recaudador') {
                 chks.ver_retiros.checked = true;
-                chks.ver_reporte_diario.checked = true;
             } else if(rol === 'reportes') {
                 chks.ver_reportes.checked = true;
-                chks.ver_reporte_diario.checked = true;
             } else if(rol === 'supremo') {
                 Object.values(chks).forEach(c => c.checked = true);
             }
@@ -309,7 +289,6 @@
 
         rolSelect.addEventListener('change', actualizarPermisosSugeridos);
 
-        // Menú Móvil
         function toggleSubmenu(menuId, iconId) {
             const menu = document.getElementById(menuId);
             const icon = document.getElementById(iconId);

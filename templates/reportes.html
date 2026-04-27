@@ -20,6 +20,12 @@
 </head>
 <body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
 
+    <datalist id="listaClientesDB">
+        {% for c in lista_clientes %}
+            <option value="{{ c }}"></option>
+        {% endfor %}
+    </datalist>
+
     {% set vista = request.args.get('vista', 'completados') %}
 
     <header class="md:hidden fixed top-0 w-full h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-40 shadow-sm">
@@ -38,23 +44,19 @@
             {% set mis_permisos = session.get('permisos', []) %}
             
             {% if rol == 'supremo' or 'crear_links' in mis_permisos %}
-                <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-link w-5"></i> Links Clientes</a>
+                <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-link w-5"></i> Links Clientes</a>
             {% endif %}
             
             {% if rol == 'supremo' or 'gestionar_grupos' in mis_permisos %}
-                <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-folder w-5"></i> Mis Grupos</a>
+                <a href="/grupos" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-folder w-5"></i> Mis Grupos</a>
             {% endif %}
             
             {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
-                <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
-            {% endif %}
-            
-            {% if rol in ['supremo', 'recaudador'] or 'ver_reporte_diario' in mis_permisos %}
-                <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
+                <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-home w-5"></i> Retiros Activos</a>
             {% endif %}
             
             {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
-                <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-users w-5"></i> Adm. Usuarios</a>
+                <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-users w-5"></i> Adm. Usuarios</a>
             {% endif %}
             
             {% if rol == 'supremo' or 'ver_reportes' in mis_permisos %}
@@ -92,12 +94,14 @@
             <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
             <div class="flex items-center gap-4">
                 <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }}</span>
-                <a href="/logout" class="text-sm font-medium text-red-500">Cerrar sesión</a>
+                <a href="/logout" class="text-sm font-medium text-red-500 hover:underline">Cerrar sesión</a>
             </div>
         </header>
 
         <div class="flex-1 overflow-auto p-8 bg-slate-50 custom-scroll">
-            <div class="max-w-6xl mx-auto"><div class="flex justify-between items-center mb-6">
+            <div class="max-w-6xl mx-auto">
+                
+                <div class="flex justify-between items-center mb-6">
                     <h2 class="text-3xl font-black text-slate-800 uppercase tracking-tight">Reporte: {{ vista }}</h2>
                     
                     {% if vista not in ['metricas'] %}
@@ -240,9 +244,7 @@
                                 }
                             });
                         });
-                    </script>
-
-                {% elif vista == 'historial' %}
+                    </script>{% elif vista == 'historial' %}
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
                         <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
@@ -250,21 +252,16 @@
                             
                             <div class="w-full md:w-auto flex-1">
                                 <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Buscar por Usuario</label>
-                                <select name="cliente" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
-                                    <option value="">Todos los clientes</option>
-                                    {% for c in lista_clientes %}
-                                        <option value="{{ c }}" {% if filtro_cliente == c %}selected{% endif %}>{{ c }}</option>
-                                    {% endfor %}
-                                </select>
+                                <input type="text" name="cliente" list="listaClientesDB" value="{{ filtro_cliente }}" placeholder="Escribe para buscar..." autocomplete="off" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold focus:border-indigo-500">
                             </div>
 
                             <div class="w-full md:w-auto flex-1">
                                 <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha Desde</label>
-                                <input type="date" name="fecha_desde" value="{{ filtro_fecha_desde }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer">
+                                <input type="date" name="fecha_desde" value="{{ filtro_fecha_desde }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
                             </div>
                             <div class="w-full md:w-auto flex-1">
                                 <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha Hasta</label>
-                                <input type="date" name="fecha_hasta" value="{{ filtro_fecha_hasta }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer">
+                                <input type="date" name="fecha_hasta" value="{{ filtro_fecha_hasta }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
                             </div>
 
                             <div class="w-full md:w-auto flex gap-2 pt-1">
@@ -310,12 +307,14 @@
                         </div>
                     {% else %}
                         <div class="grid grid-cols-1 gap-6">
+                            {% set suma_deuda_total = namespace(valor=0) %}
                             {% for usuario, deudas in deudas_agrupadas.items() %}
                             {% set total_deuda = namespace(valor=0) %}
                             {% set tiene_deuda_activa = namespace(estado=false) %}
                             {% for d in deudas %}
                                 {% if d.estado == 'fallido' %}
                                     {% set total_deuda.valor = total_deuda.valor + d.monto|float %}
+                                    {% set suma_deuda_total.valor = suma_deuda_total.valor + d.monto|float %}
                                     {% set tiene_deuda_activa.estado = true %}
                                 {% endif %}
                             {% endfor %}
@@ -473,12 +472,19 @@
                             {% endfor %}
                         </div>
 
+                        <div class="mt-6 bg-rose-50 border border-rose-200 rounded-xl p-5 flex justify-between items-center shadow-sm">
+                            <span class="text-sm font-black text-rose-800 uppercase tracking-widest"><i class="fas fa-exclamation-circle mr-2"></i> Total Deuda Firme Filtrada</span>
+                            <span class="text-3xl font-black text-rose-600">${{ "%.2f"|format(suma_deuda_total.valor) }}</span>
+                        </div>
+
                         <div id="paginacionControles" class="hidden flex justify-center items-center gap-4 mt-8 mb-8">
                             <button id="btnPrev" onclick="cambiarPagina(-1)" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><i class="fas fa-chevron-left mr-1"></i> Anterior</button>
                             <span id="infoPagina" class="text-sm font-bold text-slate-600 bg-slate-100 px-4 py-2 rounded-lg border border-slate-200">Página 1</span>
                             <button id="btnNext" onclick="cambiarPagina(1)" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Siguiente <i class="fas fa-chevron-right ml-1"></i></button>
                         </div>
-                    {% endif %}{% elif vista == 'completados' %}
+                    {% endif %}
+
+                {% elif vista == 'completados' %}
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
                         <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
@@ -486,21 +492,16 @@
                             
                             <div class="w-full md:w-auto flex-1">
                                 <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Buscar por Usuario</label>
-                                <select name="cliente" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
-                                    <option value="">Todos los clientes</option>
-                                    {% for c in lista_clientes %}
-                                        <option value="{{ c }}" {% if filtro_cliente == c %}selected{% endif %}>{{ c }}</option>
-                                    {% endfor %}
-                                </select>
+                                <input type="text" name="cliente" list="listaClientesDB" value="{{ filtro_cliente }}" placeholder="Escribe para buscar..." autocomplete="off" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold focus:border-indigo-500">
                             </div>
 
                             <div class="w-full md:w-auto flex-1">
                                 <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha Desde</label>
-                                <input type="date" name="fecha_desde" value="{{ filtro_fecha_desde }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer">
+                                <input type="date" name="fecha_desde" value="{{ filtro_fecha_desde }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
                             </div>
                             <div class="w-full md:w-auto flex-1">
                                 <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha Hasta</label>
-                                <input type="date" name="fecha_hasta" value="{{ filtro_fecha_hasta }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer">
+                                <input type="date" name="fecha_hasta" value="{{ filtro_fecha_hasta }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
                             </div>
 
                             <div class="w-full md:w-auto flex gap-2 pt-1">
@@ -550,7 +551,9 @@
                         </div>
                     {% else %}
                         <div class="grid grid-cols-1 gap-4">
+                            {% set suma_exitosos = namespace(valor=0) %}
                             {% for r in exitosos %}
+                            {% set suma_exitosos.valor = suma_exitosos.valor + r.monto|float %}
                             <div class="bg-white rounded-xl border-l-4 border-emerald-500 p-4 md:p-5 flex flex-col md:flex-row gap-4 shadow-sm hover:shadow-md transition-shadow relative item-paginado">
                                 
                                 <form action="/mover_papelera" method="POST" class="absolute top-3 right-3 m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
@@ -596,14 +599,17 @@
                             {% endfor %}
                         </div>
 
+                        <div class="mt-6 bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex justify-between items-center shadow-sm">
+                            <span class="text-sm font-black text-emerald-800 uppercase tracking-widest"><i class="fas fa-wallet mr-2"></i> Total Ingresos Filtrados</span>
+                            <span class="text-3xl font-black text-emerald-600">${{ "%.2f"|format(suma_exitosos.valor) }}</span>
+                        </div>
+
                         <div id="paginacionControles" class="hidden flex justify-center items-center gap-4 mt-8 mb-8">
                             <button id="btnPrev" onclick="cambiarPagina(-1)" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><i class="fas fa-chevron-left mr-1"></i> Anterior</button>
                             <span id="infoPagina" class="text-sm font-bold text-slate-600 bg-slate-100 px-4 py-2 rounded-lg border border-slate-200">Página 1</span>
                             <button id="btnNext" onclick="cambiarPagina(1)" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Siguiente <i class="fas fa-chevron-right ml-1"></i></button>
                         </div>
-                    {% endif %}
-
-                {% else %}
+                    {% endif %}{% else %}
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
                         <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
@@ -622,12 +628,7 @@
                                 {% elif vista == 'valor' %}
                                     <input type="number" step="0.01" name="valor" value="{{ filtro_valor }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold focus:border-indigo-500" placeholder="Ej. 15.00">
                                 {% elif vista == 'usuario' %}
-                                    <select name="cliente" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
-                                        <option value="">Todos los clientes</option>
-                                        {% for c in lista_clientes %}
-                                            <option value="{{ c }}" {% if filtro_cliente == c %}selected{% endif %}>{{ c }}</option>
-                                        {% endfor %}
-                                    </select>
+                                    <input type="text" name="cliente" list="listaClientesDB" value="{{ filtro_cliente }}" placeholder="Escribe para buscar..." autocomplete="off" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold focus:border-indigo-500">
                                 {% elif vista == 'estado' %}
                                     <select name="estado_filtro" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
                                         <option value="">Todos los estados</option>
@@ -647,11 +648,11 @@
 
                             <div class="w-full md:w-auto flex-1">
                                 <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha Desde</label>
-                                <input type="date" name="fecha_desde" value="{{ filtro_fecha_desde }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer">
+                                <input type="date" name="fecha_desde" value="{{ filtro_fecha_desde }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
                             </div>
                             <div class="w-full md:w-auto flex-1">
                                 <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha Hasta</label>
-                                <input type="date" name="fecha_hasta" value="{{ filtro_fecha_hasta }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer">
+                                <input type="date" name="fecha_hasta" value="{{ filtro_fecha_hasta }}" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none font-bold cursor-pointer focus:border-indigo-500">
                             </div>
 
                             <div class="w-full md:w-auto flex gap-2 pt-1">
@@ -681,7 +682,9 @@
                                     {% if not registros_tabla_dinamica %}
                                         <tr><td colspan="7" class="py-10 text-center text-slate-400 italic font-medium">No se encontraron registros para los filtros seleccionados.</td></tr>
                                     {% else %}
+                                        {% set suma_general = namespace(valor=0) %}
                                         {% for r in registros_tabla_dinamica %}
+                                        {% set suma_general.valor = suma_general.valor + r.monto|float %}
                                         <tr class="hover:bg-slate-50 transition-colors">
                                             <td class="py-3 px-5 font-black text-slate-800">${{ r.monto }}</td>
                                             <td class="py-3 px-5 font-bold text-slate-600">{{ r.usuario }}</td>
@@ -723,6 +726,14 @@
                             </table>
                         </div>
                     </div>
+                    
+                    {% if registros_tabla_dinamica %}
+                    <div class="mt-6 bg-indigo-50 border border-indigo-200 rounded-xl p-5 flex justify-between items-center shadow-sm">
+                        <span class="text-sm font-black text-indigo-800 uppercase tracking-widest"><i class="fas fa-calculator mr-2"></i> Total de esta tabla</span>
+                        <span class="text-3xl font-black text-indigo-600">${{ "%.2f"|format(suma_general.valor) }}</span>
+                    </div>
+                    {% endif %}
+
                 {% endif %}
 
             </div>

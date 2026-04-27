@@ -201,6 +201,39 @@
                     </div>
                 </div>
 
+                <div class="mb-6 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3"><i class="fas fa-hand-pointer mr-1"></i> 1. Haz clic en un cobrador para empezar a asignar:</h3>
+                    <div class="flex gap-3 overflow-x-auto custom-scrollbar pb-2">
+                        {% for c in cobradores %}
+                        <button type="button" onclick="seleccionarCobrador('{{ c }}')" id="btn-cob-{{ c }}" class="btn-cobrador flex-shrink-0 bg-white border-2 border-slate-200 rounded-xl px-4 py-3 min-w-[130px] transition-all focus:outline-none hover:border-blue-300 group">
+                            <span class="block text-sm font-black text-slate-700 group-hover:text-blue-600 uppercase transition-colors">{{ c }}</span>
+                            <span class="block text-[10px] font-bold text-slate-500 mt-1 bg-slate-100 px-2 py-0.5 rounded group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
+                                {% if c in stats_cobradores %}
+                                    {{ stats_cobradores[c].asignados_count }} Asignados
+                                {% else %}
+                                    0 Asignados
+                                {% endif %}
+                            </span>
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div id="actionBarAsignacion" class="hidden bg-blue-600 text-white p-4 rounded-xl justify-between items-center mb-6 shadow-lg border border-blue-700 sticky top-4 z-30 transition-all duration-300">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-blue-500 w-10 h-10 rounded-full flex items-center justify-center shadow-inner">
+                            <i class="fas fa-check-double text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-blue-200 uppercase font-bold tracking-widest">Enviar seleccionados a:</p>
+                            <p class="text-lg font-black uppercase tracking-widest text-yellow-300 leading-none mt-1" id="nombreCobradorAsignar"></p>
+                        </div>
+                    </div>
+                    <button id="btnConfirmarAsignacion" onclick="confirmarAsignacion()" class="bg-white hover:bg-slate-100 text-blue-700 active:bg-slate-200 px-5 py-2.5 rounded-lg font-black text-sm uppercase shadow-md transition-colors flex items-center gap-2">
+                        Confirmar <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+
                 {% if not activos %}
                     <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 shadow-sm">
                         <i class="fas fa-box-open text-4xl mb-3"></i>
@@ -225,18 +258,29 @@
                                 <i class="fas fa-trash-alt pointer-events-none"></i>
                             </button>
 
-                            <div class="w-full lg:w-40 h-48 lg:h-auto bg-slate-100 border-b lg:border-b-0 lg:border-r border-slate-200 p-3 flex items-center justify-center shrink-0 relative">
-                                {% if r.imagen %}
-                                    {% set imagenes = r.imagen.split(',') %}
-                                    <a href="{{ url_for('ver_imagen', filename=imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
-                                        <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-300/50 shadow-sm">
-                                        {% if imagenes|length > 1 %}
-                                            <span class="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow">+{{ imagenes|length - 1 }}</span>
-                                        {% endif %}
-                                    </a>
-                                {% else %}
-                                    <i class="fas fa-image text-slate-300 text-4xl"></i>
-                                {% endif %}
+                            <div class="w-full lg:w-48 flex flex-col bg-slate-100 border-b lg:border-b-0 lg:border-r border-slate-200 shrink-0">
+                                <div class="flex-1 p-3 flex items-center justify-center relative min-h-[12rem] lg:min-h-full">
+                                    {% if r.imagen %}
+                                        {% set imagenes = r.imagen.split(',') %}
+                                        <a href="{{ url_for('ver_imagen', filename=imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
+                                            <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-300/50 shadow-sm">
+                                            {% if imagenes|length > 1 %}
+                                                <span class="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow">+{{ imagenes|length - 1 }}</span>
+                                            {% endif %}
+                                        </a>
+                                    {% else %}
+                                        <i class="fas fa-image text-slate-300 text-4xl"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="p-2 border-t border-slate-200 bg-slate-50 flex items-center justify-center min-h-[40px]">
+                                    {% if r.expira_timestamp %}
+                                        <span class="cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-blue-600 px-2 py-1 uppercase tracking-widest shadow-sm rounded-lg bg-white border border-blue-200" data-expira="{{ r.expira_timestamp }}">
+                                            <i class="fas fa-spinner fa-spin"></i> Cargando...
+                                        </span>
+                                    {% elif r.hora_limite %}
+                                        <span class="w-full text-center text-[10px] sm:text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 uppercase tracking-widest shadow-sm rounded-lg border border-rose-200"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
+                                    {% endif %}
+                                </div>
                             </div>
                             
                             <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between min-w-0">
@@ -252,16 +296,6 @@
                                         {% endif %}
                                         
                                         <span class="text-xs sm:text-sm font-black {{ color_banco }} uppercase mt-2 sm:mt-0 sm:ml-3 tracking-widest break-words block sm:inline">{{ r.banco }} <span class="text-slate-400 mx-1 hidden sm:inline">•</span><br class="sm:hidden"> {{ r.usuario }}</span>
-                                    </div>
-                                    
-                                    <div class="shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
-                                        {% if r.expira_timestamp %}
-                                            <span class="cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 px-3 py-1.5 rounded-lg border border-blue-200 inline-block shadow-sm" data-expira="{{ r.expira_timestamp }}">
-                                                <i class="fas fa-spinner fa-spin"></i> Cargando...
-                                            </span>
-                                        {% elif r.hora_limite %}
-                                            <span class="w-full sm:w-auto text-center text-[10px] sm:text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 inline-block shadow-sm"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
-                                        {% endif %}
                                     </div>
                                 </div>
 
@@ -282,15 +316,10 @@
 
                                 <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto justify-between">
                                     
-                                    <form action="/asignar" method="POST" class="flex-1 min-w-[200px] max-w-xs m-0 form-mantener-scroll">
-                                        <input type="hidden" name="id" value="{{ r.id }}">
-                                        <select name="trabajador" required class="select-trabajador w-full text-sm sm:text-base bg-white border-2 border-slate-300 rounded-xl px-4 py-2.5 font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm cursor-pointer transition-colors hover:bg-slate-50">
-                                            <option value="" disabled selected>Asignar manual...</option>
-                                            {% for c in cobradores %}
-                                            <option value="{{ c }}">{{ c|capitalize }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </form>
+                                    <label class="flex items-center gap-3 cursor-pointer group w-full sm:w-auto p-2 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors">
+                                        <input type="checkbox" value="{{ r.id }}" class="chk-asignar w-5 h-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500">
+                                        <span class="text-xs font-bold text-slate-600 uppercase group-hover:text-blue-700 transition-colors">Seleccionar</span>
+                                    </label>
                                     
                                     <div class="flex flex-wrap items-center gap-2 sm:justify-end">
                                         {% if r.asignado_a %}
@@ -447,25 +476,85 @@
             }
         });
 
+        // ==========================================
+        // LÓGICA DE ASIGNACIÓN MASIVA
+        // ==========================================
+        let cobradorParaAsignar = null;
+
+        function seleccionarCobrador(nombre) {
+            // Quitar estilos de selección a todos los botones
+            document.querySelectorAll('.btn-cobrador').forEach(b => {
+                b.classList.remove('bg-blue-50', 'border-blue-500', 'ring-4', 'ring-blue-200');
+                b.classList.add('bg-white', 'border-slate-200');
+            });
+            
+            // Aplicar estilo al botón seleccionado
+            const btn = document.getElementById('btn-cob-' + nombre);
+            if (btn) {
+                btn.classList.remove('bg-white', 'border-slate-200');
+                btn.classList.add('bg-blue-50', 'border-blue-500', 'ring-4', 'ring-blue-200');
+            }
+
+            cobradorParaAsignar = nombre;
+            document.getElementById('nombreCobradorAsignar').innerText = nombre;
+            
+            // Mostrar la barra de confirmación
+            const actionBar = document.getElementById('actionBarAsignacion');
+            actionBar.classList.remove('hidden');
+            actionBar.classList.add('flex', 'animate-fade-in-up');
+        }
+
+        async function confirmarAsignacion() {
+            if (!cobradorParaAsignar) return;
+            
+            const checkboxes = document.querySelectorAll('.chk-asignar:checked');
+            if (checkboxes.length === 0) {
+                mostrarToast("⚠️ Debes seleccionar al menos un código de la lista.");
+                return;
+            }
+
+            const btn = document.getElementById('btnConfirmarAsignacion');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Enviando...';
+            btn.disabled = true;
+
+            // Enviar cada código asignado en segundo plano
+            for (let chk of checkboxes) {
+                const id = chk.value;
+                const formData = new URLSearchParams();
+                formData.append('id', id);
+                formData.append('trabajador', cobradorParaAsignar);
+                
+                try {
+                    await fetch('/asignar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: formData.toString()
+                    });
+                } catch (e) {
+                    console.error("Error asignando código con ID:", id, e);
+                }
+            }
+            
+            // Guardar posición del scroll y recargar página para ver los cambios
+            var mainScroll = document.getElementById('mainScroll');
+            if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
+            window.location.reload();
+        }
+
+        // Iluminar la tarjeta entera cuando se selecciona el checkbox
         document.body.addEventListener('change', function(event) {
-            if (event.target.classList.contains('select-trabajador')) {
-                const select = event.target;
-                if (select.value !== "") {
-                    const option = select.options[select.selectedIndex];
-                    option.text = "Asignando...";
-                    select.style.pointerEvents = "none";
-                    select.style.opacity = "0.5";
-                    
-                    var mainScroll = document.getElementById('mainScroll');
-                    if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
-                    
-                    setTimeout(() => {
-                        select.closest('form').submit();
-                    }, 50);
+            if (event.target.classList.contains('chk-asignar')) {
+                const card = event.target.closest('.tarjeta-retiro');
+                if (event.target.checked) {
+                    card.classList.add('ring-4', 'ring-blue-400');
+                } else {
+                    card.classList.remove('ring-4', 'ring-blue-400');
                 }
             }
         });
 
+
+        // Restaurar Scroll
         document.addEventListener("DOMContentLoaded", function() { 
             var mainScroll = document.getElementById('mainScroll');
             var savedScrollPos = sessionStorage.getItem('scrollpos_admin');
@@ -487,7 +576,7 @@
         }
 
         let codigosVistos = new Set();
-        document.querySelectorAll('form[action="/asignar"] input[name="id"]').forEach(input => {
+        document.querySelectorAll('.chk-asignar').forEach(input => {
             codigosVistos.add(input.value);
         });
         
@@ -616,9 +705,11 @@
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
             
+            // Pausar el refresco si hay modales abiertos o SI ESTAMOS ASIGNANDO CÓDIGOS (checkbox o cobrador seleccionado)
+            const hasChecked = document.querySelector('.chk-asignar:checked') !== null;
             if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
                (modalRecibir && !modalRecibir.classList.contains('hidden')) ||
-               (document.activeElement && document.activeElement.tagName === 'SELECT')) {
+               hasChecked || cobradorParaAsignar !== null) {
                 return;
             }
 
@@ -651,7 +742,8 @@
 
                         let codigosNuevosEncontrados = 0;
                         
-                        document.querySelectorAll('form[action="/asignar"] input[name="id"]').forEach(input => {
+                        // Revisamos usando las casillas de verificación ahora (reemplazo del input hidden)
+                        document.querySelectorAll('.chk-asignar').forEach(input => {
                             if (!codigosVistos.has(input.value)) {
                                 codigosNuevosEncontrados++;
                                 codigosVistos.add(input.value);
@@ -686,7 +778,7 @@
 
                 if (diff <= 0) {
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
-                    timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 inline-block shadow-sm uppercase tracking-widest';
+                    timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-rose-600 bg-white rounded-lg border border-rose-200 px-2 py-1 shadow-sm uppercase tracking-widest';
                     
                     const card = timer.closest('.tarjeta-retiro');
                     if (card && !card.querySelector('.badge-vencido')) {
@@ -711,9 +803,9 @@
                     timer.innerHTML = `<i class="fas fa-stopwatch mr-1"></i> EXPIRA EN: ${hStr}:${mStr}:${sStr}`;
                     
                     if (horas === 0 && minutos < 30) {
-                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-orange-500 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg inline-block shadow-sm animate-pulse uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-orange-500 bg-white rounded-lg border border-orange-200 px-2 py-1 shadow-sm animate-pulse uppercase tracking-widest';
                     } else {
-                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg inline-block shadow-sm uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-blue-600 bg-white rounded-lg border border-blue-200 px-2 py-1 shadow-sm uppercase tracking-widest';
                     }
                 }
             });

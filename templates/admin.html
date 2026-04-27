@@ -11,11 +11,6 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        /* ESTILO PARA OCULTAR EL CHECKBOX PERO MANTENERLO FUNCIONAL */
-        .tarjeta-label input:checked ~ .tarjeta-contenido {
-            --tw-ring-color: transparent !important;
-        }
     </style>
 </head>
 <body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
@@ -232,19 +227,15 @@
                         {% elif c|lower == 'guillermo' %}
                             {% set btn_classes = 'border-yellow-400 hover:border-yellow-500 group-hover:text-yellow-600' %}
                             {% set badge_classes = 'group-hover:bg-yellow-50 group-hover:text-yellow-600' %}
-                            {% set ring_color = 'ring-yellow-400' %}
+                            {% set ring_color = 'ring-yellow-500' %}
                             {% set bg_light = 'bg-yellow-50' %}
                             {% set ring_light = 'ring-yellow-200' %}
                         {% endif %}
 
                         <button type="button" onclick="seleccionarCobrador('{{ c }}', '{{ ring_color }}', '{{ bg_light }}', '{{ ring_light }}')" id="btn-cob-{{ c }}" class="btn-cobrador flex-shrink-0 bg-white border-2 {{ btn_classes.split(' ')[0] }} rounded-2xl px-6 py-4 min-w-[160px] transition-all focus:outline-none {{ btn_classes.split(' ')[1] }} group shadow-sm" data-bg="{{ bg_light }}" data-ring="{{ ring_light }}">
                             <span class="block text-lg font-black text-slate-700 {{ btn_classes.split(' ')[2] }} uppercase transition-colors">{{ c }}</span>
-                            <span class="block text-xs font-bold text-slate-500 mt-1.5 bg-slate-100 px-2 py-1 rounded {{ badge_classes }} transition-colors">
-                                {% if c in stats_cobradores %}
-                                    {{ stats_cobradores[c].asignados_count }} Asignados
-                                {% else %}
-                                    0 Asignados
-                                {% endif %}
+                            <span id="contador-live-{{ c }}" class="contador-live block text-[10px] font-bold text-slate-500 mt-1.5 bg-slate-100 px-2 py-1 rounded {{ badge_classes }} transition-colors">
+                                0 Seleccionados
                             </span>
                         </button>
                         {% endfor %}
@@ -254,7 +245,7 @@
                 <div id="actionBarAsignacion" class="hidden bg-slate-800 text-white p-4 rounded-xl justify-between items-center mb-6 shadow-lg border border-slate-700 sticky top-4 z-30 transition-all duration-300">
                     <div class="flex items-center gap-3">
                         <div class="bg-emerald-500 w-10 h-10 rounded-full flex items-center justify-center shadow-inner">
-                            <i class="fas fa-check-double text-xl"></i>
+                            <i class="fas fa-check-double text-xl text-white"></i>
                         </div>
                         <div>
                             <p class="text-[10px] text-slate-300 uppercase font-bold tracking-widest">Enviar seleccionados a:</p>
@@ -350,9 +341,9 @@
 
                                     <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 mt-auto justify-between">
                                         
-                                        <div class="flex items-center gap-3 w-full sm:w-auto p-2 bg-white border border-slate-200 rounded-lg group-hover/card:bg-blue-50 transition-colors pointer-events-none">
+                                        <div class="flex items-center gap-3 w-full sm:w-auto p-2 bg-white border border-slate-200 rounded-lg group-hover/card:bg-slate-50 transition-colors pointer-events-none">
                                             <div class="w-5 h-5 border-2 border-slate-300 rounded flex items-center justify-center bg-white chk-visual transition-colors">
-                                                <i class="fas fa-check text-white text-[10px]"></i>
+                                                <i class="fas fa-check text-white text-[10px] opacity-0 transition-opacity"></i>
                                             </div>
                                             <span class="text-xs font-bold text-slate-600 uppercase transition-colors">Seleccionar</span>
                                         </div>
@@ -501,9 +492,8 @@
         }
 
         document.body.addEventListener('click', function(event) {
-            // Permitir clic en el botón de borrar incluso si la tarjeta es clickeable
             if (event.target.closest('.btn-abrir-papelera')) {
-                event.preventDefault(); // Prevenir que el checkbox cambie
+                event.preventDefault(); 
                 const btn = event.target.closest('.btn-abrir-papelera');
                 const id = btn.getAttribute('data-id');
                 const monto = btn.getAttribute('data-monto');
@@ -522,6 +512,21 @@
         let colorAnilloActivo = 'ring-indigo-500'; 
         let colorFondoActivo = 'bg-indigo-500';
 
+        function actualizarContadoresLive() {
+            // Reiniciar todos los contadores a 0 visualmente
+            document.querySelectorAll('.contador-live').forEach(el => el.innerText = '0 Seleccionados');
+            
+            if (cobradorParaAsignar) {
+                // Contar cuántos códigos están marcados
+                const count = document.querySelectorAll('.chk-asignar:checked').length;
+                const counterEl = document.getElementById('contador-live-' + cobradorParaAsignar);
+                if (counterEl) {
+                    // Actualizar el texto del contador del cobrador activo
+                    counterEl.innerText = count + (count === 1 ? ' Seleccionado' : ' Seleccionados');
+                }
+            }
+        }
+
         function seleccionarCobrador(nombre, ringColor, bgLight, ringLight) {
             document.querySelectorAll('.btn-cobrador').forEach(b => {
                 const bg = b.getAttribute('data-bg');
@@ -539,13 +544,11 @@
 
             cobradorParaAsignar = nombre;
             colorAnilloActivo = ringColor;
-            
-            // Lógica para asignar el fondo del Checkbox (reemplazando ring- por bg-)
             colorFondoActivo = ringColor.replace('ring-', 'bg-');
 
             document.getElementById('nombreCobradorAsignar').innerText = nombre;
             
-            // Actualiza tarjetas ya marcadas
+            // Actualiza colores de los bordes de los que YA están seleccionados
             document.querySelectorAll('.chk-asignar:checked').forEach(chk => {
                 const card = chk.closest('.tarjeta-label').querySelector('.tarjeta-contenido');
                 const box = chk.closest('.tarjeta-label').querySelector('.chk-visual');
@@ -556,6 +559,9 @@
                 box.className = box.className.replace(/\bbg-\w+-\d+\b/g, '').replace(/\bborder-\w+-\d+\b/g, '').trim();
                 box.classList.add(colorFondoActivo, colorFondoActivo.replace('bg-', 'border-'));
             });
+
+            // Actualiza el texto de los contadores en vivo
+            actualizarContadoresLive();
 
             const actionBar = document.getElementById('actionBarAsignacion');
             actionBar.classList.remove('hidden');
@@ -597,36 +603,37 @@
             window.location.reload();
         }
 
-        // Iluminar el borde de la tarjeta y "chequear" el cuadro de la esquina
+        // Iluminar el borde de la tarjeta al hacer clic y actualizar contador
         document.body.addEventListener('change', function(event) {
             if (event.target.classList.contains('chk-asignar')) {
                 const label = event.target.closest('.tarjeta-label');
                 const card = label.querySelector('.tarjeta-contenido');
                 const box = label.querySelector('.chk-visual');
                 
-                // Limpieza de clases previas en tarjeta
                 card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
-                // Limpieza de clases previas en checkbox visual
                 box.className = box.className.replace(/\bbg-\w+-\d+\b/g, '').replace(/\bborder-\w+-\d+\b/g, '').trim();
 
                 if (event.target.checked) {
-                    // Encender
+                    // Prender filo de la tarjeta y checkbox
                     card.classList.add('ring-4', colorAnilloActivo);
                     box.classList.remove('bg-white', 'border-slate-300');
                     box.classList.add(colorFondoActivo, colorFondoActivo.replace('bg-', 'border-'));
-                    box.querySelector('i').classList.remove('opacity-0'); // Mostrar palomita
+                    box.querySelector('i').classList.remove('opacity-0');
                 } else {
-                    // Apagar
+                    // Apagar filo de la tarjeta y checkbox
                     box.classList.add('bg-white', 'border-slate-300');
-                    box.querySelector('i').classList.add('opacity-0'); // Ocultar palomita
+                    box.querySelector('i').classList.add('opacity-0');
                 }
+
+                // Llamar a la función que actualiza el número "X Seleccionados"
+                actualizarContadoresLive();
             }
         });
 
-        // Asegurarse de que todos los checks empiecen vacíos al cargar (Fix para celulares que guardan caché de form)
         window.addEventListener('pageshow', () => {
             document.querySelectorAll('.chk-asignar').forEach(chk => chk.checked = false);
             document.querySelectorAll('.chk-visual i').forEach(i => i.classList.add('opacity-0'));
+            actualizarContadoresLive();
         });
 
 
@@ -652,7 +659,6 @@
         }
 
         let codigosVistos = new Set();
-        // Cambiamos el selector porque ya no usamos form
         document.querySelectorAll('.chk-asignar').forEach(input => {
             codigosVistos.add(input.value);
         });
@@ -782,7 +788,7 @@
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
             
-            // Bloqueo de auto-refresco modificado
+            // Bloqueo de auto-refresco si hay checks activos para no perder la selección
             const hasChecked = document.querySelector('.chk-asignar:checked') !== null;
             if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
                (modalRecibir && !modalRecibir.classList.contains('hidden')) ||

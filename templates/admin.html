@@ -350,9 +350,9 @@
                                                 </span>
                                             {% endif %}
                                             
-                                            <span class="bg-green-600 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
+                                            <button type="button" onclick="abrirModalReasignar('{{ r.id }}')" class="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest cursor-pointer transition-colors focus:outline-none" title="Clic para reasignar a otro cobrador">
                                                 <i class="fas fa-user-check mr-2"></i> {{ r.asignado_a }}
-                                            </span>
+                                            </button>
                                         {% else %}
                                             <span class="bg-slate-500 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest ml-auto">
                                                 <i class="fas fa-user-times mr-2"></i> SIN ASIGNAR
@@ -440,6 +440,28 @@
         </div>
     </div>
 
+    <div id="modalReasignar" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
+            <div class="p-5 border-b border-slate-200 bg-blue-50 flex justify-between items-center">
+                <h3 class="font-black text-blue-700 text-lg uppercase tracking-widest"><i class="fas fa-exchange-alt mr-2"></i> Reasignar Código</h3>
+                <button type="button" onclick="cerrarModalReasignar()" class="text-blue-400 hover:text-blue-600 focus:outline-none"><i class="fas fa-times-circle text-2xl"></i></button>
+            </div>
+            <div class="p-6 bg-white">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 text-center">Mover este retiro a la caja de:</p>
+                <input type="hidden" id="reasignar_id">
+                
+                <div class="space-y-3">
+                    {% for c in cobradores %}
+                        <button type="button" onclick="ejecutarReasignacion('{{ c }}', this)" class="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 transition-all text-slate-700 font-black text-lg uppercase group shadow-sm focus:outline-none">
+                            <span>{{ c }}</span>
+                            <i class="fas fa-arrow-right text-slate-300 group-hover:text-blue-500"></i>
+                        </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         function cerrarModalPapelera() {
             document.getElementById('modalPapelera').classList.add('hidden');
@@ -487,9 +509,52 @@
             document.getElementById('modalRecibir').classList.add('hidden');
         }
 
+        // ====== FUNCIONES PARA REASIGNAR ======
+        function abrirModalReasignar(id) {
+            document.getElementById('reasignar_id').value = id;
+            document.getElementById('modalReasignar').classList.remove('hidden');
+        }
+
+        function cerrarModalReasignar() {
+            document.getElementById('modalReasignar').classList.add('hidden');
+        }
+
+        async function ejecutarReasignacion(nuevoCobrador, btnElement) {
+            const id = document.getElementById('reasignar_id').value;
+            
+            // Animación de carga en el botón
+            const textOriginal = btnElement.innerHTML;
+            btnElement.innerHTML = '<i class="fas fa-spinner fa-spin mx-auto text-blue-500"></i>';
+            btnElement.disabled = true;
+            
+            const formData = new URLSearchParams();
+            formData.append('id', id);
+            formData.append('trabajador', nuevoCobrador);
+            
+            try {
+                // Usamos la misma ruta de asignación masiva
+                await fetch('/asignar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+            } catch (e) {
+                console.error("Error reasignando código con ID:", id, e);
+                mostrarToast("❌ Error al reasignar.");
+                btnElement.innerHTML = textOriginal;
+                btnElement.disabled = false;
+                return;
+            }
+            
+            // Guardar posición de scroll y recargar
+            var mainScroll = document.getElementById('mainScroll');
+            if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
+            window.location.reload();
+        }
+
         document.body.addEventListener('click', function(event) {
             if (event.target.closest('.btn-abrir-papelera')) {
-                event.preventDefault(); // Previene que se marque el checkbox por accidente
+                event.preventDefault(); 
                 const btn = event.target.closest('.btn-abrir-papelera');
                 const id = btn.getAttribute('data-id');
                 const monto = btn.getAttribute('data-monto');
@@ -508,7 +573,6 @@
         let colorAnilloActivo = 'ring-indigo-500'; 
 
         function actualizarContadoresLive() {
-            // Reiniciar todos los contadores a 0 visualmente
             document.querySelectorAll('.contador-live').forEach(el => el.innerText = '0 Seleccionados');
             
             const count = document.querySelectorAll('.chk-asignar:checked').length;
@@ -520,7 +584,6 @@
                 }
             }
 
-            // NUEVO: Actualizar el contador en la barra flotante de confirmar
             const cantidadAccionEl = document.getElementById('cantidadSeleccionadosAccion');
             if (cantidadAccionEl) {
                 cantidadAccionEl.innerText = count + (count === 1 ? ' código' : ' códigos');
@@ -547,7 +610,6 @@
 
             document.getElementById('nombreCobradorAsignar').innerText = nombre;
             
-            // Actualiza colores de los bordes de los que YA están seleccionados
             document.querySelectorAll('.chk-asignar:checked').forEach(chk => {
                 const label = chk.closest('.tarjeta-label');
                 if(label){
@@ -602,11 +664,10 @@
             window.location.reload();
         }
 
-        // Iluminar el borde de la tarjeta directamente al cambiar el checkbox oculto
         document.body.addEventListener('change', function(event) {
             if (event.target.classList.contains('chk-asignar')) {
                 if (!cobradorParaAsignar) {
-                    event.target.checked = false; // Lo desmarca
+                    event.target.checked = false; 
                     mostrarToast("⚠️ Selecciona un cobrador arriba primero.");
                     return;
                 }
@@ -615,12 +676,10 @@
                 const card = label.querySelector('.tarjeta-contenido');
                 
                 if (card) {
-                    // LIMPIAR TODA CLASE PREVIA PARA EVITAR EL EFECTO INVERSO
                     card.classList.remove('ring-4');
                     card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
 
                     if (event.target.checked) {
-                        // Prender filo de la tarjeta
                         card.classList.add('ring-4', colorAnilloActivo);
                     }
                 }
@@ -629,7 +688,6 @@
             }
         });
 
-        // Asegurarse de que todos los checks empiecen vacíos al cargar
         window.addEventListener('pageshow', () => {
             document.querySelectorAll('.chk-asignar').forEach(chk => {
                 chk.checked = false;
@@ -646,7 +704,6 @@
         });
 
 
-        // Restaurar Scroll
         document.addEventListener("DOMContentLoaded", function() { 
             var mainScroll = document.getElementById('mainScroll');
             var savedScrollPos = sessionStorage.getItem('scrollpos_admin');
@@ -798,10 +855,12 @@
         function refrescarPanelSilencioso() {
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
+            const modalReasignar = document.getElementById('modalReasignar');
             
             const hasChecked = document.querySelector('.chk-asignar:checked') !== null;
             if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
                (modalRecibir && !modalRecibir.classList.contains('hidden')) ||
+               (modalReasignar && !modalReasignar.classList.contains('hidden')) ||
                hasChecked || cobradorParaAsignar !== null) {
                 return;
             }

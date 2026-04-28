@@ -244,20 +244,15 @@
                     </div>
                 </div>
 
-                <div id="actionBarAsignacion" class="hidden bg-slate-800 text-white p-4 rounded-xl justify-between items-center mb-6 shadow-lg border border-slate-700 sticky top-4 z-30 transition-all duration-300">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-emerald-500 w-10 h-10 rounded-full flex items-center justify-center shadow-inner">
-                            <i class="fas fa-check-double text-xl text-white"></i>
-                        </div>
-                        <div>
-                            <p class="text-[10px] text-slate-300 uppercase font-bold tracking-widest">Enviar seleccionados a:</p>
-                            <div class="flex items-center gap-2 mt-1">
-                                <p class="text-lg font-black uppercase tracking-widest text-emerald-400 leading-none" id="nombreCobradorAsignar"></p>
-                                <span id="cantidadSeleccionadosAccion" class="bg-slate-600 text-slate-200 text-[11px] px-2 py-0.5 rounded-full font-bold shadow-inner">0 códigos</span>
-                            </div>
+                <div id="actionBarAsignacion" class="hidden bg-slate-800 text-white p-3 sm:p-4 rounded-xl justify-between items-center mb-6 shadow-lg border border-slate-700 sticky top-4 z-30 transition-all duration-300 gap-2">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[10px] text-slate-300 uppercase font-bold tracking-widest truncate">Enviar seleccionados a:</p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <p class="text-base sm:text-lg font-black uppercase tracking-widest text-emerald-400 leading-none truncate" id="nombreCobradorAsignar"></p>
+                            <span id="cantidadSeleccionadosAccion" class="shrink-0 bg-slate-600 text-slate-200 text-[11px] px-2 py-0.5 rounded-full font-bold shadow-inner">0 códigos</span>
                         </div>
                     </div>
-                    <button id="btnConfirmarAsignacion" onclick="confirmarAsignacion()" class="bg-white hover:bg-slate-100 text-slate-800 active:bg-slate-200 px-5 py-2.5 rounded-lg font-black text-sm uppercase shadow-md transition-colors flex items-center gap-2">
+                    <button id="btnConfirmarAsignacion" onclick="confirmarAsignacion()" class="shrink-0 bg-white hover:bg-slate-100 text-slate-800 active:bg-slate-200 px-4 py-2.5 rounded-lg font-black text-sm uppercase shadow-md transition-colors flex items-center gap-2">
                         Confirmar <i class="fas fa-paper-plane text-blue-500"></i>
                     </button>
                 </div>

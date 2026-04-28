@@ -12,6 +12,7 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
+        /* ESTILO PARA OCULTAR EL CHECKBOX PERO MANTENERLO FUNCIONAL */
         .tarjeta-label input:checked ~ .tarjeta-contenido {
             --tw-ring-color: transparent !important;
         }
@@ -267,7 +268,7 @@
                         <p class="text-sm font-bold uppercase tracking-widest">No hay retiros pendientes en este momento</p>
                     </div>
                 {% else %}
-                    <div class="space-y-4">
+                    <div class="space-y-5">
                         {% for r in activos %}
                         
                         {% set border_color = 'border-slate-800' %}
@@ -285,7 +286,7 @@
                         <div class="relative block">
                         {% endif %}
                             
-                            <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-sm overflow-hidden flex flex-col relative transition-all duration-300 hover:shadow-md tarjeta-retiro tarjeta-contenido" data-id="{{ r.id }}">
+                            <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-md overflow-hidden flex flex-col relative transition-all duration-300 hover:shadow-lg tarjeta-retiro tarjeta-contenido" data-id="{{ r.id }}">
                                 
                                 <button type="button" class="btn-abrir-papelera absolute top-3 right-3 text-slate-400 hover:text-rose-600 bg-white/90 backdrop-blur-sm border border-slate-200 hover:border-rose-200 rounded-lg p-2.5 transition-colors z-20 shadow-sm cursor-pointer" data-id="{{ r.id }}" data-monto="{{ r.monto }}" data-usuario="{{ r.usuario }}" title="Eliminar (Mover a papelera)">
                                     <i class="fas fa-trash-alt pointer-events-none"></i>
@@ -318,11 +319,11 @@
 
                                         <div class="shrink-0 w-full sm:w-auto z-20 flex items-center">
                                             {% if r.expira_timestamp %}
-                                                <span class="cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 px-3 py-1.5 uppercase tracking-widest shadow-sm rounded-lg bg-blue-50 border border-blue-200 inline-block" data-expira="{{ r.expira_timestamp }}">
+                                                <span class="cronometro-retiro w-full sm:w-auto text-center text-xs sm:text-sm font-black text-blue-600 px-4 py-2 uppercase tracking-widest shadow-sm rounded-lg bg-blue-50 border border-blue-200 inline-block" data-expira="{{ r.expira_timestamp }}">
                                                     <i class="fas fa-spinner fa-spin"></i> Cargando...
                                                 </span>
                                             {% elif r.hora_limite %}
-                                                <span class="w-full sm:w-auto text-center text-[10px] sm:text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 uppercase tracking-widest shadow-sm rounded-lg border border-rose-200 inline-block"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
+                                                <span class="w-full sm:w-auto text-center text-xs sm:text-sm font-bold text-rose-600 bg-rose-50 px-4 py-2 uppercase tracking-widest shadow-sm rounded-lg border border-rose-200 inline-block"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
                                             {% endif %}
                                         </div>
                                     </div>
@@ -446,6 +447,15 @@
         function cerrarModalPapelera() {
             document.getElementById('modalPapelera').classList.add('hidden');
         }
+        
+        function toggleImagen(id) {
+            const imgDiv = document.getElementById(id);
+            if (imgDiv.classList.contains('hidden')) {
+                imgDiv.classList.remove('hidden');
+            } else {
+                imgDiv.classList.add('hidden');
+            }
+        }
 
         function abrirModalRecibir(btnElement) {
             const cobrador = btnElement.getAttribute('data-cobrador');
@@ -490,8 +500,9 @@
         }
 
         document.body.addEventListener('click', function(event) {
+            // Permitir clic en el botón de borrar incluso si la tarjeta es clickeable
             if (event.target.closest('.btn-abrir-papelera')) {
-                event.preventDefault(); 
+                event.preventDefault(); // Prevenir que el checkbox cambie
                 const btn = event.target.closest('.btn-abrir-papelera');
                 const id = btn.getAttribute('data-id');
                 const monto = btn.getAttribute('data-monto');
@@ -510,12 +521,15 @@
         let colorAnilloActivo = 'ring-indigo-500'; 
 
         function actualizarContadoresLive() {
+            // Reiniciar todos los contadores a 0 visualmente
             document.querySelectorAll('.contador-live').forEach(el => el.innerText = '0 Seleccionados');
             
             if (cobradorParaAsignar) {
+                // Contar cuántos códigos están marcados
                 const count = document.querySelectorAll('.chk-asignar:checked').length;
                 const counterEl = document.getElementById('contador-live-' + cobradorParaAsignar);
                 if (counterEl) {
+                    // Actualizar el texto del contador del cobrador activo
                     counterEl.innerText = count + (count === 1 ? ' Seleccionado' : ' Seleccionados');
                 }
             }
@@ -541,6 +555,7 @@
 
             document.getElementById('nombreCobradorAsignar').innerText = nombre;
             
+            // Actualiza colores de los bordes de los que YA están seleccionados
             document.querySelectorAll('.chk-asignar:checked').forEach(chk => {
                 const card = chk.closest('.tarjeta-label').querySelector('.tarjeta-contenido');
                 
@@ -548,6 +563,7 @@
                 card.classList.add('ring-4', colorAnilloActivo);
             });
 
+            // Actualiza el texto de los contadores en vivo
             actualizarContadoresLive();
 
             const actionBar = document.getElementById('actionBarAsignacion');
@@ -590,10 +606,11 @@
             window.location.reload();
         }
 
+        // Iluminar el borde de la tarjeta al hacer clic y actualizar contador
         document.body.addEventListener('change', function(event) {
             if (event.target.classList.contains('chk-asignar')) {
                 if (!cobradorParaAsignar) {
-                    event.target.checked = false; 
+                    event.target.checked = false; // Lo desmarca
                     mostrarToast("⚠️ Selecciona un cobrador arriba primero.");
                     return;
                 }
@@ -604,9 +621,11 @@
                 card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
 
                 if (event.target.checked) {
+                    // Prender filo de la tarjeta
                     card.classList.add('ring-4', colorAnilloActivo);
                 }
 
+                // Llamar a la función que actualiza el número "X Seleccionados"
                 actualizarContadoresLive();
             }
         });
@@ -623,6 +642,8 @@
             actualizarContadoresLive();
         });
 
+
+        // Restaurar Scroll
         document.addEventListener("DOMContentLoaded", function() { 
             var mainScroll = document.getElementById('mainScroll');
             var savedScrollPos = sessionStorage.getItem('scrollpos_admin');
@@ -644,8 +665,9 @@
         }
 
         let codigosVistos = new Set();
+        // Cambiamos el selector porque ya no usamos form
         document.querySelectorAll('.chk-asignar').forEach(input => {
-            if(input.value) {
+            if (input.value) {
                 codigosVistos.add(input.value);
             }
         });
@@ -775,6 +797,7 @@
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
             
+            // Bloqueo de auto-refresco si hay checks activos para no perder la selección
             const hasChecked = document.querySelector('.chk-asignar:checked') !== null;
             if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
                (modalRecibir && !modalRecibir.classList.contains('hidden')) ||
@@ -811,6 +834,7 @@
 
                         let codigosNuevosEncontrados = 0;
                         
+                        // Revisamos usando las casillas de verificación ahora
                         document.querySelectorAll('.chk-asignar').forEach(input => {
                             if (input.value && !codigosVistos.has(input.value)) {
                                 codigosNuevosEncontrados++;
@@ -846,7 +870,7 @@
 
                 if (diff <= 0) {
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
-                    timer.className = 'cronometro-retiro w-full text-center text-[10px] sm:text-xs font-black text-rose-600 bg-white rounded-lg border border-rose-200 px-2 py-1 shadow-sm uppercase tracking-widest';
+                    timer.className = 'cronometro-retiro w-full text-center text-xs sm:text-sm font-black text-rose-600 bg-white rounded-lg border border-rose-200 px-4 py-2 shadow-sm uppercase tracking-widest';
                     
                     const card = timer.closest('.tarjeta-contenido');
                     if (card && !card.querySelector('.badge-vencido')) {
@@ -871,9 +895,9 @@
                     timer.innerHTML = `<i class="fas fa-stopwatch mr-1"></i> EXPIRA EN: ${hStr}:${mStr}:${sStr}`;
                     
                     if (horas === 0 && minutos < 30) {
-                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-orange-500 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg inline-block shadow-sm animate-pulse uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full text-center text-xs sm:text-sm font-black text-orange-500 bg-white rounded-lg border border-orange-200 px-4 py-2 shadow-sm animate-pulse uppercase tracking-widest';
                     } else {
-                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-[10px] sm:text-xs font-black text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg inline-block shadow-sm uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full text-center text-xs sm:text-sm font-black text-blue-600 bg-white rounded-lg border border-blue-200 px-4 py-2 shadow-sm uppercase tracking-widest';
                     }
                 }
             });

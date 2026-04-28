@@ -232,14 +232,14 @@
                         {% elif c|lower == 'guillermo' %}
                             {% set btn_classes = 'border-yellow-400 hover:border-yellow-500 group-hover:text-yellow-600' %}
                             {% set badge_classes = 'group-hover:bg-yellow-50 group-hover:text-yellow-600' %}
-                            {% set ring_color = 'ring-yellow-400' %}
+                            {% set ring_color = 'ring-yellow-500' %}
                             {% set bg_light = 'bg-yellow-50' %}
                             {% set ring_light = 'ring-yellow-200' %}
                         {% endif %}
 
-                        <button type="button" onclick="seleccionarCobrador('{{ c }}', '{{ ring_color }}', '{{ bg_light }}', '{{ ring_light }}')" id="btn-cob-{{ c }}" class="btn-cobrador flex-shrink-0 bg-white border-2 {{ btn_classes.split(' ')[0] }} rounded-2xl px-8 py-5 min-w-[200px] transition-all focus:outline-none {{ btn_classes.split(' ')[1] }} group shadow-md" data-bg="{{ bg_light }}" data-ring="{{ ring_light }}">
-                            <span class="block text-2xl font-black text-slate-700 {{ btn_classes.split(' ')[2] }} uppercase transition-colors">{{ c }}</span>
-                            <span id="contador-live-{{ c }}" class="contador-live block text-sm font-bold text-slate-500 mt-2 bg-slate-100 px-3 py-2 rounded-lg {{ badge_classes }} transition-colors shadow-inner">
+                        <button type="button" onclick="seleccionarCobrador('{{ c }}', '{{ ring_color }}', '{{ bg_light }}', '{{ ring_light }}')" id="btn-cob-{{ c }}" class="btn-cobrador flex-shrink-0 bg-white border-2 {{ btn_classes.split(' ')[0] }} rounded-2xl px-6 py-4 min-w-[160px] transition-all focus:outline-none {{ btn_classes.split(' ')[1] }} group shadow-sm" data-bg="{{ bg_light }}" data-ring="{{ ring_light }}">
+                            <span class="block text-lg font-black text-slate-700 {{ btn_classes.split(' ')[2] }} uppercase transition-colors">{{ c }}</span>
+                            <span id="contador-live-{{ c }}" class="contador-live block text-[10px] font-bold text-slate-500 mt-1.5 bg-slate-100 px-2 py-1 rounded {{ badge_classes }} transition-colors">
                                 0 Seleccionados
                             </span>
                         </button>
@@ -271,7 +271,7 @@
                     <div class="space-y-5">
                         {% for r in activos %}
                         
-                        {% set border_color = 'border-slate-800' %}
+                        {% set border_color = 'border-slate-200' %}
                         {% if r.estado == 'expirado' %}
                             {% set border_color = 'border-rose-500' %}
                         {% elif r.get('asignacion_estado') == 'asignado' %} {% set border_color = 'border-emerald-500' %}
@@ -286,7 +286,7 @@
                         <div class="relative block">
                         {% endif %}
                             
-                            <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-md overflow-hidden flex flex-col relative transition-all duration-300 hover:shadow-lg tarjeta-retiro tarjeta-contenido" data-id="{{ r.id }}">
+                            <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-md overflow-hidden flex flex-col lg:flex-row relative transition-all duration-300 hover:shadow-lg tarjeta-retiro tarjeta-contenido" data-id="{{ r.id }}">
                                 
                                 <button type="button" class="btn-abrir-papelera absolute top-3 right-3 text-slate-400 hover:text-rose-600 bg-white/90 backdrop-blur-sm border border-slate-200 hover:border-rose-200 rounded-lg p-2.5 transition-colors z-20 shadow-sm cursor-pointer" data-id="{{ r.id }}" data-monto="{{ r.monto }}" data-usuario="{{ r.usuario }}" title="Eliminar (Mover a papelera)">
                                     <i class="fas fa-trash-alt pointer-events-none"></i>
@@ -344,7 +344,14 @@
                                     </div>
 
                                     <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-end border-t border-slate-100 pt-3">
-                                        {% if r.asignado_a %}
+                                        {% if not r.asignado_a %}
+                                        <div class="flex items-center justify-end w-full">
+                                            <span class="bg-slate-500 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
+                                                <i class="fas fa-user-times mr-2"></i> SIN ASIGNAR
+                                            </span>
+                                        </div>
+                                        {% else %}
+                                        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
                                             {% if r.visto_por_cobrador %}
                                                 <span class="bg-emerald-100 text-emerald-700 text-[10px] font-black px-4 py-2 rounded-lg shadow-sm border border-emerald-200 uppercase tracking-widest">
                                                     LEÍDO
@@ -358,10 +365,7 @@
                                             <span class="bg-green-600 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest">
                                                 <i class="fas fa-user-check mr-2"></i> {{ r.asignado_a }}
                                             </span>
-                                        {% else %}
-                                            <span class="bg-slate-500 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center shrink-0 uppercase tracking-widest ml-auto">
-                                                <i class="fas fa-user-times mr-2"></i> SIN ASIGNAR
-                                            </span>
+                                        </div>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -505,7 +509,7 @@
         });
 
         // ==========================================
-        // LÓGICA DE ASIGNACIÓN MASIVA Y COLORES
+        // LÓGICA DE ASIGNACIÓN MASIVA CLICKABLE
         // ==========================================
         let cobradorParaAsignar = null;
         let colorAnilloActivo = 'ring-indigo-500'; 
@@ -543,10 +547,14 @@
             document.getElementById('nombreCobradorAsignar').innerText = nombre;
             
             document.querySelectorAll('.chk-asignar:checked').forEach(chk => {
-                const card = chk.closest('.tarjeta-label').querySelector('.tarjeta-contenido');
-                
-                card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
-                card.classList.add('ring-4', colorAnilloActivo);
+                const label = chk.closest('.tarjeta-label');
+                if(label){
+                    const card = label.querySelector('.tarjeta-contenido');
+                    if(card) {
+                        card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
+                        card.classList.add('ring-4', colorAnilloActivo);
+                    }
+                }
             });
 
             actualizarContadoresLive();
@@ -594,7 +602,7 @@
         document.body.addEventListener('change', function(event) {
             if (event.target.classList.contains('chk-asignar')) {
                 if (!cobradorParaAsignar) {
-                    event.target.checked = false; 
+                    event.target.checked = false; // Lo desmarca
                     mostrarToast("⚠️ Selecciona un cobrador arriba primero.");
                     return;
                 }
@@ -602,10 +610,14 @@
                 const label = event.target.closest('.tarjeta-label');
                 const card = label.querySelector('.tarjeta-contenido');
                 
-                card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
+                if (card) {
+                    // Limpieza de clases previas de anillo en la tarjeta
+                    card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
 
-                if (event.target.checked) {
-                    card.classList.add('ring-4', colorAnilloActivo);
+                    if (event.target.checked) {
+                        // Prender filo de la tarjeta
+                        card.classList.add('ring-4', colorAnilloActivo);
+                    }
                 }
 
                 actualizarContadoresLive();
@@ -624,6 +636,8 @@
             actualizarContadoresLive();
         });
 
+
+        // Restaurar Scroll
         document.addEventListener("DOMContentLoaded", function() { 
             var mainScroll = document.getElementById('mainScroll');
             var savedScrollPos = sessionStorage.getItem('scrollpos_admin');
@@ -776,6 +790,7 @@
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
             
+            // Bloqueo de auto-refresco si hay checks activos para no perder la selección
             const hasChecked = document.querySelector('.chk-asignar:checked') !== null;
             if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
                (modalRecibir && !modalRecibir.classList.contains('hidden')) ||
@@ -847,7 +862,7 @@
 
                 if (diff <= 0) {
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
-                    timer.className = 'cronometro-retiro w-full text-center text-sm sm:text-base font-black text-rose-600 bg-white rounded-lg border border-rose-200 px-4 py-2.5 shadow-sm uppercase tracking-widest';
+                    timer.className = 'cronometro-retiro w-full text-center text-xs sm:text-sm font-black text-rose-600 bg-white rounded-lg border border-rose-200 px-4 py-2.5 shadow-sm uppercase tracking-widest';
                     
                     const card = timer.closest('.tarjeta-contenido');
                     if (card && !card.querySelector('.badge-vencido')) {
@@ -872,9 +887,9 @@
                     timer.innerHTML = `<i class="fas fa-stopwatch mr-1"></i> EXPIRA EN: ${hStr}:${mStr}:${sStr}`;
                     
                     if (horas === 0 && minutos < 30) {
-                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-sm sm:text-base font-black text-orange-500 bg-white rounded-lg border border-orange-200 px-4 py-2.5 shadow-sm animate-pulse uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-xs sm:text-sm font-black text-orange-500 bg-white rounded-lg border border-orange-200 px-4 py-2.5 shadow-sm animate-pulse uppercase tracking-widest';
                     } else {
-                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-sm sm:text-base font-black text-blue-600 bg-white rounded-lg border border-blue-200 px-4 py-2.5 shadow-sm uppercase tracking-widest';
+                        timer.className = 'cronometro-retiro w-full sm:w-auto text-center text-xs sm:text-sm font-black text-blue-600 bg-white rounded-lg border border-blue-200 px-4 py-2.5 shadow-sm uppercase tracking-widest';
                     }
                 }
             });

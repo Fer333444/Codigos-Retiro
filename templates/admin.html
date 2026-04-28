@@ -206,37 +206,62 @@
                 <div class="mb-6 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                     <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4"><i class="fas fa-hand-pointer mr-1"></i> 1. Haz clic en un cobrador para empezar a asignar:</h3>
                     <div class="flex gap-4 overflow-x-auto custom-scrollbar pb-3">
-                        {% for c in cobradores %}
+                        {% for cob_dict in cobradores %}
+                        {% set c = cob_dict.nombre %}
+                        {% set esta_disponible = cob_dict.disponible %}
                         
-                        {% set btn_classes = 'border-indigo-400 hover:border-indigo-500 group-hover:text-indigo-600' %}
-                        {% set badge_classes = 'group-hover:bg-indigo-50 group-hover:text-indigo-600' %}
-                        {% set ring_color = 'ring-indigo-500' %}
-                        {% set bg_light = 'bg-indigo-50' %}
-                        {% set ring_light = 'ring-indigo-200' %}
-                        
-                        {% if c|lower == 'cristian' %}
-                            {% set btn_classes = 'border-blue-400 hover:border-blue-500 group-hover:text-blue-600' %}
-                            {% set badge_classes = 'group-hover:bg-blue-50 group-hover:text-blue-600' %}
-                            {% set ring_color = 'ring-blue-500' %}
-                            {% set bg_light = 'bg-blue-50' %}
-                            {% set ring_light = 'ring-blue-200' %}
-                        {% elif c|lower == 'jenny' %}
-                            {% set btn_classes = 'border-rose-400 hover:border-rose-500 group-hover:text-rose-600' %}
-                            {% set badge_classes = 'group-hover:bg-rose-50 group-hover:text-rose-600' %}
-                            {% set ring_color = 'ring-rose-500' %}
-                            {% set bg_light = 'bg-rose-50' %}
-                            {% set ring_light = 'ring-rose-200' %}
-                        {% elif c|lower == 'guillermo' %}
-                            {% set btn_classes = 'border-yellow-400 hover:border-yellow-500 group-hover:text-yellow-600' %}
-                            {% set badge_classes = 'group-hover:bg-yellow-50 group-hover:text-yellow-600' %}
-                            {% set ring_color = 'ring-yellow-500' %}
-                            {% set bg_light = 'bg-yellow-50' %}
-                            {% set ring_light = 'ring-yellow-200' %}
+                        {% if esta_disponible %}
+                            {% set btn_classes = 'border-indigo-400 hover:border-indigo-500 group-hover:text-indigo-600 cursor-pointer' %}
+                            {% set badge_classes = 'group-hover:bg-indigo-50 group-hover:text-indigo-600 text-slate-500 bg-slate-100' %}
+                            {% set ring_color = 'ring-indigo-500' %}
+                            {% set bg_light = 'bg-indigo-50' %}
+                            {% set ring_light = 'ring-indigo-200' %}
+                            {% set text_color = 'text-slate-700' %}
+                            
+                            {% if c|lower == 'cristian' %}
+                                {% set btn_classes = 'border-blue-400 hover:border-blue-500 group-hover:text-blue-600 cursor-pointer' %}
+                                {% set badge_classes = 'group-hover:bg-blue-50 group-hover:text-blue-600 text-slate-500 bg-slate-100' %}
+                                {% set ring_color = 'ring-blue-500' %}
+                                {% set bg_light = 'bg-blue-50' %}
+                                {% set ring_light = 'ring-blue-200' %}
+                            {% elif c|lower == 'jenny' %}
+                                {% set btn_classes = 'border-rose-400 hover:border-rose-500 group-hover:text-rose-600 cursor-pointer' %}
+                                {% set badge_classes = 'group-hover:bg-rose-50 group-hover:text-rose-600 text-slate-500 bg-slate-100' %}
+                                {% set ring_color = 'ring-rose-500' %}
+                                {% set bg_light = 'bg-rose-50' %}
+                                {% set ring_light = 'ring-rose-200' %}
+                            {% elif c|lower == 'guillermo' %}
+                                {% set btn_classes = 'border-yellow-400 hover:border-yellow-500 group-hover:text-yellow-600 cursor-pointer' %}
+                                {% set badge_classes = 'group-hover:bg-yellow-50 group-hover:text-yellow-600 text-slate-500 bg-slate-100' %}
+                                {% set ring_color = 'ring-yellow-500' %}
+                                {% set bg_light = 'bg-yellow-50' %}
+                                {% set ring_light = 'ring-yellow-200' %}
+                            {% endif %}
+                        {% else %}
+                            {% set btn_classes = 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed' %}
+                            {% set badge_classes = 'text-slate-400 bg-slate-200' %}
+                            {% set ring_color = '' %}
+                            {% set bg_light = '' %}
+                            {% set ring_light = '' %}
+                            {% set text_color = 'text-slate-400' %}
                         {% endif %}
 
-                        <button type="button" onclick="seleccionarCobrador('{{ c }}', '{{ ring_color }}', '{{ bg_light }}', '{{ ring_light }}')" id="btn-cob-{{ c }}" class="btn-cobrador flex-shrink-0 bg-white border-2 {{ btn_classes.split(' ')[0] }} rounded-2xl px-8 py-5 min-w-[200px] transition-all focus:outline-none {{ btn_classes.split(' ')[1] }} group shadow-md" data-bg="{{ bg_light }}" data-ring="{{ ring_light }}">
-                            <span class="block text-2xl font-black text-slate-700 {{ btn_classes.split(' ')[2] }} uppercase transition-colors">{{ c }}</span>
-                            <span id="contador-live-{{ c }}" class="contador-live block text-sm font-bold text-slate-500 mt-2 bg-slate-100 px-3 py-2 rounded-lg {{ badge_classes }} transition-colors shadow-inner">
+                        <button type="button" 
+                            {% if esta_disponible %} onclick="seleccionarCobrador('{{ c }}', '{{ ring_color }}', '{{ bg_light }}', '{{ ring_light }}')" {% endif %}
+                            id="btn-cob-{{ c }}" 
+                            class="btn-cobrador relative flex-shrink-0 bg-white border-2 {{ btn_classes.split(' ')[0] }} rounded-2xl px-8 py-5 min-w-[200px] transition-all focus:outline-none {{ btn_classes.split(' ')[1] }} group shadow-md {% if not esta_disponible %}cursor-not-allowed{% endif %}" 
+                            data-bg="{{ bg_light }}" 
+                            data-ring="{{ ring_light }}"
+                            {% if not esta_disponible %} disabled title="{{ c }} está Ausente" {% endif %}>
+                            
+                            {% if not esta_disponible %}
+                                <div class="absolute top-0 right-0 bg-slate-500 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg rounded-tr-xl uppercase tracking-widest shadow-sm">
+                                    Ausente
+                                </div>
+                            {% endif %}
+
+                            <span class="block text-2xl font-black {{ text_color }} {{ btn_classes.split(' ')[2] }} uppercase transition-colors">{{ c }}</span>
+                            <span id="contador-live-{{ c }}" class="contador-live block text-sm font-bold mt-2 px-3 py-2 rounded-lg {{ badge_classes }} transition-colors shadow-inner">
                                 0 Seleccionados
                             </span>
                         </button>
@@ -451,7 +476,8 @@
                 <input type="hidden" id="reasignar_id">
                 
                 <div class="space-y-3">
-                    {% for c in cobradores %}
+                    {% for cob_dict in cobradores %}
+                        {% set c = cob_dict.nombre %}
                         <button type="button" onclick="ejecutarReasignacion('{{ c }}', this)" class="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 transition-all text-slate-700 font-black text-lg uppercase group shadow-sm focus:outline-none">
                             <span>{{ c }}</span>
                             <i class="fas fa-arrow-right text-slate-300 group-hover:text-blue-500"></i>
@@ -522,7 +548,6 @@
         async function ejecutarReasignacion(nuevoCobrador, btnElement) {
             const id = document.getElementById('reasignar_id').value;
             
-            // Animación de carga en el botón
             const textOriginal = btnElement.innerHTML;
             btnElement.innerHTML = '<i class="fas fa-spinner fa-spin mx-auto text-blue-500"></i>';
             btnElement.disabled = true;
@@ -532,7 +557,6 @@
             formData.append('trabajador', nuevoCobrador);
             
             try {
-                // Usamos la misma ruta de asignación masiva
                 await fetch('/asignar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -546,7 +570,6 @@
                 return;
             }
             
-            // Guardar posición de scroll y recargar
             var mainScroll = document.getElementById('mainScroll');
             if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
             window.location.reload();

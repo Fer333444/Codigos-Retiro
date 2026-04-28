@@ -707,7 +707,8 @@ def obtener_ubicaciones():
     if session.get('rol') not in ['supremo', 'recaudador']:
         return jsonify({}), 403
     return jsonify(ubicaciones_cobradores)
-
+# --- MODIFICAR LA RUTA /admin EN APP.PY ---
+# (Solo te muestro la parte que cambia dentro de la función admin())
 @app.route('/admin')
 def admin():
     mis_permisos = session.get('permisos', [])
@@ -715,15 +716,26 @@ def admin():
     
     activos = [r for r in registros if r['estado'] == 'activo']
     
-    # NUEVA LÓGICA: INCLUYE A LOS QUE TIENEN PERMISO DE PROCESAR
-    cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
+    # === MODIFICACIÓN AQUÍ ===
+    # En lugar de solo sacar el nombre, ahora pasamos un diccionario con el nombre y su estado de disponibilidad
+    cobradores_raw = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
+    
+    cobradores = []
+    for c in cobradores_raw:
+        # Por defecto, si no tiene la clave 'disponible', asumimos que es True
+        esta_disponible = usuarios_db[c].get('disponible', True)
+        cobradores.append({
+            'nombre': c,
+            'disponible': esta_disponible
+        })
+    # =========================
     
     hoy_ecuador = hora_ecuador().strftime("%d/%m/%Y")
     stats_cobradores = {}
     
-    for c in cobradores:
-        # AGREGAMOS total_acumulado Y desglose_fechas
-        stats_cobradores[c] = {
+    for c_dict in cobradores:
+        c_nombre = c_dict['nombre']
+        stats_cobradores[c_nombre] = {
             'total_dia': 0.0, 
             'total_acumulado': 0.0, 
             'desglose_fechas': {}, 
@@ -740,31 +752,27 @@ def admin():
                 try: stats_cobradores[asignado]['asignados_valor'] += float(r['monto'])
                 except: pass
                 
-            # ACUMULAR DINERO NO LIQUIDADO SIN IMPORTAR EL DÍA
             if not r.get('liquidado', False):
                 if r['estado'] == 'retirado':
                     try:
                         monto = float(r['monto'])
                         stats_cobradores[asignado]['total_acumulado'] += monto
                         
-                        # Agrupar por fecha
                         fecha_corta = r['fecha'].split(' ')[0]
                         if fecha_corta not in stats_cobradores[asignado]['desglose_fechas']:
                             stats_cobradores[asignado]['desglose_fechas'][fecha_corta] = 0.0
                         stats_cobradores[asignado]['desglose_fechas'][fecha_corta] += monto
                         
-                        # Mantenemos el total de hoy por compatibilidad
                         if r['fecha'].startswith(hoy_ecuador):
                             stats_cobradores[asignado]['total_dia'] += monto
                     except: pass
                     
-                # Solo mostrar fallidos de hoy en la tarjeta para no saturar la vista
                 elif r['estado'] in ['fallido', 'fallido_revision', 'expirado'] and r['fecha'].startswith(hoy_ecuador):
                     stats_cobradores[asignado]['fallidos'].append(r)
                 
     return render_template('admin.html', 
                            activos=activos, 
-                           cobradores=cobradores, 
+                           cobradores=cobradores, # Ahora es una lista de diccionarios
                            stats_cobradores=stats_cobradores, 
                            mi_usuario=session['usuario'], 
                            rol=session.get('rol'),
@@ -1619,6 +1627,24 @@ def eliminar_grupo():
         flash('Error: El grupo no existe o es inválido.', 'error')
         
     return redirect(url_for('vista_grupos'))
+# --- AÑADIR ESTA NUEVA RUTA EN APP.PY ---
+@app.route('/toggle_disponibilidad', methods=['POST'])
+def toggle_disponibilidad():
+    mis_permisos = session.get('permisos', [])
+    if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: 
+        return jsonify({"error": "No autorizado"}), 403
+        
+    usuario = session.get('usuario')
+    if usuario in usuarios_db:
+        # Si no existe la clave, por defecto asumimos que estaba disponible (True)
+        estado_actual = usuarios_db[usuario].get('disponible', True)
+        usuarios_db[usuario]['disponible'] = not estado_actual
+        guardar_datos()
+        
+        nuevo_estado = "🟢 Disponible" if usuarios_db[usuario]['disponible'] else "🔴 No Disponible"
+        return jsonify({"status": "ok", "estado": usuarios_db[usuario]['disponible'], "mensaje": f"Estado cambiado a: {nuevo_estado}"})
+    
+    return jsonify({"error": "Usuario no encontrado"}), 404
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

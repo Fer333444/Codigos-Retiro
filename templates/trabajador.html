@@ -276,17 +276,22 @@
                         </div>
                     {% else %}
                         {% for fecha, datos_dia in historial_agrupado.items() %}
-                            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div class="bg-slate-100 p-4 border-b border-slate-200 flex justify-between items-center">
+                            <details class="group bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden" open>
+                                <summary class="bg-slate-100 p-4 flex justify-between items-center cursor-pointer list-none hover:bg-slate-200 transition-colors select-none [&::-webkit-details-marker]:hidden border-b border-slate-200">
                                     <h3 class="font-black text-slate-700 tracking-widest uppercase flex items-center gap-2">
                                         <i class="fas fa-calendar-day text-blue-500"></i> {{ fecha }}
                                     </h3>
-                                    <div class="text-right">
-                                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">Total del Día</p>
-                                        <p class="font-black text-emerald-600 text-xl leading-none">${{ "%.2f"|format(datos_dia.total) }} <span class="text-[10px] text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full ml-1 align-middle">{{ datos_dia.registros|length }}</span></p>
+                                    <div class="flex items-center gap-4">
+                                        <div class="text-right">
+                                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">Total del Día</p>
+                                            <p class="font-black text-emerald-600 text-xl leading-none">${{ "%.2f"|format(datos_dia.total) }} <span class="text-[10px] text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full ml-1 align-middle">{{ datos_dia.registros|length }}</span></p>
+                                        </div>
+                                        <span class="transition-transform duration-300 group-open:rotate-180 text-slate-400 ml-2">
+                                            <i class="fas fa-chevron-down text-lg"></i>
+                                        </span>
                                     </div>
-                                </div>
-                                <div class="divide-y divide-slate-100">
+                                </summary>
+                                <div class="divide-y divide-slate-100 bg-white">
                                     {% for r in datos_dia.registros %}
                                         <div class="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-slate-50 transition-colors">
                                             <div class="flex items-center gap-3">
@@ -310,7 +315,7 @@
                                         </div>
                                     {% endfor %}
                                 </div>
-                            </div>
+                            </details>
                         {% endfor %}
                     {% endif %}
                 </div>

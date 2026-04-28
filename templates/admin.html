@@ -11,6 +11,11 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* ESTILO PARA OCULTAR EL CHECKBOX PERO MANTENERLO FUNCIONAL */
+        .tarjeta-label input:checked ~ .tarjeta-contenido {
+            --tw-ring-color: transparent !important;
+        }
     </style>
 </head>
 <body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
@@ -232,9 +237,9 @@
                             {% set ring_light = 'ring-yellow-200' %}
                         {% endif %}
 
-                        <button type="button" onclick="seleccionarCobrador('{{ c }}', '{{ ring_color }}', '{{ bg_light }}', '{{ ring_light }}')" id="btn-cob-{{ c }}" class="btn-cobrador flex-shrink-0 bg-white border-2 {{ btn_classes.split(' ')[0] }} rounded-2xl px-6 py-4 min-w-[160px] transition-all focus:outline-none {{ btn_classes.split(' ')[1] }} group shadow-sm" data-bg="{{ bg_light }}" data-ring="{{ ring_light }}">
-                            <span class="block text-lg font-black text-slate-700 {{ btn_classes.split(' ')[2] }} uppercase transition-colors">{{ c }}</span>
-                            <span id="contador-live-{{ c }}" class="contador-live block text-[10px] font-bold text-slate-500 mt-1.5 bg-slate-100 px-2 py-1 rounded {{ badge_classes }} transition-colors">
+                        <button type="button" onclick="seleccionarCobrador('{{ c }}', '{{ ring_color }}', '{{ bg_light }}', '{{ ring_light }}')" id="btn-cob-{{ c }}" class="btn-cobrador flex-shrink-0 bg-white border-2 {{ btn_classes.split(' ')[0] }} rounded-2xl px-8 py-5 min-w-[200px] transition-all focus:outline-none {{ btn_classes.split(' ')[1] }} group shadow-md" data-bg="{{ bg_light }}" data-ring="{{ ring_light }}">
+                            <span class="block text-2xl font-black text-slate-700 {{ btn_classes.split(' ')[2] }} uppercase transition-colors">{{ c }}</span>
+                            <span id="contador-live-{{ c }}" class="contador-live block text-sm font-bold text-slate-500 mt-2 bg-slate-100 px-3 py-2 rounded-lg {{ badge_classes }} transition-colors shadow-inner">
                                 0 Seleccionados
                             </span>
                         </button>
@@ -266,7 +271,7 @@
                     <div class="space-y-5">
                         {% for r in activos %}
                         
-                        {% set border_color = 'border-slate-200' %}
+                        {% set border_color = 'border-slate-800' %}
                         {% if r.estado == 'expirado' %}
                             {% set border_color = 'border-rose-500' %}
                         {% elif r.get('asignacion_estado') == 'asignado' %} {% set border_color = 'border-emerald-500' %}
@@ -314,11 +319,11 @@
 
                                         <div class="shrink-0 w-full sm:w-auto z-20 flex items-center">
                                             {% if r.expira_timestamp %}
-                                                <span class="cronometro-retiro w-full sm:w-auto text-center text-sm sm:text-base font-black text-blue-600 px-4 py-2.5 uppercase tracking-widest shadow-sm rounded-lg bg-blue-50 border border-blue-200 inline-block" data-expira="{{ r.expira_timestamp }}">
+                                                <span class="cronometro-retiro w-full sm:w-auto text-center text-xs sm:text-sm font-black text-blue-600 px-4 py-2.5 uppercase tracking-widest shadow-sm rounded-lg bg-blue-50 border border-blue-200 inline-block" data-expira="{{ r.expira_timestamp }}">
                                                     <i class="fas fa-spinner fa-spin"></i> Cargando...
                                                 </span>
                                             {% elif r.hora_limite %}
-                                                <span class="w-full sm:w-auto text-center text-sm sm:text-base font-bold text-rose-600 bg-rose-50 px-4 py-2.5 uppercase tracking-widest shadow-sm rounded-lg border border-rose-200 inline-block"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
+                                                <span class="w-full sm:w-auto text-center text-xs sm:text-sm font-bold text-rose-600 bg-rose-50 px-4 py-2.5 uppercase tracking-widest shadow-sm rounded-lg border border-rose-200 inline-block"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
                                             {% endif %}
                                         </div>
                                     </div>
@@ -486,9 +491,8 @@
         }
 
         document.body.addEventListener('click', function(event) {
-            // Permitir clic en el botón de borrar incluso si la tarjeta es clickeable
             if (event.target.closest('.btn-abrir-papelera')) {
-                event.preventDefault(); // Prevenir que el checkbox cambie
+                event.preventDefault(); 
                 const btn = event.target.closest('.btn-abrir-papelera');
                 const id = btn.getAttribute('data-id');
                 const monto = btn.getAttribute('data-monto');
@@ -507,15 +511,12 @@
         let colorAnilloActivo = 'ring-indigo-500'; 
 
         function actualizarContadoresLive() {
-            // Reiniciar todos los contadores a 0 visualmente
             document.querySelectorAll('.contador-live').forEach(el => el.innerText = '0 Seleccionados');
             
             if (cobradorParaAsignar) {
-                // Contar cuántos códigos están marcados
                 const count = document.querySelectorAll('.chk-asignar:checked').length;
                 const counterEl = document.getElementById('contador-live-' + cobradorParaAsignar);
                 if (counterEl) {
-                    // Actualizar el texto del contador del cobrador activo
                     counterEl.innerText = count + (count === 1 ? ' Seleccionado' : ' Seleccionados');
                 }
             }
@@ -541,7 +542,6 @@
 
             document.getElementById('nombreCobradorAsignar').innerText = nombre;
             
-            // Actualiza colores de los bordes de los que YA están seleccionados
             document.querySelectorAll('.chk-asignar:checked').forEach(chk => {
                 const card = chk.closest('.tarjeta-label').querySelector('.tarjeta-contenido');
                 
@@ -549,7 +549,6 @@
                 card.classList.add('ring-4', colorAnilloActivo);
             });
 
-            // Actualiza el texto de los contadores en vivo
             actualizarContadoresLive();
 
             const actionBar = document.getElementById('actionBarAsignacion');
@@ -592,11 +591,10 @@
             window.location.reload();
         }
 
-        // Iluminar el borde de la tarjeta directamente al cambiar el checkbox oculto
         document.body.addEventListener('change', function(event) {
             if (event.target.classList.contains('chk-asignar')) {
                 if (!cobradorParaAsignar) {
-                    event.target.checked = false; // Lo desmarca
+                    event.target.checked = false; 
                     mostrarToast("⚠️ Selecciona un cobrador arriba primero.");
                     return;
                 }
@@ -604,20 +602,16 @@
                 const label = event.target.closest('.tarjeta-label');
                 const card = label.querySelector('.tarjeta-contenido');
                 
-                // Limpieza de clases previas de anillo en la tarjeta
                 card.className = card.className.replace(/\bring-\w+-\d+\b/g, '').trim();
 
                 if (event.target.checked) {
-                    // Prender filo de la tarjeta
                     card.classList.add('ring-4', colorAnilloActivo);
                 }
 
-                // Llamar a la función que actualiza el número "X Seleccionados"
                 actualizarContadoresLive();
             }
         });
 
-        // Asegurarse de que todos los checks empiecen vacíos al cargar
         window.addEventListener('pageshow', () => {
             document.querySelectorAll('.chk-asignar').forEach(chk => {
                 chk.checked = false;
@@ -630,7 +624,6 @@
             actualizarContadoresLive();
         });
 
-        // Restaurar Scroll
         document.addEventListener("DOMContentLoaded", function() { 
             var mainScroll = document.getElementById('mainScroll');
             var savedScrollPos = sessionStorage.getItem('scrollpos_admin');
@@ -652,9 +645,8 @@
         }
 
         let codigosVistos = new Set();
-        // Cambiamos el selector porque ya no usamos form
         document.querySelectorAll('.chk-asignar').forEach(input => {
-            if(input.value) {
+            if (input.value) {
                 codigosVistos.add(input.value);
             }
         });
@@ -784,7 +776,6 @@
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
             
-            // Bloqueo de auto-refresco si hay checks activos para no perder la selección
             const hasChecked = document.querySelector('.chk-asignar:checked') !== null;
             if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
                (modalRecibir && !modalRecibir.classList.contains('hidden')) ||
@@ -821,7 +812,6 @@
 
                         let codigosNuevosEncontrados = 0;
                         
-                        // Revisamos usando las casillas de verificación ahora
                         document.querySelectorAll('.chk-asignar').forEach(input => {
                             if (input.value && !codigosVistos.has(input.value)) {
                                 codigosNuevosEncontrados++;

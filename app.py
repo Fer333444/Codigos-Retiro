@@ -811,10 +811,8 @@ def asignar_trabajo():
     if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_retiros' not in mis_permisos and 'procesar_retiros' not in mis_permisos: 
         return redirect(url_for('login'))
         
-    # SALVAVIDAS: Si el celular envía un referrer nulo, usamos admin como ruta de emergencia segura
     url_retorno = request.referrer or url_for('admin')
     
-    # Prevenimos que explote si mandan un formulario malformado sin ID
     try:
         registro_id = int(request.form.get('id', 0))
     except (TypeError, ValueError):
@@ -830,6 +828,15 @@ def asignar_trabajo():
         if r['id'] == registro_id:
             viejo_asignado = r.get('asignado_a')
             
+            # --- NUEVO BLOQUE PARA DESASIGNAR ---
+            if trabajador == '__SIN_ASIGNAR__':
+                r['asignado_a'] = None
+                r['asignacion_estado'] = 'no_asignado'
+                r['visto_por_cobrador'] = False
+                r['historial'].append(f"[{hora_actual}] 🔄 Movido a 'Sin Asignar' por {session['usuario'].capitalize()}")
+                break
+            # ------------------------------------
+
             if viejo_asignado == trabajador:
                 flash(f'El código ya estaba asignado a {trabajador.capitalize()}.', 'info')
                 return redirect(url_retorno)
@@ -843,15 +850,15 @@ def asignar_trabajo():
                 r['asignacion_estado'] = 'asignado' 
                 r['historial'].append(f"[{hora_actual}] 👤 Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
             
-            # Si el Push falla, el try/except de arriba nos protege y continúa el flujo
             disparar_alerta_push(trabajador, "¡Nuevo Retiro Asignado! 🏃‍♂️", "Tienes un nuevo código de retiro listo en tu bandeja.")
             break
             
-    # El flujo ahora llegará seguro hasta aquí
     guardar_datos()
-    flash(f'Asignado a {trabajador.capitalize()} correctamente.', 'success')
+    if trabajador == '__SIN_ASIGNAR__':
+        flash('El código ha sido desasignado exitosamente.', 'success')
+    else:
+        flash(f'Asignado a {trabajador.capitalize()} correctamente.', 'success')
     
-    # 3. Retorno seguro garantizado (sin detonar Error 500)
     return redirect(url_retorno)
 # ==========================================
 # RUTAS DE PAPELERA DE RECICLAJE

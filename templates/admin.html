@@ -476,6 +476,18 @@
                 <input type="hidden" id="reasignar_id">
                 
                 <div class="space-y-3">
+                    
+                    <button type="button" onclick="ejecutarReasignacion('__SIN_ASIGNAR__', this)" class="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-200 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all text-slate-500 font-black text-lg uppercase group shadow-sm focus:outline-none mb-2">
+                        <span><i class="fas fa-user-times mr-2"></i> Sin Asignar</span>
+                        <i class="fas fa-unlink text-slate-300 group-hover:text-slate-500"></i>
+                    </button>
+                    
+                    <div class="flex items-center gap-2 py-1">
+                        <div class="h-px bg-slate-200 flex-1"></div>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">O a un cobrador</span>
+                        <div class="h-px bg-slate-200 flex-1"></div>
+                    </div>
+
                     {% for cob_dict in cobradores %}
                         {% set c = cob_dict.nombre %}
                         <button type="button" onclick="ejecutarReasignacion('{{ c }}', this)" class="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 transition-all text-slate-700 font-black text-lg uppercase group shadow-sm focus:outline-none">
@@ -535,7 +547,6 @@
             document.getElementById('modalRecibir').classList.add('hidden');
         }
 
-        // ====== FUNCIONES PARA REASIGNAR ======
         function abrirModalReasignar(id) {
             document.getElementById('reasignar_id').value = id;
             document.getElementById('modalReasignar').classList.remove('hidden');
@@ -725,7 +736,6 @@
             });
             actualizarContadoresLive();
         });
-
 
         document.addEventListener("DOMContentLoaded", function() { 
             var mainScroll = document.getElementById('mainScroll');

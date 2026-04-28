@@ -1482,19 +1482,46 @@ def vista_reportes():
 @app.route('/trabajador/<nombre>')
 def vista_trabajador(nombre):
     mis_permisos = session.get('permisos', [])
-    # Validar que tenga el rol O el permiso de procesar retiros
     if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: 
         return redirect(url_for('login'))
         
     nombre = nombre.lower()
     
-    # Bloquear si un cobrador intenta ver la bandeja de otro
     if session.get('rol') == 'cobrador' and session.get('usuario') != nombre:
         flash('Tu rol no te permite entrar a la bandeja de otros cobradores.', 'error')
         return redirect(ruta_por_rol(session.get('rol'), session.get('usuario')))
         
+    # 1. Códigos Pendientes
     mis_activos = [r for r in registros if r.get('asignado_a') == nombre and r['estado'] in ['activo', 'expirado']]
-    return render_template('trabajador.html', registros=mis_activos, nombre=nombre.capitalize(), mi_usuario=session['usuario'])
+    
+    # 2. Historial de retiros completados (Agrupados por fecha)
+    historial_agrupado = {}
+    for r in registros:
+        if r.get('asignado_a') == nombre and r['estado'] in ['retirado', 'liquidado', 'saldado']:
+            fecha_corta = r.get('fecha', '').split(' ')[0] if r.get('fecha') else 'Sin fecha'
+            if fecha_corta not in historial_agrupado:
+                historial_agrupado[fecha_corta] = {'total': 0.0, 'registros': []}
+            
+            historial_agrupado[fecha_corta]['registros'].append(r)
+            try:
+                historial_agrupado[fecha_corta]['total'] += float(r.get('monto', 0))
+            except: pass
+
+    # Ordenar por fecha (más reciente primero)
+    try:
+        historial_ordenado = dict(sorted(historial_agrupado.items(), key=lambda item: datetime.strptime(item[0], "%d/%m/%Y") if item[0] != 'Sin fecha' else datetime.min, reverse=True))
+    except:
+        historial_ordenado = historial_agrupado
+
+    mi_estado_disp = usuarios_db.get(nombre, {}).get('disponible', True) if nombre in usuarios_db else True
+
+    return render_template('trabajador.html', 
+                           registros=mis_activos, 
+                           historial_agrupado=historial_ordenado,
+                           nombre=nombre.capitalize(), 
+                           mi_usuario=session['usuario'],
+                           mi_estado_disp=mi_estado_disp,
+                           rol=session.get('rol'))
 @app.route('/notificar_visto', methods=['POST'])
 def notificar_visto():
     # Verificamos que quien presiona el botón sea un cobrador

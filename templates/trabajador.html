@@ -134,133 +134,187 @@
                   {% endif %}
                 {% endwith %}
 
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl sm:text-2xl font-black text-slate-800 tracking-tight uppercase">Retiros Asignados</h2>
-                    <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">{{ registros|length }} Pendientes</span>
+                <div class="flex border-b border-slate-200 mb-6 space-x-6">
+                    <button onclick="switchTab('pendientes')" id="tab-pendientes" class="pb-3 text-sm sm:text-base font-black border-b-4 text-blue-600 border-blue-600 transition-colors focus:outline-none flex items-center gap-2">
+                        <i class="fas fa-inbox"></i> Pendientes <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[10px]">{{ registros|length }}</span>
+                    </button>
+                    <button onclick="switchTab('historial')" id="tab-historial" class="pb-3 text-sm sm:text-base font-bold border-b-4 text-slate-400 border-transparent hover:text-slate-600 transition-colors focus:outline-none flex items-center gap-2">
+                        <i class="fas fa-history"></i> Mi Historial
+                    </button>
                 </div>
 
-                {% if not registros %}
-                    <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 shadow-sm">
-                        <i class="fas fa-mug-hot text-4xl mb-3"></i>
-                        <p class="text-sm font-bold uppercase tracking-widest mt-2">No tienes retiros pendientes,<br>tómate un café.</p>
-                    </div>
-                {% else %}
-                    <div class="space-y-4">
-                        {% for r in registros %}
-                        
-                        {% set border_color = 'border-slate-800' %}
-                        {% if r.estado == 'expirado' %}
-                            {% set border_color = 'border-rose-500' %}
-                        {% elif r.get('asignacion_estado') == 'asignado' %} {% set border_color = 'border-emerald-500' %}
-                        {% elif r.get('asignacion_estado') == 'reasignado' %} {% set border_color = 'border-rose-500' %}
-                        {% elif r.asignado_a %} {% set border_color = 'border-emerald-500' %}
-                        {% endif %}
-
-                        <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-sm overflow-hidden flex flex-col sm:flex-row tarjeta-retiro relative transition-colors duration-500" data-id="{{ r.id }}">
+                <div id="vista-pendientes" class="animate-fade-in-up">
+                    {% if not registros %}
+                        <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 shadow-sm">
+                            <i class="fas fa-mug-hot text-4xl mb-3"></i>
+                            <p class="text-sm font-bold uppercase tracking-widest mt-2">No tienes retiros pendientes,<br>tómate un café.</p>
+                        </div>
+                    {% else %}
+                        <div class="space-y-4">
+                            {% for r in registros %}
                             
+                            {% set border_color = 'border-slate-800' %}
                             {% if r.estado == 'expirado' %}
-                                <div class="badge-vencido absolute top-0 right-0 bg-rose-600 text-white font-black px-4 py-1 rounded-bl-xl text-xs uppercase shadow-md z-10">
-                                    <i class="fas fa-clock mr-1"></i> Vencido
-                                </div>
+                                {% set border_color = 'border-rose-500' %}
+                            {% elif r.get('asignacion_estado') == 'asignado' %} {% set border_color = 'border-emerald-500' %}
+                            {% elif r.get('asignacion_estado') == 'reasignado' %} {% set border_color = 'border-rose-500' %}
+                            {% elif r.asignado_a %} {% set border_color = 'border-emerald-500' %}
                             {% endif %}
 
-                            <div class="w-full sm:w-32 bg-slate-100 border-b sm:border-b-0 sm:border-r border-slate-200 p-2 flex items-center justify-center shrink-0 h-32 sm:h-auto">
-                                {% if r.imagen %}
-                                    {% set imagenes = r.imagen.split(',') %}
-                                    <a href="{{ url_for('ver_imagen', filename=imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
-                                        <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-200 shadow-sm">
-                                        {% if imagenes|length > 1 %}
-                                            <span class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] font-bold px-1.5 rounded">+{{ imagenes|length - 1 }}</span>
-                                        {% endif %}
-                                    </a>
-                                {% else %}
-                                    <i class="fas fa-image text-slate-300 text-3xl"></i>
-                                {% endif %}
-                            </div>
-                            
-                            <div class="p-3 sm:p-5 flex-1 flex flex-col justify-between min-w-0">
+                            <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-sm overflow-hidden flex flex-col sm:flex-row tarjeta-retiro relative transition-colors duration-500" data-id="{{ r.id }}">
                                 
-                                <div class="flex flex-wrap justify-between items-start mb-3 gap-2 mt-4 sm:mt-0">
-                                    <div class="flex-1 min-w-0">
-                                        <span class="text-xl sm:text-2xl font-black text-green-600">${{ r.monto }}</span>
-                                        
-                                        {% set color_banco = 'text-slate-500' %}
-                                        {% if r.banco|lower == 'pichincha' %} {% set color_banco = 'text-yellow-500' %}
-                                        {% elif r.banco|lower == 'guayaquil' %} {% set color_banco = 'text-purple-600' %}
-                                        {% elif r.banco|lower == 'produbanco' %} {% set color_banco = 'text-[#8b4513]' %}
-                                        {% endif %}
-                                        
-                                        <span class="text-[10px] sm:text-xs font-black {{ color_banco }} uppercase ml-1 sm:ml-2 tracking-widest truncate block sm:inline"><i class="fas fa-university mr-1"></i> {{ r.banco }}</span>
+                                {% if r.estado == 'expirado' %}
+                                    <div class="badge-vencido absolute top-0 right-0 bg-rose-600 text-white font-black px-4 py-1 rounded-bl-xl text-xs uppercase shadow-md z-10">
+                                        <i class="fas fa-clock mr-1"></i> Vencido
                                     </div>
-                                    <div class="shrink-0 text-right bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg shadow-sm">
-                                        {% if r.estado == 'expirado' %}
-                                            <span class="text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest"><i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO</span>
-                                        {% elif r.expira_timestamp %}
-                                            <span class="cronometro-retiro text-[10px] sm:text-xs font-black text-orange-600" data-expira="{{ r.expira_timestamp }}">
-                                                <i class="fas fa-spinner fa-spin"></i> Cargando...
-                                            </span>
-                                        {% elif r.hora_limite %}
-                                            <span class="text-[10px] sm:text-xs font-bold text-rose-600"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
-                                        {% endif %}
-                                    </div>
-                                </div>
+                                {% endif %}
 
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                                    <div class="bg-slate-50 border border-slate-100 p-2.5 rounded-lg">
-                                        <p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Usuario Magis</p>
-                                        <p class="text-xs sm:text-sm font-bold text-slate-700 truncate"><i class="fas fa-user text-blue-500 mr-1.5"></i> {{ r.usuario }}</p>
-                                    </div>
-                                    <div class="bg-slate-50 border border-slate-100 p-2.5 rounded-lg">
-                                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Celular / C.I.</p>
-                                        <p class="text-lg sm:text-xl font-black text-slate-900 font-mono tracking-widest bg-slate-200 px-2 py-1 rounded inline-block mt-1"><i class="fas fa-mobile-alt text-slate-600 mr-1.5"></i> {{ r.celular }}</p>
-                                    </div>
+                                <div class="w-full sm:w-32 bg-slate-100 border-b sm:border-b-0 sm:border-r border-slate-200 p-2 flex items-center justify-center shrink-0 h-32 sm:h-auto">
+                                    {% if r.imagen %}
+                                        {% set imagenes = r.imagen.split(',') %}
+                                        <a href="{{ url_for('ver_imagen', filename=imagenes[0]) }}" target="_blank" class="w-full h-full relative group flex items-center justify-center">
+                                            <img src="{{ url_for('ver_imagen', filename=imagenes[0]) }}" class="max-w-full max-h-full object-contain rounded border border-slate-200 shadow-sm">
+                                            {% if imagenes|length > 1 %}
+                                                <span class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] font-bold px-1.5 rounded">+{{ imagenes|length - 1 }}</span>
+                                            {% endif %}
+                                        </a>
+                                    {% else %}
+                                        <i class="fas fa-image text-slate-300 text-3xl"></i>
+                                    {% endif %}
                                 </div>
-
-                                <div class="bg-blue-50/50 border border-blue-100 p-4 rounded-xl mb-5 shadow-inner">
-                                    <div class="flex justify-between items-center mb-3 border-b border-blue-200/50 pb-2">
-                                        <p class="text-[10px] font-black text-blue-500 uppercase tracking-widest">Códigos de Retiro</p>
-                                        
-                                        {% if r.visto_por_cobrador %}
-                                            <span class="text-[9px] font-black text-emerald-600 bg-emerald-100 px-2 py-1 rounded shadow-sm border border-emerald-200">
-                                                <i class="fas fa-eye mr-1"></i> Visto
-                                            </span>
-                                        {% else %}
-                                            <button type="button" onclick="notificarVisto('{{ r.id }}', this)" class="text-[9px] font-black text-white bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded shadow-sm transition-colors uppercase tracking-widest focus:outline-none">
-                                                <i class="fas fa-bell mr-1"></i> Avisar Recibido
-                                            </button>
-                                        {% endif %}
-                                    </div>
+                                
+                                <div class="p-3 sm:p-5 flex-1 flex flex-col justify-between min-w-0">
                                     
-                                    <div class="flex flex-wrap gap-3 sm:gap-4 font-mono">
-                                        {% if r.detalles.codigo_pichincha %}
-                                            <span class="font-black text-blue-900 bg-white px-4 py-2 rounded-lg shadow-md border-2 border-blue-400 text-xl sm:text-2xl tracking-widest">Pin: {{ r.detalles.codigo_pichincha }}</span>
-                                        {% endif %}
-                                        {% if r.detalles.guayaquil_retiro %}
-                                            <span class="font-black text-purple-900 bg-white px-4 py-2 rounded-lg shadow-md border-2 border-purple-400 text-xl sm:text-2xl tracking-widest">Ret: {{ r.detalles.guayaquil_retiro }}</span>
-                                        {% endif %}
-                                        {% if r.detalles.guayaquil_envio %}
-                                            <span class="font-black text-purple-900 bg-white px-4 py-2 rounded-lg shadow-md border-2 border-purple-400 text-xl sm:text-2xl tracking-widest">Env: {{ r.detalles.guayaquil_envio }}</span>
-                                        {% endif %}
-                                        {% if r.detalles.seguridad %}
-                                            <span class="font-black text-slate-900 bg-white px-4 py-2 rounded-lg shadow-md border-2 border-slate-400 text-xl sm:text-2xl tracking-widest">Seg: {{ r.detalles.seguridad }}</span>
-                                        {% endif %}
-                                        
-                                        {% if r.banco|lower == 'produbanco' and r.cedula %}
-                                            <span class="font-black text-[#8b4513] bg-white px-4 py-2 rounded-lg shadow-md border-2 border-[#8b4513] text-xl sm:text-2xl tracking-widest">C.I: {{ r.cedula }}</span>
-                                        {% endif %}
+                                    <div class="flex flex-wrap justify-between items-start mb-3 gap-2 mt-4 sm:mt-0">
+                                        <div class="flex-1 min-w-0">
+                                            <span class="text-xl sm:text-2xl font-black text-green-600">${{ r.monto }}</span>
+                                            
+                                            {% set color_banco = 'text-slate-500' %}
+                                            {% if r.banco|lower == 'pichincha' %} {% set color_banco = 'text-yellow-500' %}
+                                            {% elif r.banco|lower == 'guayaquil' %} {% set color_banco = 'text-purple-600' %}
+                                            {% elif r.banco|lower == 'produbanco' %} {% set color_banco = 'text-[#8b4513]' %}
+                                            {% endif %}
+                                            
+                                            <span class="text-[10px] sm:text-xs font-black {{ color_banco }} uppercase ml-1 sm:ml-2 tracking-widest truncate block sm:inline"><i class="fas fa-university mr-1"></i> {{ r.banco }}</span>
+                                        </div>
+                                        <div class="shrink-0 text-right bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg shadow-sm">
+                                            {% if r.estado == 'expirado' %}
+                                                <span class="text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest"><i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO</span>
+                                            {% elif r.expira_timestamp %}
+                                                <span class="cronometro-retiro text-[10px] sm:text-xs font-black text-orange-600" data-expira="{{ r.expira_timestamp }}">
+                                                    <i class="fas fa-spinner fa-spin"></i> Cargando...
+                                                </span>
+                                            {% elif r.hora_limite %}
+                                                <span class="text-[10px] sm:text-xs font-bold text-rose-600"><i class="fas fa-exclamation-triangle mr-1"></i> VENCE: {{ r.hora_limite }}</span>
+                                            {% endif %}
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto">
-                                    <button type="button" onclick="abrirModalRetirado('{{ r.id }}', '{{ r.monto }}', '{{ r.banco }}')" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-[11px] sm:text-xs flex justify-center items-center gap-2"><i class="fas fa-check-circle text-lg"></i> Marcar Retirado</button>
-                                    
-                                    <button type="button" onclick="abrirModalFallido('{{ r.id }}', '{{ r.monto }}', '{{ r.usuario }}')" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-[11px] sm:text-xs flex justify-center items-center gap-2"><i class="fas fa-times-circle text-lg"></i> No Salió</button>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                        <div class="bg-slate-50 border border-slate-100 p-2.5 rounded-lg">
+                                            <p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Usuario Magis</p>
+                                            <p class="text-xs sm:text-sm font-bold text-slate-700 truncate"><i class="fas fa-user text-blue-500 mr-1.5"></i> {{ r.usuario }}</p>
+                                        </div>
+                                        <div class="bg-slate-50 border border-slate-100 p-2.5 rounded-lg">
+                                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Celular / C.I.</p>
+                                            <p class="text-lg sm:text-xl font-black text-slate-900 font-mono tracking-widest bg-slate-200 px-2 py-1 rounded inline-block mt-1"><i class="fas fa-mobile-alt text-slate-600 mr-1.5"></i> {{ r.celular }}</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-blue-50/50 border border-blue-100 p-4 rounded-xl mb-5 shadow-inner">
+                                        <div class="flex justify-between items-center mb-3 border-b border-blue-200/50 pb-2">
+                                            <p class="text-[10px] font-black text-blue-500 uppercase tracking-widest">Códigos de Retiro</p>
+                                            
+                                            {% if r.visto_por_cobrador %}
+                                                <span class="text-[9px] font-black text-emerald-600 bg-emerald-100 px-2 py-1 rounded shadow-sm border border-emerald-200">
+                                                    <i class="fas fa-eye mr-1"></i> Visto
+                                                </span>
+                                            {% else %}
+                                                <button type="button" onclick="notificarVisto('{{ r.id }}', this)" class="text-[9px] font-black text-white bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded shadow-sm transition-colors uppercase tracking-widest focus:outline-none">
+                                                    <i class="fas fa-bell mr-1"></i> Avisar Recibido
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="flex flex-wrap gap-3 sm:gap-4 font-mono">
+                                            {% if r.detalles.codigo_pichincha %}
+                                                <span class="font-black text-blue-900 bg-white px-4 py-2 rounded-lg shadow-md border-2 border-blue-400 text-xl sm:text-2xl tracking-widest">Pin: {{ r.detalles.codigo_pichincha }}</span>
+                                            {% endif %}
+                                            {% if r.detalles.guayaquil_retiro %}
+                                                <span class="font-black text-purple-900 bg-white px-4 py-2 rounded-lg shadow-md border-2 border-purple-400 text-xl sm:text-2xl tracking-widest">Ret: {{ r.detalles.guayaquil_retiro }}</span>
+                                            {% endif %}
+                                            {% if r.detalles.guayaquil_envio %}
+                                                <span class="font-black text-purple-900 bg-white px-4 py-2 rounded-lg shadow-md border-2 border-purple-400 text-xl sm:text-2xl tracking-widest">Env: {{ r.detalles.guayaquil_envio }}</span>
+                                            {% endif %}
+                                            {% if r.detalles.seguridad %}
+                                                <span class="font-black text-slate-900 bg-white px-4 py-2 rounded-lg shadow-md border-2 border-slate-400 text-xl sm:text-2xl tracking-widest">Seg: {{ r.detalles.seguridad }}</span>
+                                            {% endif %}
+                                            
+                                            {% if r.banco|lower == 'produbanco' and r.cedula %}
+                                                <span class="font-black text-[#8b4513] bg-white px-4 py-2 rounded-lg shadow-md border-2 border-[#8b4513] text-xl sm:text-2xl tracking-widest">C.I: {{ r.cedula }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto">
+                                        <button type="button" onclick="abrirModalRetirado('{{ r.id }}', '{{ r.monto }}', '{{ r.banco }}')" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-[11px] sm:text-xs flex justify-center items-center gap-2"><i class="fas fa-check-circle text-lg"></i> Marcar Retirado</button>
+                                        
+                                        <button type="button" onclick="abrirModalFallido('{{ r.id }}', '{{ r.monto }}', '{{ r.usuario }}')" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-[11px] sm:text-xs flex justify-center items-center gap-2"><i class="fas fa-times-circle text-lg"></i> No Salió</button>
+                                    </div>
                                 </div>
                             </div>
+                            {% endfor %}
                         </div>
+                    {% endif %}
+                </div>
+
+                <div id="vista-historial" class="hidden space-y-6 animate-fade-in-up">
+                    {% if not historial_agrupado %}
+                        <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 shadow-sm">
+                            <i class="fas fa-folder-open text-4xl mb-3"></i>
+                            <p class="text-sm font-bold uppercase tracking-widest mt-2">Aún no tienes historial de retiros completados.</p>
+                        </div>
+                    {% else %}
+                        {% for fecha, datos_dia in historial_agrupado.items() %}
+                            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                <div class="bg-slate-100 p-4 border-b border-slate-200 flex justify-between items-center">
+                                    <h3 class="font-black text-slate-700 tracking-widest uppercase flex items-center gap-2">
+                                        <i class="fas fa-calendar-day text-blue-500"></i> {{ fecha }}
+                                    </h3>
+                                    <div class="text-right">
+                                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">Total del Día</p>
+                                        <p class="font-black text-emerald-600 text-xl leading-none">${{ "%.2f"|format(datos_dia.total) }} <span class="text-[10px] text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full ml-1 align-middle">{{ datos_dia.registros|length }}</span></p>
+                                    </div>
+                                </div>
+                                <div class="divide-y divide-slate-100">
+                                    {% for r in datos_dia.registros %}
+                                        <div class="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-slate-50 transition-colors">
+                                            <div class="flex items-center gap-3">
+                                                <div class="bg-emerald-100 text-emerald-600 w-10 h-10 rounded-full flex items-center justify-center shrink-0">
+                                                    <i class="fas fa-check"></i>
+                                                </div>
+                                                <div>
+                                                    <p class="font-black text-slate-800 text-lg leading-none mb-1">${{ r.monto }}</p>
+                                                    <div class="flex items-center gap-2 text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                                        <span class="text-blue-500"><i class="fas fa-university"></i> {{ r.banco }}</span>
+                                                        <span>•</span>
+                                                        <span><i class="fas fa-user"></i> {{ r.usuario }}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="text-right flex flex-col items-end w-full sm:w-auto">
+                                                <span class="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded shadow-inner">
+                                                    <i class="fas fa-clock mr-1"></i>{{ r.fecha.split(' ')[1] if r.fecha else '' }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
                         {% endfor %}
-                    </div>
-                {% endif %}
+                    {% endif %}
+                </div>
+
             </div>
         </div>
     </main>
@@ -354,7 +408,32 @@
     </div>
 
     <script>
-        // Inicializar el estado de los switches al cargar (Asumimos True si no se pasa desde Flask)
+        // --- CONTROL DE PESTAÑAS (TABS) ---
+        let activeTab = 'pendientes';
+        
+        function switchTab(tab) {
+            activeTab = tab;
+            const btnPendientes = document.getElementById('tab-pendientes');
+            const btnHistorial = document.getElementById('tab-historial');
+            const vistaPendientes = document.getElementById('vista-pendientes');
+            const vistaHistorial = document.getElementById('vista-historial');
+
+            if (!btnPendientes || !btnHistorial || !vistaPendientes || !vistaHistorial) return;
+
+            if (tab === 'pendientes') {
+                btnPendientes.className = "pb-3 text-sm sm:text-base font-black border-b-4 text-blue-600 border-blue-600 transition-colors focus:outline-none flex items-center gap-2";
+                btnHistorial.className = "pb-3 text-sm sm:text-base font-bold border-b-4 text-slate-400 border-transparent hover:text-slate-600 transition-colors focus:outline-none flex items-center gap-2";
+                vistaPendientes.classList.remove('hidden');
+                vistaHistorial.classList.add('hidden');
+            } else {
+                btnHistorial.className = "pb-3 text-sm sm:text-base font-black border-b-4 text-blue-600 border-blue-600 transition-colors focus:outline-none flex items-center gap-2";
+                btnPendientes.className = "pb-3 text-sm sm:text-base font-bold border-b-4 text-slate-400 border-transparent hover:text-slate-600 transition-colors focus:outline-none flex items-center gap-2";
+                vistaHistorial.classList.remove('hidden');
+                vistaPendientes.classList.add('hidden');
+            }
+        }
+
+        // Inicializar el estado de los switches al cargar
         let estoyDisponible = {% if mi_estado_disp is defined %}{{ 'true' if mi_estado_disp else 'false' }}{% else %}true{% endif %};
         
         function actualizarVisualSwitches(estado) {
@@ -509,7 +588,6 @@
 
         // --- FUNCION PARA NOTIFICAR VISTO ---
         function notificarVisto(id, btnElement) {
-            // Cambiamos el texto mientras carga
             const originalText = btnElement.innerHTML;
             btnElement.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Avisando...';
             btnElement.disabled = true;
@@ -522,7 +600,6 @@
             .then(res => res.json())
             .then(data => {
                 if(data.status === 'ok') {
-                    // Transformamos el botón en la etiqueta "Visto"
                     const span = document.createElement('span');
                     span.className = 'text-[9px] font-black text-emerald-600 bg-emerald-100 px-2 py-1 rounded shadow-sm border border-emerald-200 transition-opacity animate-fade-in-up';
                     span.innerHTML = '<i class="fas fa-eye mr-1"></i> Visto';
@@ -532,7 +609,6 @@
                 }
             })
             .catch(e => {
-                // Si hay error, regresamos el botón a la normalidad
                 btnElement.innerHTML = originalText;
                 btnElement.disabled = false;
                 mostrarToast("❌ Hubo un error de conexión.");
@@ -555,7 +631,6 @@
         if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
 
         // --- SISTEMA HÍBRIDO DE NOTIFICACIONES PUSH (TOGGLE) ---
-        // NUEVA LÓGICA: Memorizamos los IDs exactos en lugar de contar la cantidad
         let codigosVistos = new Set();
         document.querySelectorAll('.tarjeta-retiro').forEach(card => {
             const id = card.getAttribute('data-id');
@@ -565,7 +640,6 @@
         let notificacionesActivas = false;
         const audioAlerta = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
-        // PON TU LLAVE PÚBLICA AQUÍ ABAJO
         const PUBLIC_VAPID_KEY = 'BA4g6c20PBoFoBjJCxJsdamujtNeGG4D7aLWr94FmWjEdJrzeljB4fS3f4GguyS9oMW4ImiphlexMV1s9A8KH8Q';
 
         function urlBase64ToUint8Array(base64String) {
@@ -579,7 +653,6 @@
             return outputArray;
         }
 
-        // FUNCIÓN PARA CAMBIAR EL COLOR Y ESTADO DEL BOTÓN
         function setNotificationState(isActive) {
             notificacionesActivas = isActive;
             document.querySelectorAll('.btn-notificaciones').forEach(btn => {
@@ -597,7 +670,6 @@
             });
         }
 
-        // REVISAR ESTADO AL CARGAR LA PÁGINA
         if ('Notification' in window && Notification.permission === 'granted') {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
                 navigator.serviceWorker.ready.then(async function(register) {
@@ -613,10 +685,8 @@
             setNotificationState(false);
         }
 
-        // FUNCIÓN PRINCIPAL DEL BOTÓN (PRENDER / APAGAR)
         async function toggleNotificaciones() {
             if (notificacionesActivas) {
-                // APAGAR NOTIFICACIONES
                 try {
                     const register = await navigator.serviceWorker.getRegistration('/sw.js');
                     if (register) {
@@ -629,8 +699,6 @@
                     console.error(e);
                 }
             } else {
-                // PRENDER NOTIFICACIONES
-                // Regla de Apple: Validar si está en modo "App"
                 const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
                 if (isIos && !window.navigator.standalone) {
                     mostrarToast("⚠️ En iPhone, debes 'Agregar a Inicio' primero para recibir notificaciones.");
@@ -648,19 +716,16 @@
                 try {
                     const register = await navigator.serviceWorker.register('/sw.js');
                     
-                    // Limpiar suscripción vieja
                     const oldSubscription = await register.pushManager.getSubscription();
                     if (oldSubscription) {
                         await oldSubscription.unsubscribe();
                     }
 
-                    // Crear nueva suscripción
                     const subscription = await register.pushManager.subscribe({
                         userVisibleOnly: true,
                         applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
                     });
 
-                    // Enviar a Python
                     const response = await fetch('/guardar_suscripcion', {
                         method: 'POST',
                         body: JSON.stringify(subscription),
@@ -681,7 +746,6 @@
             }
         }
 
-        // Sistema para mostrar alertas visuales (In-App Toast)
         function mostrarToast(mensaje) {
             const toast = document.createElement('div');
             toast.className = "fixed top-4 right-4 bg-blue-600 text-white font-bold px-6 py-4 rounded-xl shadow-2xl z-[999] transition-opacity duration-500 flex items-center max-w-[90vw]";
@@ -694,7 +758,6 @@
             }, 5000);
         }
 
-        // Refresco silencioso
         function refrescarPanelSilencioso() {
             const modalRetirado = document.getElementById('modalRetirado');
             const modalFallido = document.getElementById('modalFallido');
@@ -722,6 +785,9 @@
                         
                         document.getElementById('contenidoDinamico').innerHTML = nuevoContenido.innerHTML;
                         
+                        // RE-APLICAR LA PESTAÑA ACTIVA DESPUÉS DEL REFRESCO
+                        switchTab(activeTab);
+
                         document.querySelectorAll('.form-mantener-scroll').forEach(form => {
                             form.addEventListener('submit', function() {
                                 if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);
@@ -731,7 +797,6 @@
                         if(typeof actualizarCronometros === 'function') actualizarCronometros();
                         if(mainScroll) mainScroll.scrollTop = scrollActual;
 
-                        // LÓGICA DE NOTIFICACIONES
                         let codigosNuevosEncontrados = 0;
                         
                         document.querySelectorAll('.tarjeta-retiro').forEach(card => {
@@ -758,7 +823,6 @@
 
         setInterval(refrescarPanelSilencioso, 10000);
 
-        // --- SISTEMA DE UBICACIÓN ---
         function enviarUbicacion() {
             if ("geolocation" in navigator) {
                 navigator.geolocation.getCurrentPosition(

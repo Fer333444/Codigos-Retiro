@@ -222,7 +222,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-400 mb-1">Monto Total ($)</label>
-                        <input type="number" name="monto" id="inputMonto" required step="0.01" class="w-full bg-[#0f172a] border border-slate-600 text-emerald-400 font-black rounded-lg p-3 outline-none focus:border-emerald-500 transition-colors" placeholder="Ej. 15.00">
+                        <input type="number" name="monto" id="inputMonto" required step="0.01" onkeyup="validarFormularioLive()" onchange="validarFormularioLive()" class="w-full bg-[#0f172a] border border-slate-600 text-emerald-400 font-black rounded-lg p-3 outline-none focus:border-emerald-500 transition-colors" placeholder="Ej. 15.00">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-400 mb-1">Tiempo de Cobro</label>
@@ -277,28 +277,28 @@
                 <div id="camposDinamicos" class="hidden bg-[#0f172a]/80 p-4 rounded-lg border border-slate-600 mt-4 space-y-4">
                     <div id="divPichinchaProdubanco" class="hidden">
                         <label class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-widest" id="lblCodigoUnico">Código de Retiro</label>
-                        <input type="text" name="codigo_recibido" id="inputClaveUnica" maxlength="6" class="w-full bg-[#0f172a] border-2 border-blue-500 text-white rounded-lg p-3 outline-none focus:border-blue-400 font-mono tracking-widest text-center text-xl transition-colors shadow-[0_0_10px_rgba(59,130,246,0.3)]">
+                        <input type="text" name="codigo_recibido" id="inputClaveUnica" maxlength="6" onkeyup="validarFormularioLive()" class="w-full bg-[#0f172a] border-2 border-blue-500 text-white rounded-lg p-3 outline-none focus:border-blue-400 font-mono tracking-widest text-center text-xl transition-colors shadow-[0_0_10px_rgba(59,130,246,0.3)]">
                     </div>
                     
                     <div id="divGuayaquil" class="hidden grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-widest">Código Retiro</label>
-                            <input type="text" name="clave_retiro" id="inputClaveRetiro" class="w-full bg-[#0f172a] border-2 border-blue-500 text-white rounded-lg p-3 outline-none focus:border-blue-400 font-mono text-center text-lg transition-colors shadow-[0_0_10px_rgba(59,130,246,0.3)]">
+                            <input type="text" name="clave_retiro" id="inputClaveRetiro" onkeyup="validarFormularioLive()" class="w-full bg-[#0f172a] border-2 border-blue-500 text-white rounded-lg p-3 outline-none focus:border-blue-400 font-mono text-center text-lg transition-colors shadow-[0_0_10px_rgba(59,130,246,0.3)]">
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-widest">Código Envío</label>
-                            <input type="text" name="clave_envio" id="inputClaveEnvio" class="w-full bg-[#0f172a] border-2 border-blue-500 text-white rounded-lg p-3 outline-none focus:border-blue-400 font-mono text-center text-lg transition-colors shadow-[0_0_10px_rgba(59,130,246,0.3)]">
+                            <input type="text" name="clave_envio" id="inputClaveEnvio" onkeyup="validarFormularioLive()" class="w-full bg-[#0f172a] border-2 border-blue-500 text-white rounded-lg p-3 outline-none focus:border-blue-400 font-mono text-center text-lg transition-colors shadow-[0_0_10px_rgba(59,130,246,0.3)]">
                         </div>
                     </div>
                     
                     <div id="divGenerico" class="hidden">
                         <label class="block text-xs font-bold text-slate-400 mb-1">Código de Seguridad</label>
-                        <input type="text" name="codigo_seguridad" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded-lg p-3 outline-none focus:border-blue-500 font-mono text-center transition-colors">
+                        <input type="text" name="codigo_seguridad" id="inputClaveGenerica" onkeyup="validarFormularioLive()" class="w-full bg-[#0f172a] border border-slate-600 text-white rounded-lg p-3 outline-none focus:border-blue-500 font-mono text-center transition-colors">
                     </div>
                 </div>
 
                 <div class="pt-4 relative z-20">
-                    <button type="submit" id="btnSubmit" class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-blue-500/30 uppercase tracking-widest text-sm flex justify-center items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button type="submit" id="btnSubmit" class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-blue-500/30 uppercase tracking-widest text-sm flex justify-center items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         <i class="fas fa-paper-plane mr-2"></i> ENVIAR DATOS
                     </button>
                 </div>
@@ -322,6 +322,12 @@
         const inputCedula = document.getElementById('inputCedula');
         const errorCedula = document.getElementById('errorCedula');
         
+        // --- INPUTS DE CÓDIGOS DE BANCOS ---
+        const inputClaveUnica = document.getElementById('inputClaveUnica');
+        const inputClaveRetiro = document.getElementById('inputClaveRetiro');
+        const inputClaveEnvio = document.getElementById('inputClaveEnvio');
+        const inputClaveGenerica = document.getElementById('inputClaveGenerica');
+
         const btnSubmit = document.getElementById('btnSubmit');
 
         const checkboxesUsuarios = document.querySelectorAll('.checkbox-usuario');
@@ -336,6 +342,12 @@
             divGuayaquil.classList.add('hidden');
             divGenerico.classList.add('hidden');
             
+            // LIMPIAR CAMPOS AL CAMBIAR DE BANCO
+            inputClaveUnica.value = '';
+            inputClaveRetiro.value = '';
+            inputClaveEnvio.value = '';
+            inputClaveGenerica.value = '';
+
             if (bancoValue === 'produbanco') {
                 divCedula.classList.remove('hidden');
                 inputCedula.setAttribute('required', 'required');
@@ -348,10 +360,27 @@
             if(bancoValue === 'pichincha' || bancoValue === 'produbanco') {
                 document.getElementById('lblCodigoUnico').innerText = bancoValue === 'pichincha' ? 'Código Pichincha' : 'Código Produbanco';
                 divPichinchaProdubanco.classList.remove('hidden');
+                inputClaveUnica.setAttribute('required', 'required');
+                
+                inputClaveRetiro.removeAttribute('required');
+                inputClaveEnvio.removeAttribute('required');
+                inputClaveGenerica.removeAttribute('required');
+
             } else if(bancoValue === 'guayaquil') {
                 divGuayaquil.classList.remove('hidden');
+                inputClaveRetiro.setAttribute('required', 'required');
+                inputClaveEnvio.setAttribute('required', 'required');
+                
+                inputClaveUnica.removeAttribute('required');
+                inputClaveGenerica.removeAttribute('required');
+
             } else if(bancoValue) {
                 divGenerico.classList.remove('hidden');
+                inputClaveGenerica.setAttribute('required', 'required');
+                
+                inputClaveUnica.removeAttribute('required');
+                inputClaveRetiro.removeAttribute('required');
+                inputClaveEnvio.removeAttribute('required');
             }
             
             validarFormularioLive();
@@ -364,6 +393,7 @@
         function mostrarFormularioManual() {
             document.getElementById('zonaSubidaFoto').classList.add('hidden');
             formCompleto.classList.add('visible');
+            validarFormularioLive(); // Forza validación inicial
         }
 
         function actualizarDesglose() {
@@ -412,6 +442,7 @@
         function validarFormularioLive() {
             let esValido = true;
 
+            // 1. Validar Celular
             inputCelular.value = inputCelular.value.replace(/[^0-9]/g, '');
             const celular = inputCelular.value;
             
@@ -428,6 +459,7 @@
                 }
             }
 
+            // 2. Validar Cédula (si aplica)
             if (inputCedula.hasAttribute('required')) {
                 inputCedula.value = inputCedula.value.replace(/[^0-9]/g, '');
                 const cedula = inputCedula.value;
@@ -450,6 +482,7 @@
                 errorCedula.classList.add('hidden');
             }
 
+            // 3. Validar Montos Desglosados (si es grupo)
             if (desgloseContainer && !desgloseContainer.classList.contains('hidden')) {
                 let sum = 0;
                 document.querySelectorAll('.input-desglose').forEach(inp => {
@@ -465,6 +498,28 @@
                 }
             } else {
                 if (errorDesglose) errorDesglose.classList.add('hidden');
+                const totalManual = parseFloat(inputMonto.value) || 0;
+                if (totalManual <= 0) esValido = false;
+            }
+
+            // 4. VALIDACIÓN ESTRICTA DE CÓDIGOS BANCARIOS
+            const bancoSeleccionado = select.value;
+            
+            if (!bancoSeleccionado) {
+                esValido = false;
+            } else if (bancoSeleccionado === 'pichincha' || bancoSeleccionado === 'produbanco') {
+                if (!inputClaveUnica.value || inputClaveUnica.value.trim() === '') {
+                    esValido = false;
+                }
+            } else if (bancoSeleccionado === 'guayaquil') {
+                if (!inputClaveRetiro.value || inputClaveRetiro.value.trim() === '' || 
+                    !inputClaveEnvio.value || inputClaveEnvio.value.trim() === '') {
+                    esValido = false;
+                }
+            } else {
+                if (!inputClaveGenerica.value || inputClaveGenerica.value.trim() === '') {
+                    esValido = false;
+                }
             }
 
             btnSubmit.disabled = !esValido;
@@ -512,21 +567,16 @@
                             else if(b.includes('guayaquil')) { bancoElegido = 'guayaquil'; }
                             else if(b.includes('produbanco')) { bancoElegido = 'produbanco'; }
                             
-                            // AQUI ESTÁ LA NUEVA PROTECCIÓN ANTI-BANCOS APAGADOS
                             if (bancoElegido) {
-                                // Obtenemos el option correspondiente del select
                                 let option = Array.from(select.options).find(opt => opt.value === bancoElegido);
                                 
-                                // Verificamos si la opción está deshabilitada (es decir, el banco está apagado)
                                 if (option && option.disabled) {
                                     alert(`🚫 LO SENTIMOS: El banco detectado (${bancoElegido.toUpperCase()}) se encuentra temporalmente fuera de servicio. Por favor, intenta más tarde o usa otro método.`);
                                     
-                                    // Limpiamos todo y volvemos a la pantalla de subida
                                     document.getElementById('comprobanteInput').value = '';
                                     previewContainer.innerHTML = '';
-                                    return; // Detenemos la ejecución aquí, no se muestra el formulario
+                                    return; 
                                 } else {
-                                    // Si está activo, lo seleccionamos
                                     select.value = bancoElegido;
                                     actualizarCamposBanco(bancoElegido);
                                 }
@@ -543,8 +593,6 @@
                             document.getElementById('inputCedula').value = data.CEDULA; 
                         }
                         
-                        validarFormularioLive();
-                        
                         if((select.value === 'pichincha' || select.value === 'produbanco') && data.CLAVE_RETIRO) {
                             document.getElementById('inputClaveUnica').value = data.CLAVE_RETIRO;
                         }
@@ -554,9 +602,10 @@
                             if(data.CLAVE_ENVIO) document.getElementById('inputClaveEnvio').value = data.CLAVE_ENVIO;
                         }
                         
-                        // Mostramos el formulario si todo salió bien
+                        // Mostramos el formulario y forzamos validación final
                         document.getElementById('zonaSubidaFoto').classList.add('hidden');
                         formCompleto.classList.add('visible');
+                        validarFormularioLive();
                     }
                 })
                 .catch(error => {
@@ -565,13 +614,14 @@
                     alert("Error de conexión. Llena los datos manualmente.");
                     document.getElementById('zonaSubidaFoto').classList.add('hidden');
                     formCompleto.classList.add('visible');
+                    validarFormularioLive();
                 });
             }
         }
 
         function validarYEnviar() {
             if (!validarFormularioLive()) {
-                alert("Por favor, verifica que los datos en rojo estén correctos (incluyendo el desglose del dinero si es un pago grupal).");
+                alert("Por favor, verifica que todos los campos requeridos estén llenos correctamente.");
                 return false;
             }
             

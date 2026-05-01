@@ -122,9 +122,7 @@
         </header>
 
         <div id="mainScroll" class="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 relative custom-scrollbar pb-24">
-            <div class="max-w-5xl mx-auto" id="contenidoDinamico">
-
-                {% with messages = get_flashed_messages(with_categories=true) %}
+            <div class="max-w-5xl mx-auto" id="contenidoDinamico">{% with messages = get_flashed_messages(with_categories=true) %}
                   {% if messages %}
                     {% for category, message in messages %}
                       <div class="mb-6 p-4 rounded-xl font-bold text-sm shadow-sm {% if category == 'error' %}bg-rose-50 text-rose-600 border border-rose-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
@@ -143,6 +141,7 @@
                     </button>
                 </div>
 
+                <!-- PESTAÑA: PENDIENTES -->
                 <div id="vista-pendientes" class="animate-fade-in-up">
                     {% if not registros %}
                         <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 shadow-sm">
@@ -257,9 +256,14 @@
                                     </div>
 
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto">
-                                        <button type="button" onclick="abrirModalRetirado('{{ r.id }}', '{{ r.monto }}', '{{ r.banco }}')" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-[11px] sm:text-xs flex justify-center items-center gap-2"><i class="fas fa-check-circle text-lg"></i> Marcar Retirado</button>
+                                        <button type="button" onclick="abrirModalRetirado('{{ r.id }}', '{{ r.monto }}', '{{ r.banco }}')" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-[11px] sm:text-xs flex justify-center items-center gap-2">
+                                            <i class="fas fa-check-circle text-lg"></i> Marcar Retirado
+                                        </button>
                                         
-                                        <button type="button" onclick="abrirModalFallido('{{ r.id }}', '{{ r.monto }}', '{{ r.usuario }}')" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-[11px] sm:text-xs flex justify-center items-center gap-2"><i class="fas fa-times-circle text-lg"></i> No Salió</button>
+                                        <!-- BOTÓN NO SALIÓ (ACTUALIZADO A CÁMARA) -->
+                                        <button type="button" onclick="intentarFallido('{{ r.id }}', '{{ r.monto }}', '{{ r.usuario }}')" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-[11px] sm:text-xs flex justify-center items-center gap-2">
+                                            <i class="fas fa-camera text-lg"></i> No Salió
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -268,6 +272,7 @@
                     {% endif %}
                 </div>
 
+                <!-- PESTAÑA: HISTORIAL CON ACORDEÓN -->
                 <div id="vista-historial" class="hidden space-y-6 animate-fade-in-up">
                     {% if not historial_agrupado %}
                         <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 shadow-sm">
@@ -322,9 +327,7 @@
 
             </div>
         </div>
-    </main>
-
-    <div id="modalRetirado" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
+    </main><div id="modalRetirado" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
         <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
             <div class="p-5 border-b border-slate-200 bg-emerald-50 flex justify-between items-center">
                 <h3 class="font-black text-emerald-700 text-lg uppercase tracking-widest"><i class="fas fa-check-circle mr-2"></i> Confirmar Retiro</h3>
@@ -369,6 +372,7 @@
         </div>
     </div>
 
+    <!-- MODAL FALLIDO ACTUALIZADO CON FOTO -->
     <div id="modalFallido" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
         <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
             <div class="p-5 border-b border-slate-200 bg-rose-50 flex justify-between items-center">
@@ -376,9 +380,12 @@
                 <button type="button" onclick="cerrarModalFallido()" class="text-rose-400 hover:text-rose-600 transition-colors focus:outline-none"><i class="fas fa-times-circle text-2xl"></i></button>
             </div>
             
-            <form action="/marcar_fallido" method="POST" class="p-6 space-y-5 bg-white form-mantener-scroll">
+            <form action="/marcar_fallido" method="POST" enctype="multipart/form-data" class="p-6 space-y-5 bg-white form-mantener-scroll">
                 <input type="hidden" name="id" id="fallido_id">
                 
+                <!-- ESTE INPUT OCULTO LLAMA A LA CÁMARA NATIVA EN CELULARES -->
+                <input type="file" name="evidencia_fallo" id="inputEvidenciaFallo" accept="image/*" capture="environment" class="hidden">
+
                 <div class="bg-slate-50 border border-slate-200 p-4 rounded-lg flex justify-between items-center">
                     <div>
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cliente</p>
@@ -388,6 +395,15 @@
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Monto a retener</p>
                         <p class="text-lg font-black text-rose-600" id="fallido_monto">$0.00</p>
                     </div>
+                </div>
+
+                <!-- PREVIEW DE LA FOTO TOMADA -->
+                <div id="previewFallo" class="hidden flex flex-col items-center">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Evidencia Fotográfica:</p>
+                    <img id="imgPreviewFallo" class="w-32 h-32 object-cover rounded-xl border-4 border-slate-200 shadow-md mb-2">
+                    <button type="button" onclick="document.getElementById('inputEvidenciaFallo').click()" class="text-[10px] font-black text-blue-500 hover:text-blue-700 uppercase tracking-widest underline decoration-blue-300 underline-offset-4 transition-colors">
+                        <i class="fas fa-redo-alt mr-1"></i> Tomar otra foto
+                    </button>
                 </div>
 
                 <div>
@@ -438,7 +454,6 @@
             }
         }
 
-        // Inicializar el estado de los switches al cargar
         let estoyDisponible = {% if mi_estado_disp is defined %}{{ 'true' if mi_estado_disp else 'false' }}{% else %}true{% endif %};
         
         function actualizarVisualSwitches(estado) {
@@ -534,7 +549,6 @@
                     timer.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> VENCIDO';
                     timer.className = 'cronometro-retiro text-[10px] sm:text-xs font-black text-rose-600 uppercase tracking-widest';
                     
-                    // CUANDO EL TIEMPO LLEGA A 0 EN VIVO, INYECTAMOS LA ETIQUETA ROJA
                     const card = timer.closest('.tarjeta-retiro');
                     if (card && !card.querySelector('.badge-vencido')) {
                         card.classList.remove('border-emerald-500', 'border-slate-800');
@@ -580,18 +594,38 @@
             document.getElementById('modalRetirado').classList.add('hidden');
         }
 
-        // Modal para Fallidos
-        function abrirModalFallido(id, monto, cliente) {
+        // --- NUEVA LÓGICA DE CÁMARA PARA FALLOS ---
+        function intentarFallido(id, monto, cliente) {
             document.getElementById('fallido_id').value = id;
             document.getElementById('fallido_monto').innerText = "$" + monto;
             document.getElementById('fallido_cliente').innerText = cliente;
-            document.getElementById('modalFallido').classList.remove('hidden');
+
+            // Limpiamos la foto anterior si había una
+            const inputCamara = document.getElementById('inputEvidenciaFallo');
+            inputCamara.value = '';
+            document.getElementById('previewFallo').classList.add('hidden');
+            
+            // Disparamos la cámara nativa
+            inputCamara.click();
         }
+
+        // Detectar cuando el usuario toma la foto y le da a "Usar"
+        document.getElementById('inputEvidenciaFallo').addEventListener('change', function(e) {
+            if (this.files && this.files.length > 0) {
+                // Mostrar la previsualización de la foto que tomó
+                const url = URL.createObjectURL(this.files[0]);
+                document.getElementById('imgPreviewFallo').src = url;
+                document.getElementById('previewFallo').classList.remove('hidden');
+
+                // Abrir el modal del formulario
+                document.getElementById('modalFallido').classList.remove('hidden');
+            }
+        });
+
         function cerrarModalFallido() {
             document.getElementById('modalFallido').classList.add('hidden');
         }
 
-        // --- FUNCION PARA NOTIFICAR VISTO ---
         function notificarVisto(id, btnElement) {
             const originalText = btnElement.innerHTML;
             btnElement.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Avisando...';
@@ -620,7 +654,6 @@
             });
         }
 
-        // --- FUNCIONES DEL CAJÓN MÓVIL (DRAWER) ---
         const btnMenuMovil = document.getElementById('btnMenuMovil');
         const btnCerrarMenu = document.getElementById('btnCerrarMenu');
         const sidebar = document.getElementById('sidebar');
@@ -635,7 +668,6 @@
         if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
         if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
 
-        // --- SISTEMA HÍBRIDO DE NOTIFICACIONES PUSH (TOGGLE) ---
         let codigosVistos = new Set();
         document.querySelectorAll('.tarjeta-retiro').forEach(card => {
             const id = card.getAttribute('data-id');
@@ -790,7 +822,6 @@
                         
                         document.getElementById('contenidoDinamico').innerHTML = nuevoContenido.innerHTML;
                         
-                        // RE-APLICAR LA PESTAÑA ACTIVA DESPUÉS DEL REFRESCO
                         switchTab(activeTab);
 
                         document.querySelectorAll('.form-mantener-scroll').forEach(form => {

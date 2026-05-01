@@ -944,16 +944,34 @@ def marcar_retirado():
 @app.route('/marcar_fallido', methods=['POST'])
 def marcar_fallido():
     mis_permisos = session.get('permisos', [])
-    if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: return redirect(url_for('login'))
+    if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: 
+        return redirect(url_for('login'))
+        
     registro_id = int(request.form.get('id'))
     motivo = request.form.get('motivo', 'Sin especificar')
     hora_actual = hora_ecuador().strftime('%H:%M')
     
+    # --- NUEVO: GUARDAR LA FOTO DE EVIDENCIA TOMADA CON EL CELULAR ---
+    imagenes = request.files.getlist('evidencia_fallo')
+    nombres_imagenes = []
+    for img in imagenes:
+        if img and img.filename != '':
+            nombre = secure_filename(f"evidencia_fallo_{hora_ecuador().strftime('%Y%m%d%H%M%S')}_{img.filename}")
+            img.save(os.path.join(app.config['UPLOAD_FOLDER'], nombre))
+            nombres_imagenes.append(nombre)
+    str_imagenes_fallo = ",".join(nombres_imagenes) if nombres_imagenes else None
+    # -----------------------------------------------------------------
+
     usuario_afectado = None
     
     for r in registros:
         if r['id'] == registro_id:
             usuario_afectado = r['usuario']
+            
+            # Vinculamos la foto al registro para que se vea en el historial
+            if str_imagenes_fallo:
+                r['imagen_fallo'] = str_imagenes_fallo
+
             tiene_deuda_previa = any(reg for reg in registros if reg['usuario'] == usuario_afectado and reg['estado'] == 'fallido')
             
             if tiene_deuda_previa:

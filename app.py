@@ -767,7 +767,11 @@ def admin():
                             stats_cobradores[asignado]['total_dia'] += monto
                     except: pass
                     
-                elif r['estado'] in ['fallido', 'fallido_revision', 'expirado'] and r['fecha'].startswith(hoy_ecuador):
+                # Mostrar las deudas SIEMPRE hasta que se salden. 
+                # Los expirados los dejamos solo por hoy para que no se acumule basura.
+                elif r['estado'] in ['fallido', 'fallido_revision']:
+                    stats_cobradores[asignado]['fallidos'].append(r)
+                elif r['estado'] == 'expirado' and r['fecha'].startswith(hoy_ecuador):
                     stats_cobradores[asignado]['fallidos'].append(r)
                 
     return render_template('admin.html', 

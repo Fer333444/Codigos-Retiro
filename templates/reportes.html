@@ -245,7 +245,9 @@
                                 }
                             });
                         });
-                    </script>{% elif vista == 'historial' %}
+                    </script>
+
+                {% elif vista == 'historial' %}
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
                         <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
@@ -387,80 +389,6 @@
                                                         </div>
                                                     {% endif %}
 
-                                                    {% if (r.estado == 'fallido' or r.estado == 'fallido_revision') and rol == 'supremo' %}
-                                                    <form action="/recuperar_expirado" method="POST" class="m-0 inline-block" onsubmit="return confirm('¿Seguro que deseas deshacer esta deuda y devolver el código a Retiros Activos?');">
-                                                        <input type="hidden" name="id" value="{{ r.id }}">
-                                                        <button type="submit" class="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-colors shadow-sm border border-emerald-200" title="Reactivar código caído">
-                                                            <i class="fas fa-undo mr-1"></i> Recuperar
-                                                        </button>
-                                                    </form>
-                                                    {% endif %}
-
-                                                    <form action="/mover_papelera" method="POST" class="m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
-                                                        <input type="hidden" name="id" value="{{ r.id }}">
-                                                        <button type="submit" class="text-slate-300 hover:text-red-500 transition-colors ml-1" title="Eliminar (Mover a papelera)"><i class="fas fa-trash-alt"></i></button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="bg-white border border-slate-100 p-2 rounded text-[10px] font-mono text-slate-500 space-y-1 mb-3">
-                                                {% for evento in r.historial %}
-                                                    {% if 'NO SALIÓ' in evento or 'Expirado' in evento %}
-                                                        <span class="block text-rose-600 font-bold"><i class="fas fa-exclamation-circle text-rose-400 mr-1"></i> {{ evento }}</span>
-                                                    {% elif 'REPOSICIÓN' in evento %}
-                                                        <span class="block text-slate-500 font-bold"><i class="fas fa-link text-slate-400 mr-1"></i> {{ evento }}</span>
-                                                    {% elif 'cubierta' in evento or 'Pagado totalmente' in evento %}
-                                                        <span class="block text-teal-600 font-bold"><i class="fas fa-check-double text-teal-400 mr-1"></i> {{ evento }}</span>
-                                                    {% elif 'Abono parcial' in evento %}
-                                                        <span class="block text-blue-600 font-bold"><i class="fas fa-hand-holding-usd text-blue-400 mr-1"></i> {{ evento }}</span>
-                                                    {% else %}
-                                                        <span class="block text-slate-600"><i class="fas fa-caret-right text-slate-300 mr-1"></i> {{ evento }}</span>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </div>
-
-                                            {% if r.estado == 'fallido_revision' %}
-                                                <div class="flex flex-col sm:flex-row gap-2 mt-2 pt-3 border-t border-yellow-200">
-                                                    <form action="/gestionar_deuda" method="POST" class="flex-1 m-0">
-                                                        <input type="hidden" name="id_revision" value="{{ r.id }}">
-                                                        <input type="hidden" name="accion" value="fusionar">
-                                                        <button type="submit" class="w-full bg-slate-800 hover:bg-slate-700 text-white text-[11px] font-black py-2 rounded shadow transition-colors flex items-center justify-center gap-2"><i class="fas fa-link"></i> Es Reposición (No sumar)</button>
-                                                    </form>
-                                                    <form action="/gestionar_deuda" method="POST" class="flex-1 m-0">
-                                                        <input type="hidden" name="id_revision" value="{{ r.id }}">
-                                                        <input type="hidden" name="accion" value="sumar">
-                                                        <button type="submit" class="w-full bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black py-2 rounded shadow transition-colors flex items-center justify-center gap-2"><i class="fas fa-plus-circle"></i> Es Deuda Nueva (Sumar)</button>
-                                                    </form>
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                                
-                                                <div class="flex items-center gap-2">
-                                                    {% if r.estado == 'fallido' %}
-                                                        <button onclick="abrirModalPago('{{ r.id }}', '{{ r.monto }}')" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-colors shadow-sm border border-indigo-200"><i class="fas fa-random mr-1"></i> Otro Método</button>
-                                                        <span class="text-[10px] text-rose-600 font-bold bg-white px-2 py-1 rounded border border-rose-200 uppercase tracking-wider">No Salió (Deuda)</span>
-                                                    {% elif r.estado == 'fallido_revision' %}
-                                                        <span class="text-[10px] text-yellow-700 font-bold bg-yellow-100 px-2 py-1 rounded border border-yellow-300 uppercase tracking-wider animate-pulse"><i class="fas fa-exclamation-triangle mr-1"></i> REQUIERE REVISIÓN</span>
-                                                    {% elif r.estado == 'saldado' %}
-                                                        <span class="text-[10px] text-teal-600 font-bold bg-white px-2 py-1 rounded border border-teal-200 uppercase tracking-wider">Saldado</span>
-                                                    {% elif r.estado == 'fusionado' %}
-                                                        <span class="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-1 rounded border border-slate-200 uppercase tracking-wider"><i class="fas fa-link mr-1"></i> Reposición (No suma)</span>
-                                                    {% else %}
-                                                        <div class="flex items-center gap-2">
-                                                            <span class="text-[10px] text-orange-600 font-bold bg-white px-2 py-1 rounded border border-orange-200 uppercase tracking-wider">Vencido</span>
-                                                            {% if r.estado == 'expirado' %}
-                                                            <form action="/recuperar_expirado" method="POST" class="m-0 inline-block" onsubmit="return confirm('¿Seguro que deseas reactivar este código y enviarlo a Retiros Activos?');">
-                                                                <input type="hidden" name="id" value="{{ r.id }}">
-                                                                <button type="submit" class="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-colors shadow-sm border border-emerald-200" title="Reactivar código">
-                                                                    <i class="fas fa-undo mr-1"></i> Recuperar
-                                                                </button>
-                                                            </form>
-                                                            {% endif %}
-                                                        </div>
-                                                    {% endif %}
-
                                                     <!-- NUEVO BOTÓN DE RECUPERAR PARA CÓDIGOS CAÍDOS (SÓLO SUPREMO) -->
                                                     {% if (r.estado == 'fallido' or r.estado == 'fallido_revision') and rol == 'supremo' %}
                                                     <form action="/recuperar_expirado" method="POST" class="m-0 inline-block" onsubmit="return confirm('¿Seguro que deseas deshacer esta deuda y devolver el código a Retiros Activos?');">
@@ -570,7 +498,9 @@
                             <span id="infoPagina" class="text-sm font-bold text-slate-600 bg-slate-100 px-4 py-2 rounded-lg border border-slate-200">Página 1</span>
                             <button id="btnNext" onclick="cambiarPagina(1)" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Siguiente <i class="fas fa-chevron-right ml-1"></i></button>
                         </div>
-                    {% endif %}{% elif vista == 'completados' %}
+                    {% endif %}
+
+                {% elif vista == 'completados' %}
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
                         <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
@@ -688,7 +618,9 @@
                             <span id="infoPagina" class="text-sm font-bold text-slate-600 bg-slate-100 px-4 py-2 rounded-lg border border-slate-200">Página 1</span>
                             <button id="btnNext" onclick="cambiarPagina(1)" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Siguiente <i class="fas fa-chevron-right ml-1"></i></button>
                         </div>
-                    {% endif %}{% else %}
+                    {% endif %}
+
+                {% else %}
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
                         <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">

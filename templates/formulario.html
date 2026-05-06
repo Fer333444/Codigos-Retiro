@@ -336,17 +336,34 @@
         const displayTotalSplit = document.getElementById('displayTotalSplit');
         const errorDesglose = document.getElementById('errorDesglose');
 
+        // FUNCIÓN CLAVE: DESBLOQUEA LOS CÓDIGOS AL ELEGIR MODO MANUAL O CAMBIAR BANCO
+        function desbloquearCodigos() {
+            inputClaveUnica.readOnly = false;
+            inputClaveUnica.removeAttribute('tabindex');
+            inputClaveUnica.classList.remove('opacity-80', 'cursor-not-allowed', 'pointer-events-none');
+            
+            inputClaveRetiro.readOnly = false;
+            inputClaveRetiro.removeAttribute('tabindex');
+            inputClaveRetiro.classList.remove('opacity-80', 'cursor-not-allowed', 'pointer-events-none');
+            
+            inputClaveEnvio.readOnly = false;
+            inputClaveEnvio.removeAttribute('tabindex');
+            inputClaveEnvio.classList.remove('opacity-80', 'cursor-not-allowed', 'pointer-events-none');
+        }
+
         function actualizarCamposBanco(bancoValue) {
             boxDinamica.classList.remove('hidden');
             divPichinchaProdubanco.classList.add('hidden');
             divGuayaquil.classList.add('hidden');
             divGenerico.classList.add('hidden');
             
-            // LIMPIAR CAMPOS AL CAMBIAR DE BANCO
+            // LIMPIAR CAMPOS Y DESBLOQUEAR AL CAMBIAR DE BANCO
             inputClaveUnica.value = '';
             inputClaveRetiro.value = '';
             inputClaveEnvio.value = '';
             inputClaveGenerica.value = '';
+
+            desbloquearCodigos();
 
             if (bancoValue === 'produbanco') {
                 divCedula.classList.remove('hidden');
@@ -393,6 +410,10 @@
         function mostrarFormularioManual() {
             document.getElementById('zonaSubidaFoto').classList.add('hidden');
             formCompleto.classList.add('visible');
+            
+            // Si eligen manual, nos aseguramos de que puedan editar
+            desbloquearCodigos();
+
             validarFormularioLive(); // Forza validación inicial
         }
 
@@ -593,13 +614,27 @@
                             document.getElementById('inputCedula').value = data.CEDULA; 
                         }
                         
+                        // BLOQUEO DE CÓDIGOS SI FUERON EXTRAIDOS POR LA IA
                         if((select.value === 'pichincha' || select.value === 'produbanco') && data.CLAVE_RETIRO) {
-                            document.getElementById('inputClaveUnica').value = data.CLAVE_RETIRO;
+                            inputClaveUnica.value = data.CLAVE_RETIRO;
+                            inputClaveUnica.readOnly = true;
+                            inputClaveUnica.setAttribute('tabindex', '-1');
+                            inputClaveUnica.classList.add('opacity-80', 'cursor-not-allowed', 'pointer-events-none');
                         }
                         
                         if(select.value === 'guayaquil') {
-                            if(data.CLAVE_RETIRO) document.getElementById('inputClaveRetiro').value = data.CLAVE_RETIRO;
-                            if(data.CLAVE_ENVIO) document.getElementById('inputClaveEnvio').value = data.CLAVE_ENVIO;
+                            if(data.CLAVE_RETIRO) {
+                                inputClaveRetiro.value = data.CLAVE_RETIRO;
+                                inputClaveRetiro.readOnly = true;
+                                inputClaveRetiro.setAttribute('tabindex', '-1');
+                                inputClaveRetiro.classList.add('opacity-80', 'cursor-not-allowed', 'pointer-events-none');
+                            }
+                            if(data.CLAVE_ENVIO) {
+                                inputClaveEnvio.value = data.CLAVE_ENVIO;
+                                inputClaveEnvio.readOnly = true;
+                                inputClaveEnvio.setAttribute('tabindex', '-1');
+                                inputClaveEnvio.classList.add('opacity-80', 'cursor-not-allowed', 'pointer-events-none');
+                            }
                         }
                         
                         // Mostramos el formulario y forzamos validación final
@@ -614,6 +649,8 @@
                     alert("Error de conexión. Llena los datos manualmente.");
                     document.getElementById('zonaSubidaFoto').classList.add('hidden');
                     formCompleto.classList.add('visible');
+                    
+                    desbloquearCodigos();
                     validarFormularioLive();
                 });
             }

@@ -1607,20 +1607,29 @@ def disparar_alerta_push(usuario_destino, titulo, mensaje):
         print(f"No hay suscripción guardada para {usuario_destino}")
         return
 
-    # 1. SOLUCIÓN: Evitar crash si las llaves VAPID no existen en tu servidor
     if not VAPID_PRIVATE_KEY:
         print("⚠️ No hay VAPID_PRIVATE_KEY configurada. Omitiendo push.")
         return
 
     try:
+        # 🔥 SOLUCIÓN: Mandamos las variables en inglés y español al mismo tiempo 
+        # para asegurar compatibilidad total con cualquier celular Android/iOS
+        payload = json.dumps({
+            "title": titulo, 
+            "body": mensaje,
+            "titulo": titulo,
+            "mensaje": mensaje,
+            "icon": "/static/flujo-notificacion.png",
+            "url": "/"
+        })
+        
         webpush(
             subscription_info=suscripcion,
-            data=json.dumps({"title": titulo, "body": mensaje}),
+            data=payload,
             vapid_private_key=VAPID_PRIVATE_KEY,
             vapid_claims=VAPID_CLAIMS
         )
         print(f"✅ Push enviado con éxito a {usuario_destino}")
-    # 2. SOLUCIÓN: Usar "Exception" en lugar de "WebPushException" atrapará CUALQUIER error
     except Exception as ex:
         print(f"❌ Error enviando push a {usuario_destino}:", repr(ex))
 @app.route('/reset_push')

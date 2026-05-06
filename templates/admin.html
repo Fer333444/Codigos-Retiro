@@ -841,7 +841,7 @@
                 }
 
                 try {
-                    const register = await navigator.serviceWorker.register('/sw.js');
+                    const register = await navigator.serviceWorker.register('/sw.js?v=' + new Date().getTime());
                     
                     const oldSubscription = await register.pushManager.getSubscription();
                     if (oldSubscription) {

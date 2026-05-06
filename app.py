@@ -1596,42 +1596,59 @@ def serve_sw():
 @app.route('/guardar_suscripcion', methods=['POST'])
 def guardar_suscripcion():
     if 'usuario' in session:
-        suscripciones_push[session['usuario']] = request.json
-        guardar_datos() # <-- ¡CRÍTICO! AHORA SÍ SE GUARDA EN DISCO Y NO SE BORRA
+        usuario = session['usuario']
+        nueva_sub = request.json
+        
+        # 1. Si no existe o es un dato viejo, lo convertimos a lista para soportar PC + Celular
+        if usuario not in suscripciones_push or isinstance(suscripciones_push.get(usuario), dict):
+            suscripciones_push[usuario] = []
+            
+        # 2. Filtramos para no tener dispositivos repetidos exactos
+        suscripciones_push[usuario] = [s for s in suscripciones_push[usuario] if s.get('endpoint') != nueva_sub.get('endpoint')]
+        
+        # 3. Agregamos el nuevo dispositivo
+        suscripciones_push[usuario].append(nueva_sub)
+        guardar_datos() 
+        
     return jsonify({"status": "ok"})
 
 def disparar_alerta_push(usuario_destino, titulo, mensaje):
     """Esta es la pistola que dispara el mensaje al celular cerrado"""
-    suscripcion = suscripciones_push.get(usuario_destino)
-    if not suscripcion: 
+    subs = suscripciones_push.get(usuario_destino)
+    if not subs: 
         print(f"No hay suscripción guardada para {usuario_destino}")
         return
+
+    # Compatibilidad por si quedó un dato viejo en disco
+    if isinstance(subs, dict):
+        subs = [subs]
 
     if not VAPID_PRIVATE_KEY:
         print("⚠️ No hay VAPID_PRIVATE_KEY configurada. Omitiendo push.")
         return
 
-    try:
-        # 🔥 SOLUCIÓN: Mandamos las variables en inglés y español al mismo tiempo 
-        # para asegurar compatibilidad total con cualquier celular Android/iOS
-        payload = json.dumps({
-            "title": titulo, 
-            "body": mensaje,
-            "titulo": titulo,
-            "mensaje": mensaje,
-            "icon": "/static/flujo-notificacion.png",
-            "url": "/"
-        })
-        
-        webpush(
-            subscription_info=suscripcion,
-            data=payload,
-            vapid_private_key=VAPID_PRIVATE_KEY,
-            vapid_claims=VAPID_CLAIMS
-        )
-        print(f"✅ Push enviado con éxito a {usuario_destino}")
-    except Exception as ex:
-        print(f"❌ Error enviando push a {usuario_destino}:", repr(ex))
+    payload = json.dumps({
+        "title": titulo, 
+        "body": mensaje,
+        "titulo": titulo,
+        "mensaje": mensaje,
+        "icon": "/static/flujo-notificacion.png",
+        "url": "/"
+    })
+    
+    for sub in subs:
+        try:
+            webpush(
+                subscription_info=sub,
+                data=payload,
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims=VAPID_CLAIMS,
+                ttl=28800, # <-- SOLUCIÓN ANDROID: Mantiene la notificación viva intentando enviar por 8h si no hay internet
+                headers={"Urgency": "high"} # <-- SOLUCIÓN ANDROID: Obliga a despertar y vibrar el celular
+            )
+            print(f"✅ Push enviado con éxito a un dispositivo de {usuario_destino}")
+        except Exception as ex:
+            print(f"❌ Error enviando push a {usuario_destino}:", repr(ex))
 @app.route('/reset_push')
 def reset_push():
     if session.get('rol') != 'supremo': return "No autorizado"

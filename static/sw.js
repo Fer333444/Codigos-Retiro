@@ -1,20 +1,46 @@
 self.addEventListener('push', function(event) {
-    const data = event.data ? event.data.json() : {};
-    
+    let data = {};
+    if (event.data) {
+        try {
+            data = event.data.json();
+        } catch (e) {
+            data = { title: 'Nueva Alerta', body: event.data.text() };
+        }
+    }
+
+    const title = data.title || data.titulo || 'Alerta ERP';
     const options = {
-        body: data.body || 'Tienes un nuevo mensaje.',
-        icon: 'https://cdn-icons-png.flaticon.com/512/1828/1828640.png',
-        badge: 'https://cdn-icons-png.flaticon.com/512/1828/1828640.png',
-        vibrate: [200, 100, 200, 100, 200, 100, 200],
-        requireInteraction: true // Hace que la notificación no desaparezca sola
+        body: data.body || data.mensaje || 'Tienes un nuevo movimiento.',
+        icon: data.icon || '/static/flujo-notificacion.png',
+        badge: '/static/flujo-notificacion.png', // Iconito pequeño de la barra superior
+        vibrate: [300, 100, 300, 100, 300], // 🔥 Patrón de vibración fuerte para celular Android
+        requireInteraction: true, // 🔥 Impide que la notificación se borre sola sin que el usuario la toque
+        data: {
+            url: data.url || '/'
+        }
     };
 
+    // ¡CRÍTICO EN ANDROID! Sin "event.waitUntil", Android mata la notificación antes de que suene
     event.waitUntil(
-        self.registration.showNotification(data.title || '¡Alerta Flujo ERP!', options)
+        self.registration.showNotification(title, options)
     );
 });
 
 self.addEventListener('notificationclick', function(event) {
     event.notification.close();
-    event.waitUntil( clients.openWindow('/') ); // Abre la app al tocarla
+    if (event.notification.data && event.notification.data.url) {
+        event.waitUntil(
+            clients.matchAll({ type: 'window' }).then(function(clientList) {
+                for (let i = 0; i < clientList.length; i++) {
+                    let client = clientList[i];
+                    if (client.url === event.notification.data.url && 'focus' in client) {
+                        return client.focus();
+                    }
+                }
+                if (clients.openWindow) {
+                    return clients.openWindow(event.notification.data.url);
+                }
+            })
+        );
+    }
 });

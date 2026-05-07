@@ -1103,9 +1103,12 @@ def saldar_deuda():
 
     if str(id_deuda_raw).startswith('total_'):
         usuario_deudor = str(id_deuda_raw).split('total_')[1]
-        deudas_usuario = [r for r in registros if r['usuario'] == usuario_deudor and r['estado'] == 'fallido']
+        
+        # CANDADO 1: Solo tomamos deudas donde el id_pago sea MAYOR (posterior) al id de la deuda
+        deudas_usuario = [r for r in registros if r['usuario'] == usuario_deudor and r['estado'] == 'fallido' and r['id'] < id_pago]
+        
         if not deudas_usuario:
-            flash("No hay deudas activas para este usuario.", "error")
+            flash("No hay deudas válidas anteriores a este pago para cruzar.", "error")
             return redirect(url_for('vista_reportes', vista='historial'))
         
         monto_inicial_pago = monto_pago_disp
@@ -1117,11 +1120,11 @@ def saldar_deuda():
             if monto_pago_disp >= monto_deuda_actual:
                 monto_pago_disp -= monto_deuda_actual
                 deuda['estado'] = 'saldado'
-                deuda['historial'].append(f"[{hora_actual}] ✅ Deuda saldada (Abono a Total) usando el pago #{id_pago}.")
+                deuda['historial'].append(f"[{hora_actual}] ✅ Deuda saldada (Abono a Total) usando el pago posterior #{id_pago}.")
             else:
                 restante = monto_deuda_actual - monto_pago_disp
                 deuda['monto'] = str(format_num(restante))
-                deuda['historial'].append(f"[{hora_actual}] ⚠️ Abono parcial de ${format_num(monto_pago_disp)} (Abono a Total) con pago #{id_pago}.")
+                deuda['historial'].append(f"[{hora_actual}] ⚠️ Abono parcial de ${format_num(monto_pago_disp)} (Abono a Total) con pago posterior #{id_pago}.")
                 monto_pago_disp = 0
                 break
         
@@ -1135,6 +1138,11 @@ def saldar_deuda():
         deuda_record = next((r for r in registros if r['id'] == id_deuda), None)
 
         if deuda_record:
+            # CANDADO 2: Verificamos directamente que el pago sea posterior a esta deuda puntual
+            if id_pago < id_deuda:
+                flash("Error: El pago debe haber ingresado DESPUÉS de la deuda para poder cruzarlo.", "error")
+                return redirect(url_for('vista_reportes', vista='historial'))
+
             monto_deuda = float(deuda_record['monto'])
             if monto_pago_disp >= monto_deuda:
                 sobrante = monto_pago_disp - monto_deuda

@@ -445,18 +445,37 @@
                                 {% if tiene_deuda_activa.estado %}
                                     {% set pagos_disponibles = exitosos | selectattr("usuario", "equalto", usuario) | list %}
                                     {% set ns = namespace(hay_pagos=false) %}
+
                                     {% for pago in pagos_disponibles %}
                                         {% set disp = pago.saldo_disponible if pago.saldo_disponible is defined else pago.monto %}
-                                        {% if disp|float > 0 %} {% set ns.hay_pagos = true %} {% endif %}
+                                        {% set ns_pago = namespace(sirve=false) %}
+                                        {% for d in deudas %}
+                                            {% if d.estado == 'fallido' and pago.id > d.id %}
+                                                {% set ns_pago.sirve = true %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        {% if disp|float > 0 and ns_pago.sirve %}
+                                            {% set ns.hay_pagos = true %}
+                                        {% endif %}
                                     {% endfor %}
 
                                     {% if ns.hay_pagos %}
                                         <div class="bg-blue-50/50 border-t border-blue-100 p-4">
-                                            <p class="text-[11px] font-black text-blue-800 uppercase tracking-widest mb-3"><i class="fas fa-magic mr-1"></i> Pagos a favor de {{ usuario }}</p>
+                                            <p class="text-[11px] font-black text-blue-800 uppercase tracking-widest mb-3"><i class="fas fa-magic mr-1"></i> Nuevos pagos a favor de {{ usuario }}</p>
                                             <div class="space-y-2">
                                                 {% for pago in pagos_disponibles %}
                                                     {% set disp = pago.saldo_disponible if pago.saldo_disponible is defined else pago.monto %}
-                                                    {% if disp|float > 0 %}
+                                                    {% set ns_pago = namespace(sirve=false) %}
+                                                    {% set deuda_total_valida = namespace(valor=0) %}
+                                                    
+                                                    {% for d in deudas %}
+                                                        {% if d.estado == 'fallido' and pago.id > d.id %}
+                                                            {% set ns_pago.sirve = true %}
+                                                            {% set deuda_total_valida.valor = deuda_total_valida.valor + d.monto|float %}
+                                                        {% endif %}
+                                                    {% endfor %}
+
+                                                    {% if disp|float > 0 and ns_pago.sirve %}
                                                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-3 rounded-lg border border-blue-200 shadow-sm">
                                                             <div>
                                                                 <span class="font-black text-emerald-600 text-lg">+${{ disp }}</span>
@@ -467,10 +486,10 @@
                                                                     <input type="hidden" name="id_pago" value="{{ pago.id }}">
                                                                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
                                                                         <select name="id_deuda" class="text-xs border border-blue-200 rounded p-2 text-blue-800 bg-blue-50 font-bold outline-none w-full sm:w-auto">
-                                                                            <option value="total_{{ usuario }}" class="font-black bg-blue-100">💰 Abonar a DEUDA TOTAL (${{ "%.2f"|format(total_deuda.valor) }})</option>
-                                                                            <optgroup label="O abonar a deuda individual:">
+                                                                            <option value="total_{{ usuario }}" class="font-black bg-blue-100">💰 Abonar a DEUDA TOTAL VÁLIDA (${{ "%.2f"|format(deuda_total_valida.valor) }})</option>
+                                                                            <optgroup label="O abonar a deuda individual (Anteriores):">
                                                                                 {% for d in deudas %}
-                                                                                    {% if d.estado == 'fallido' %}
+                                                                                    {% if d.estado == 'fallido' and pago.id > d.id %}
                                                                                         <option value="{{ d.id }}">Solo a deuda de ${{ d.monto }} (Cod: {{ d.id }})</option>
                                                                                     {% endif %}
                                                                                 {% endfor %}

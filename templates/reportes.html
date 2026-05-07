@@ -351,11 +351,16 @@
                                             <div class="flex justify-between items-start mb-2">
                                                 <div>
                                                     <span class="font-black text-lg 
-                                                        {% if r.estado == 'fallido' %}text-rose-600
-                                                        {% elif r.estado == 'fallido_revision' %}text-yellow-600
-                                                        {% elif r.estado == 'saldado' or r.estado == 'fusionado' %}text-slate-400 line-through
-                                                        {% else %}text-orange-500{% endif %}">${{ r.monto }}</span>
-                                                    <span class="text-xs font-bold text-slate-500 uppercase ml-2">{{ r.banco }} (Cod: {{ r.id }})</span>
+    {% if r.estado == 'fallido' %}text-rose-600
+    {% elif r.estado == 'fallido_revision' %}text-yellow-600
+    {% elif r.estado == 'saldado' or r.estado == 'fusionado' %}text-slate-400 line-through
+    {% else %}text-orange-500{% endif %}">${{ r.monto }}</span>
+<span class="text-xs font-bold text-slate-500 uppercase ml-2 flex-wrap flex items-center gap-2 mt-1 sm:mt-0 sm:inline-flex">
+    {{ r.banco }} (Cod: {{ r.id }}) 
+    <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">
+        <i class="fas fa-calendar-alt mr-1"></i> Ingresado: {{ r.fecha }}
+    </span>
+</span>
                                                     
                                                     <!-- BOTÓN NUEVO DE EVIDENCIA -->
                                                     {% if r.imagen_fallo %}

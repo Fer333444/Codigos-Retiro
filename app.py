@@ -171,7 +171,7 @@ def esta_expirado(hora_limite_str, fecha_creacion_str):
 @app.before_request
 def mantenimiento_datos():
     cambios_realizados = False
-    hora_actual = hora_ecuador().strftime('%H:%M')
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     tiempo_ahora = time.time()
 # --- 🛠️ AUTO-REPARADOR DE IDs DUPLICADOS ---
     ids_vistos = set()
@@ -586,7 +586,7 @@ def procesar_formulario_retiro(req, lista_usuarios):
             nombres_imagenes.append(nombre)
     str_imagenes = ",".join(nombres_imagenes) if nombres_imagenes else None
 
-    hora_actual = hora_ecuador().strftime('%H:%M')
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     asignado_a_quien = None
     asignacion_estado = 'no_asignado' 
     
@@ -786,7 +786,7 @@ def admin():
 def toggle_auto():
     if session.get('rol') not in ['supremo', 'recaudador']: return redirect(url_for('login'))
     sistema_config['auto_asignar'] = not sistema_config['auto_asignar']
-    hora_actual = hora_ecuador().strftime('%H:%M')
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     if sistema_config['auto_asignar']:
         # NUEVA LÓGICA: INCLUYE A LOS QUE TIENEN PERMISO DE PROCESAR
         cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
@@ -826,7 +826,7 @@ def asignar_trabajo():
     if not trabajador:
         return redirect(url_retorno)
         
-    hora_actual = hora_ecuador().strftime('%H:%M')
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     
     for r in registros:
         if r['id'] == registro_id:
@@ -874,7 +874,7 @@ def mover_papelera():
     
     registro_id = int(request.form.get('id'))
     motivo = request.form.get('motivo_borrado', 'Sin motivo')
-    hora_actual = hora_ecuador().strftime('%H:%M')
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     
     for r in registros:
         if r['id'] == registro_id:
@@ -893,7 +893,7 @@ def restaurar_papelera():
     if session.get('rol') not in ['supremo', 'reportes'] and 'ver_reportes' not in mis_permisos: return redirect(url_for('login'))
     
     registro_id = int(request.form.get('id'))
-    hora_actual = hora_ecuador().strftime('%H:%M')
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     
     for r in registros:
         if r['id'] == registro_id and r['estado'] == 'papelera':
@@ -918,7 +918,7 @@ def marcar_retirado():
     
     registro_id = int(request.form.get('id'))
     banco_real = request.form.get('banco_real', 'No especificado').strip()
-    hora_actual = hora_ecuador().strftime('%H:%M')
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     
     for r in registros:
         if r['id'] == registro_id:
@@ -949,7 +949,7 @@ def marcar_fallido():
         
     registro_id = int(request.form.get('id'))
     motivo = request.form.get('motivo', 'Sin especificar')
-    hora_actual = hora_ecuador().strftime('%H:%M')
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     
     # --- NUEVO: GUARDAR LA FOTO DE EVIDENCIA TOMADA CON EL CELULAR ---
     imagenes = request.files.getlist('evidencia_fallo')
@@ -994,7 +994,7 @@ def gestionar_deuda():
     
     id_revision = int(request.form.get('id_revision'))
     accion = request.form.get('accion') 
-    hora_actual = hora_ecuador().strftime('%H:%M')
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
 
     registro_revision = next((r for r in registros if r['id'] == id_revision), None)
 
@@ -1026,7 +1026,7 @@ def pago_alternativo():
         flash("Valor de pago inválido.", "error")
         return redirect(url_for('vista_reportes', vista='historial'))
 
-    hora_actual = hora_ecuador().strftime('%H:%M')
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     
     def format_num(val):
         return int(val) if float(val).is_integer() else round(float(val), 2)
@@ -1096,7 +1096,7 @@ def saldar_deuda():
         flash("Error calculando el saldo del pago.", "error")
         return redirect(url_for('vista_reportes', vista='historial'))
 
-    hora_actual = hora_ecuador().strftime('%H:%M')
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
 
     def format_num(val):
         return int(val) if float(val).is_integer() else round(float(val), 2)
@@ -1273,7 +1273,7 @@ def marcar_recibido():
     if session.get('rol') not in ['supremo', 'recaudador']: return redirect(url_for('login'))
     
     cobrador = request.form.get('cobrador')
-    hora_actual = hora_ecuador().strftime('%H:%M')
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     usuario_sesion = session.get('usuario').capitalize()
     
     # Recibimos los nuevos datos del formulario
@@ -1679,7 +1679,7 @@ def recuperar_expirado():
         return redirect(url_for('login'))
         
     registro_id = int(request.form.get('id'))
-    hora_actual = hora_ecuador().strftime('%H:%M')
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     
     for r in registros:
         if r['id'] == registro_id:

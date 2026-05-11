@@ -12,15 +12,15 @@ self.addEventListener('push', function(event) {
     const options = {
         body: data.body || data.mensaje || 'Tienes un nuevo movimiento.',
         icon: data.icon || '/static/flujo-notificacion.png',
-        badge: '/static/flujo-notificacion.png', // Iconito pequeño de la barra superior
-        vibrate: [300, 100, 300, 100, 300], // 🔥 Patrón de vibración fuerte para celular Android
-        requireInteraction: true, // 🔥 Impide que la notificación se borre sola sin que el usuario la toque
+        badge: '/static/flujo-notificacion.png',
+        vibrate: [300, 100, 300, 100, 300],
+        requireInteraction: true,
+        tag: Date.now().toString(),
         data: {
             url: data.url || '/'
         }
     };
 
-    // ¡CRÍTICO EN ANDROID! Sin "event.waitUntil", Android mata la notificación antes de que suene
     event.waitUntil(
         self.registration.showNotification(title, options)
     );

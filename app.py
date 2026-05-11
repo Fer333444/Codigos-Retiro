@@ -6,6 +6,7 @@ import io
 import json
 import base64
 import time
+import threading
 from pywebpush import webpush, WebPushException
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
@@ -660,8 +661,8 @@ def procesar_formulario_retiro(req, lista_usuarios):
     flash(f'✅ ¡Datos enviados correctamente!', 'success')
 
     # === DISPARAR NOTIFICACIONES PUSH REALES ===
-    # 1. Avisar a los administradores
-    admin_users = [u for u, info in usuarios_db.items() if info['rol'] in ['supremo', 'recaudador']]
+    # 1. Avisar a todos los usuarios operativos
+    admin_users = [u for u, info in usuarios_db.items() if info['rol'] in ['supremo', 'recaudador', 'cobrador'] or 'procesar_retiros' in info.get('permisos', [])]
     for admin in admin_users:
         disparar_alerta_push(admin, "¡Nuevo Retiro Cliente! 💰", f"Se han ingresado ${monto_total_str} del banco {banco}.")
     
@@ -1621,13 +1622,12 @@ def guardar_suscripcion():
     return jsonify({"status": "ok"})
 
 def disparar_alerta_push(usuario_destino, titulo, mensaje):
-    """Esta es la pistola que dispara el mensaje al celular cerrado"""
+    """Dispara la notificación push en un hilo secundario para no bloquear Flask."""
     subs = suscripciones_push.get(usuario_destino)
-    if not subs: 
+    if not subs:
         print(f"No hay suscripción guardada para {usuario_destino}")
         return
 
-    # Compatibilidad por si quedó un dato viejo en disco
     if isinstance(subs, dict):
         subs = [subs]
 
@@ -1636,27 +1636,44 @@ def disparar_alerta_push(usuario_destino, titulo, mensaje):
         return
 
     payload = json.dumps({
-        "title": titulo, 
+        "title": titulo,
         "body": mensaje,
         "titulo": titulo,
         "mensaje": mensaje,
         "icon": "/static/flujo-notificacion.png",
         "url": "/"
     })
-    
-    for sub in subs:
-        try:
-            webpush(
-                subscription_info=sub,
-                data=payload,
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims=VAPID_CLAIMS,
-                ttl=28800, # <-- SOLUCIÓN ANDROID: Mantiene la notificación viva intentando enviar por 8h si no hay internet
-                headers={"Urgency": "high"} # <-- SOLUCIÓN ANDROID: Obliga a despertar y vibrar el celular
-            )
-            print(f"✅ Push enviado con éxito a un dispositivo de {usuario_destino}")
-        except Exception as ex:
-            print(f"❌ Error enviando push a {usuario_destino}:", repr(ex))
+
+    subs_copia = list(subs)
+
+    def enviar_en_hilo():
+        for sub in subs_copia:
+            try:
+                webpush(
+                    subscription_info=sub,
+                    data=payload,
+                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_claims=VAPID_CLAIMS,
+                    ttl=28800,
+                    headers={"Urgency": "high"}
+                )
+                print(f"✅ Push enviado con éxito a un dispositivo de {usuario_destino}")
+            except WebPushException as ex:
+                status = getattr(getattr(ex, 'response', None), 'status_code', None)
+                print(f"❌ WebPushException a {usuario_destino} (status {status}):", repr(ex))
+                if status in (404, 410):
+                    endpoint = sub.get('endpoint')
+                    if usuario_destino in suscripciones_push:
+                        suscripciones_push[usuario_destino] = [
+                            s for s in suscripciones_push[usuario_destino]
+                            if s.get('endpoint') != endpoint
+                        ]
+                        guardar_datos()
+                        print(f"🗑️ Suscripción inválida eliminada para {usuario_destino}")
+            except Exception as ex:
+                print(f"❌ Error enviando push a {usuario_destino}:", repr(ex))
+
+    threading.Thread(target=enviar_en_hilo, daemon=True).start()
 @app.route('/reset_push')
 def reset_push():
     if session.get('rol') != 'supremo': return "No autorizado"

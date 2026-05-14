@@ -834,14 +834,21 @@
 
                 audioAlerta.play().catch(e => console.log("Audio esperando"));
 
-                const permission = await Notification.requestPermission();
+                let permission = Notification.permission;
                 if (permission !== 'granted') {
-                    mostrarToast("❌ Permiso denegado por el navegador.");
+                    try {
+                        permission = await Notification.requestPermission();
+                    } catch (e) {
+                        permission = await new Promise(resolve => Notification.requestPermission(resolve));
+                    }
+                }
+                if (permission !== 'granted') {
+                    alert("El navegador bloqueó las notificaciones. Para activarlas en Samsung Internet o Chrome: 1. Toca el icono de ajustes o candado junto a la dirección web (arriba). 2. Ve a Permisos o Configuración del sitio. 3. Activa las Notificaciones. 4. Recarga la página y vuelve a tocar la campana.");
                     return;
                 }
 
                 try {
-                    const register = await navigator.serviceWorker.register('/sw.js?v=' + new Date().getTime());
+                    const register = await navigator.serviceWorker.register('/sw.js?v=' + new Date().getTime(), { scope: '/' });
                     
                     const oldSubscription = await register.pushManager.getSubscription();
                     if (oldSubscription) {

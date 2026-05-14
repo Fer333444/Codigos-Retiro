@@ -315,7 +315,7 @@
                             {% set total_deuda = namespace(valor=0) %}
                             {% set tiene_deuda_activa = namespace(estado=false) %}
                             {% for d in deudas %}
-                                {% if d.estado == 'fallido' %}
+                                {% if d.estado in ['fallido', 'expirado'] %}
                                     {% set total_deuda.valor = total_deuda.valor + d.monto|float %}
                                     {% set suma_deuda_total.valor = suma_deuda_total.valor + d.monto|float %}
                                     {% set tiene_deuda_activa.estado = true %}
@@ -382,7 +382,10 @@
                                                         <span class="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-1 rounded border border-slate-200 uppercase tracking-wider"><i class="fas fa-link mr-1"></i> Reposición (No suma)</span>
                                                     {% else %}
                                                         <div class="flex items-center gap-2">
-                                                            <span class="text-[10px] text-orange-600 font-bold bg-white px-2 py-1 rounded border border-orange-200 uppercase tracking-wider">Vencido</span>
+                                                            {% if r.estado == 'expirado' %}
+                                                            <button onclick="abrirModalPago('{{ r.id }}', '{{ r.monto }}')" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-colors shadow-sm border border-indigo-200"><i class="fas fa-random mr-1"></i> Otro Método</button>
+                                                            {% endif %}
+                                                            <span class="text-[10px] text-orange-600 font-bold bg-white px-2 py-1 rounded border border-orange-200 uppercase tracking-wider">Vencido (Deuda)</span>
                                                             {% if r.estado == 'expirado' %}
                                                             <form action="/recuperar_expirado" method="POST" class="m-0 inline-block" onsubmit="return confirm('¿Seguro que deseas reactivar este código y enviarlo a Retiros Activos?');">
                                                                 <input type="hidden" name="id" value="{{ r.id }}">
@@ -455,7 +458,7 @@
                                         {% set disp = pago.saldo_disponible if pago.saldo_disponible is defined else pago.monto %}
                                         {% set ns_pago = namespace(sirve=false) %}
                                         {% for d in deudas %}
-                                            {% if d.estado == 'fallido' and pago.id > d.id %}
+                                            {% if d.estado in ['fallido', 'expirado'] and pago.id > d.id %}
                                                 {% set ns_pago.sirve = true %}
                                             {% endif %}
                                         {% endfor %}
@@ -474,7 +477,7 @@
                                                     {% set deuda_total_valida = namespace(valor=0) %}
                                                     
                                                     {% for d in deudas %}
-                                                        {% if d.estado == 'fallido' and pago.id > d.id %}
+                                                        {% if d.estado in ['fallido', 'expirado'] and pago.id > d.id %}
                                                             {% set ns_pago.sirve = true %}
                                                             {% set deuda_total_valida.valor = deuda_total_valida.valor + d.monto|float %}
                                                         {% endif %}
@@ -494,7 +497,7 @@
                                                                             <option value="total_{{ usuario }}" class="font-black bg-blue-100">💰 Abonar a DEUDA TOTAL VÁLIDA (${{ "%.2f"|format(deuda_total_valida.valor) }})</option>
                                                                             <optgroup label="O abonar a deuda individual (Anteriores):">
                                                                                 {% for d in deudas %}
-                                                                                    {% if d.estado == 'fallido' and pago.id > d.id %}
+                                                                                    {% if d.estado in ['fallido', 'expirado'] and pago.id > d.id %}
                                                                                         <option value="{{ d.id }}">Solo a deuda de ${{ d.monto }} (Cod: {{ d.id }})</option>
                                                                                     {% endif %}
                                                                                 {% endfor %}

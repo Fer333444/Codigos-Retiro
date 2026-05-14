@@ -1034,7 +1034,7 @@ def pago_alternativo():
 
     deuda_record = next((r for r in registros if r['id'] == id_deuda), None)
     
-    if deuda_record and deuda_record['estado'] == 'fallido':
+    if deuda_record and deuda_record['estado'] in ['fallido', 'expirado']:
         monto_actual = float(deuda_record['monto'])
         
         imagenes = request.files.getlist('comprobante_pago')
@@ -1106,7 +1106,7 @@ def saldar_deuda():
         usuario_deudor = str(id_deuda_raw).split('total_')[1]
         
         # CANDADO 1: Solo tomamos deudas donde el id_pago sea MAYOR (posterior) al id de la deuda
-        deudas_usuario = [r for r in registros if r['usuario'] == usuario_deudor and r['estado'] == 'fallido' and r['id'] < id_pago]
+        deudas_usuario = [r for r in registros if r['usuario'] == usuario_deudor and r['estado'] in ['fallido', 'expirado'] and r['id'] < id_pago]
         
         if not deudas_usuario:
             flash("No hay deudas válidas anteriores a este pago para cruzar.", "error")

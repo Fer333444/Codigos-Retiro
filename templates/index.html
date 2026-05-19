@@ -307,6 +307,7 @@
                                     {% endif %}
                                     
                                     {% for token, data in enlaces.items() %}
+                                    {% set usuario_js = data.usuario | replace("\\", "\\\\") | replace("'", "\\'") %}
                                     <tr class="hover:bg-slate-50 group fila-link transition-colors">
                                         <td class="py-4 px-4 text-center">
                                             <input type="checkbox" name="tokens" value="{{ token }}" class="chk-link w-4 h-4 text-green-600 rounded cursor-pointer">
@@ -324,7 +325,7 @@
                                                     <i class="fas fa-copy"></i>
                                                 </button>
 
-                                                <button type="button" onclick="abrirHistorialCliente({{ data.usuario|tojson }})" title="Estado de cuenta / historial" class="w-8 h-8 flex items-center justify-center border border-violet-200 text-violet-600 bg-violet-50 rounded-lg hover:bg-violet-600 hover:text-white transition-all shadow-sm">
+                                                <button type="button" onclick="abrirHistorialCliente('{{ usuario_js }}')" title="Estado de cuenta / historial" class="w-8 h-8 flex items-center justify-center border border-violet-200 text-violet-600 bg-violet-50 rounded-lg hover:bg-violet-600 hover:text-white transition-all shadow-sm">
                                                     <i class="fas fa-file-invoice-dollar"></i>
                                                 </button>
                                                 
@@ -385,6 +386,7 @@
         const modal = document.getElementById('modalEditar');
         
         function abrirModal(token, usuario, grupo) {
+            if (!modal) return;
             document.getElementById('editToken').value = token;
             document.getElementById('editUsuario').value = usuario;
             document.getElementById('editGrupo').value = grupo;
@@ -392,12 +394,14 @@
         }
 
         function cerrarModal() {
-            modal.classList.add('hidden');
+            if (modal) modal.classList.add('hidden');
         }
 
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) cerrarModal();
-        });
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) cerrarModal();
+            });
+        }
 
         const selectAll = document.getElementById('selectAll');
         const checkboxes = document.querySelectorAll('.chk-link');
@@ -428,7 +432,9 @@
             chk.addEventListener('change', updateBulkBar);
         });
 
-        document.getElementById('buscadorLinks').addEventListener('keyup', function() {
+        const elBuscadorLinks = document.getElementById('buscadorLinks');
+        if (elBuscadorLinks) {
+            elBuscadorLinks.addEventListener('keyup', function() {
             let filter = this.value.toLowerCase();
             let rows = document.querySelectorAll('.fila-link');
             
@@ -444,6 +450,7 @@
             });
             updateBulkBar();
         });
+        }
 
         function copiarLink(url) {
             navigator.clipboard.writeText(url).then(() => {
@@ -487,7 +494,8 @@
         }
 
         function cerrarHistorialCliente() {
-            if (modalHistorial) modalHistorial.classList.add('hidden');
+            const el = document.getElementById('modalHistorialCliente');
+            if (el) el.classList.add('hidden');
         }
 
         if (modalHistorial) {
@@ -498,16 +506,16 @@
 
         async function abrirHistorialCliente(usuario) {
             const nombre = String(usuario || '').trim();
+            const modalEl = document.getElementById('modalHistorialCliente');
             const elNombre = document.getElementById('historialClienteNombre');
             const elLoad = document.getElementById('historialClienteLoading');
             const elErr = document.getElementById('historialClienteError');
             const elBody = document.getElementById('historialClienteBody');
             const elTabla = document.getElementById('historialClienteTabla');
 
-            if (!modalHistorial || !elNombre || !elLoad || !elErr || !elBody || !elTabla) return;
+            if (!modalEl || !elNombre || !elLoad || !elErr || !elBody || !elTabla) return;
 
-            const path = encodeURIComponent(nombre);
-            modalHistorial.classList.remove('hidden');
+            modalEl.classList.remove('hidden');
             elNombre.textContent = nombre;
             elErr.classList.add('hidden');
             elBody.classList.add('hidden');
@@ -515,7 +523,7 @@
             elTabla.innerHTML = '';
 
             try {
-                const res = await fetch('/api/historial_cliente/' + path, {
+                const res = await fetch('/api/historial_cliente/' + encodeURIComponent(nombre), {
                     credentials: 'same-origin',
                     headers: { 'Accept': 'application/json' },
                 });

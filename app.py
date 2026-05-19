@@ -275,6 +275,8 @@ def api_historial_cliente(usuario):
                 'monto': r.get('monto') or '',
                 'estado': r.get('estado') or '',
                 'asignado_a': r.get('asignado_a'),
+                'imagen': r.get('imagen', ''),
+                'imagen_fallo': r.get('imagen_fallo', ''),
             })
 
     resultados.sort(

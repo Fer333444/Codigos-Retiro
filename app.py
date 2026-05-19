@@ -249,6 +249,40 @@ def index():
     bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
     
     return render_template('index.html', enlaces=enlaces_db, mi_usuario=session['usuario'], rol=session.get('rol'), base_url=request.host_url, grupos=grupos_creados, horario_activo=horario, bancos_activos=bancos_activos)
+
+@app.route('/api/historial_cliente/<path:usuario>')
+def api_historial_cliente(usuario):
+    """Historial absoluto de movimientos del cliente para estado de cuenta en index."""
+    if 'usuario' not in session:
+        return jsonify({'error': 'No autorizado'}), 403
+    mis_permisos = session.get('permisos', [])
+    if session.get('rol') != 'supremo' and 'crear_links' not in mis_permisos:
+        return jsonify({'error': 'No autorizado'}), 403
+
+    usuario_buscar = (usuario or '').strip()
+    if not usuario_buscar:
+        return jsonify([])
+
+    resultados = []
+    for r in registros:
+        if r.get('estado') == 'papelera':
+            continue
+        if usuario_buscar in r.get('usuario', ''):
+            resultados.append({
+                'id': r.get('id'),
+                'fecha': r.get('fecha', ''),
+                'banco': r.get('banco') or '',
+                'monto': r.get('monto') or '',
+                'estado': r.get('estado') or '',
+                'asignado_a': r.get('asignado_a'),
+            })
+
+    resultados.sort(
+        key=lambda x: x['id'] if isinstance(x.get('id'), (int, float)) else 0,
+        reverse=True,
+    )
+    return jsonify(resultados)
+
 # 2. AGREGA ESTA NUEVA RUTA PARA EL INTERRUPTOR
 @app.route('/toggle_horario', methods=['POST'])
 def toggle_horario():

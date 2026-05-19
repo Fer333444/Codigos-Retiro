@@ -43,6 +43,67 @@
         </div>
     </div>
 
+    <div id="modalHistorialCliente" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex justify-center items-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl w-full max-w-4xl shadow-2xl my-4 flex flex-col max-h-[92vh]">
+            <div class="flex justify-between items-start gap-3 p-5 md:p-6 border-b border-slate-100 shrink-0">
+                <div>
+                    <h3 class="text-lg md:text-xl font-black text-slate-800 flex items-center gap-2">
+                        <i class="fas fa-file-invoice-dollar text-emerald-600"></i>
+                        <span>Estado de cuenta</span>
+                    </h3>
+                    <p id="historialClienteNombre" class="text-sm font-bold text-slate-500 mt-1 truncate max-w-[70vw] md:max-w-none"></p>
+                </div>
+                <button type="button" onclick="cerrarHistorialCliente()" class="text-slate-400 hover:text-red-500 transition-colors text-xl shrink-0"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-4 md:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+                <div id="historialClienteLoading" class="hidden py-12 text-center text-slate-400 font-bold">
+                    <i class="fas fa-circle-notch fa-spin text-2xl mb-2"></i>
+                    <p class="text-sm">Cargando movimientos…</p>
+                </div>
+                <div id="historialClienteError" class="hidden p-4 rounded-xl bg-red-50 text-red-700 text-sm font-bold border border-red-200"></div>
+                <div id="historialClienteBody" class="hidden space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 shadow-sm">
+                            <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Total exitoso</p>
+                            <p id="resumenExitoso" class="text-xl font-black text-emerald-800">$0.00</p>
+                            <p class="text-[10px] text-emerald-600/80 font-medium mt-1">Retiros completados</p>
+                        </div>
+                        <div class="rounded-xl border border-rose-200 bg-rose-50/80 p-4 shadow-sm">
+                            <p class="text-[10px] font-black text-rose-700 uppercase tracking-widest mb-1">Deuda pendiente</p>
+                            <p id="resumenPendiente" class="text-xl font-black text-rose-800">$0.00</p>
+                            <p class="text-[10px] text-rose-600/80 font-medium mt-1">Fallido / revisión / vencido</p>
+                        </div>
+                        <div class="rounded-xl border border-blue-200 bg-blue-50/80 p-4 shadow-sm">
+                            <p class="text-[10px] font-black text-blue-700 uppercase tracking-widest mb-1">Deuda saldada</p>
+                            <p id="resumenSaldado" class="text-xl font-black text-blue-800">$0.00</p>
+                            <p class="text-[10px] text-blue-600/80 font-medium mt-1">Montos en estado saldado</p>
+                        </div>
+                    </div>
+                    <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                        <div class="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                            <h4 class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Detalle de movimientos</h4>
+                        </div>
+                        <div class="max-h-[min(360px,50vh)] overflow-y-auto overflow-x-auto">
+                            <table class="w-full text-left text-xs text-slate-600 min-w-[640px]">
+                                <thead class="bg-slate-100/80 sticky top-0 z-10 text-[10px] uppercase text-slate-500 tracking-wider">
+                                    <tr>
+                                        <th class="py-3 px-3 font-bold">ID</th>
+                                        <th class="py-3 px-3 font-bold">Fecha</th>
+                                        <th class="py-3 px-3 font-bold">Banco</th>
+                                        <th class="py-3 px-3 font-bold text-right">Monto</th>
+                                        <th class="py-3 px-3 font-bold">Estado</th>
+                                        <th class="py-3 px-3 font-bold">Asignado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historialClienteTabla" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <header class="md:hidden fixed top-0 w-full h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-40 shadow-sm">
         <div class="font-black text-xl text-slate-800 tracking-tight">FLUJO<span class="text-green-600">ERP</span></div>
         <button id="btnMenuMovil" class="text-slate-600 hover:text-green-600 text-2xl focus:outline-none"><i class="fas fa-bars"></i></button>
@@ -262,6 +323,10 @@
                                                 <button type="button" onclick="copiarLink('{{ base_url }}retiro/{{ token }}')" title="Copiar Link" class="w-8 h-8 flex items-center justify-center border border-emerald-200 text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
                                                     <i class="fas fa-copy"></i>
                                                 </button>
+
+                                                <button type="button" onclick="abrirHistorialCliente({{ data.usuario|tojson }})" title="Estado de cuenta / historial" class="w-8 h-8 flex items-center justify-center border border-violet-200 text-violet-600 bg-violet-50 rounded-lg hover:bg-violet-600 hover:text-white transition-all shadow-sm">
+                                                    <i class="fas fa-file-invoice-dollar"></i>
+                                                </button>
                                                 
                                                 <button type="button" onclick="abrirModal('{{ token }}', '{{ data.usuario }}', '{{ data.grupo }}')" title="Editar" class="w-8 h-8 flex items-center justify-center border border-blue-200 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm">
                                                     <i class="fas fa-pen"></i>
@@ -384,6 +449,135 @@
             navigator.clipboard.writeText(url).then(() => {
                 alert('✅ ¡Link copiado exitosamente al portapapeles!\n\n' + url);
             });
+        }
+
+        const modalHistorial = document.getElementById('modalHistorialCliente');
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            const d = document.createElement('div');
+            d.textContent = String(str);
+            return d.innerHTML;
+        }
+
+        function parseMonto(val) {
+            const n = parseFloat(String(val).replace(',', '.'));
+            return isNaN(n) ? 0 : n;
+        }
+
+        function formatoMoneda(n) {
+            return '$' + n.toFixed(2);
+        }
+
+        function badgePorEstado(estado) {
+            const e = (estado || '').toLowerCase();
+            const map = {
+                'retirado': { cls: 'bg-green-100 text-green-700', label: 'Completado' },
+                'fallido': { cls: 'bg-red-100 text-red-700', label: 'Deuda / No salió' },
+                'fallido_revision': { cls: 'bg-red-100 text-red-700', label: 'Deuda / No salió' },
+                'saldado': { cls: 'bg-blue-100 text-blue-700', label: 'Deuda pagada' },
+                'activo': { cls: 'bg-yellow-100 text-yellow-700', label: 'Pendiente' },
+                'expirado': { cls: 'bg-slate-100 text-slate-700', label: 'Caducado' },
+                'fusionado': { cls: 'bg-orange-100 text-orange-700', label: 'Deuda fusionada' },
+            };
+            if (map[e]) {
+                return `<span class="inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wide ${map[e].cls}">${escapeHtml(map[e].label)}</span>`;
+            }
+            return `<span class="inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wide bg-slate-100 text-slate-600">${escapeHtml(estado || '—')}</span>`;
+        }
+
+        function cerrarHistorialCliente() {
+            if (modalHistorial) modalHistorial.classList.add('hidden');
+        }
+
+        if (modalHistorial) {
+            modalHistorial.addEventListener('click', (e) => {
+                if (e.target === modalHistorial) cerrarHistorialCliente();
+            });
+        }
+
+        async function abrirHistorialCliente(usuario) {
+            const nombre = String(usuario || '').trim();
+            const elNombre = document.getElementById('historialClienteNombre');
+            const elLoad = document.getElementById('historialClienteLoading');
+            const elErr = document.getElementById('historialClienteError');
+            const elBody = document.getElementById('historialClienteBody');
+            const elTabla = document.getElementById('historialClienteTabla');
+
+            if (!modalHistorial || !elNombre || !elLoad || !elErr || !elBody || !elTabla) return;
+
+            const path = encodeURIComponent(nombre);
+            modalHistorial.classList.remove('hidden');
+            elNombre.textContent = nombre;
+            elErr.classList.add('hidden');
+            elBody.classList.add('hidden');
+            elLoad.classList.remove('hidden');
+            elTabla.innerHTML = '';
+
+            try {
+                const res = await fetch('/api/historial_cliente/' + path, {
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await res.json().catch(() => null);
+
+                if (!res.ok) {
+                    const msg = (data && data.error) ? data.error : 'No se pudo cargar el historial.';
+                    elErr.textContent = msg;
+                    elErr.classList.remove('hidden');
+                    elLoad.classList.add('hidden');
+                    return;
+                }
+
+                if (!Array.isArray(data)) {
+                    elErr.textContent = 'Respuesta inválida del servidor.';
+                    elErr.classList.remove('hidden');
+                    elLoad.classList.add('hidden');
+                    return;
+                }
+
+                let totalExitoso = 0;
+                let deudaPendiente = 0;
+                let deudaSaldada = 0;
+                const pendienteEstados = ['fallido', 'fallido_revision', 'expirado'];
+
+                data.forEach((row) => {
+                    const m = parseMonto(row.monto);
+                    const st = (row.estado || '').toLowerCase();
+                    if (st === 'retirado') totalExitoso += m;
+                    else if (pendienteEstados.includes(st)) deudaPendiente += m;
+                    else if (st === 'saldado') deudaSaldada += m;
+                });
+
+                document.getElementById('resumenExitoso').textContent = formatoMoneda(totalExitoso);
+                document.getElementById('resumenPendiente').textContent = formatoMoneda(deudaPendiente);
+                document.getElementById('resumenSaldado').textContent = formatoMoneda(deudaSaldada);
+
+                if (data.length === 0) {
+                    elTabla.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-400 font-medium">Sin movimientos registrados para este cliente.</td></tr>';
+                } else {
+                    elTabla.innerHTML = data.map((r) => {
+                        const monto = parseMonto(r.monto);
+                        const asig = r.asignado_a != null && r.asignado_a !== '' ? String(r.asignado_a) : '—';
+                        return `<tr class="hover:bg-slate-50/80">
+                            <td class="py-2.5 px-3 font-mono font-bold text-slate-700">${escapeHtml(r.id)}</td>
+                            <td class="py-2.5 px-3 text-[11px] font-medium">${escapeHtml(r.fecha)}</td>
+                            <td class="py-2.5 px-3 font-medium">${escapeHtml(r.banco)}</td>
+                            <td class="py-2.5 px-3 text-right font-black text-slate-800">${escapeHtml(formatoMoneda(monto))}</td>
+                            <td class="py-2.5 px-3">${badgePorEstado(r.estado)}</td>
+                            <td class="py-2.5 px-3 text-[11px] capitalize">${escapeHtml(asig)}</td>
+                        </tr>`;
+                    }).join('');
+                }
+
+                elLoad.classList.add('hidden');
+                elBody.classList.remove('hidden');
+            } catch (err) {
+                console.error(err);
+                elErr.textContent = 'Error de red al cargar el historial.';
+                elErr.classList.remove('hidden');
+                elLoad.classList.add('hidden');
+            }
         }
 
         function exportarPDF() {

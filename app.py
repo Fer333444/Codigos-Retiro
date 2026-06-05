@@ -592,7 +592,8 @@ def procesar_formulario_retiro(req, lista_usuarios):
     monto_total_str = req.form.get('monto')
     
     tiempo_creacion = time.time()
-    tiempo_expiracion = tiempo_creacion + (2.5 * 3600) 
+    horas_expiracion = 12 if banco == 'guayaquil' else 2.5
+    tiempo_expiracion = tiempo_creacion + (horas_expiracion * 3600)
     
     codigo_recibido = req.form.get('codigo_recibido', '')
     clave_retiro = req.form.get('clave_retiro', '')

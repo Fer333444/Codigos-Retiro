@@ -227,7 +227,7 @@
                     <div>
                         <label class="block text-xs font-bold text-slate-400 mb-1">Tiempo de Cobro</label>
                         <div class="w-full bg-[#0f172a] border border-slate-600 text-blue-400 rounded-lg p-3 flex items-center justify-center gap-2 font-black opacity-80 cursor-not-allowed">
-                            <i class="fas fa-stopwatch text-lg animate-pulse"></i> <span class="text-sm">2h 30m</span>
+                            <i class="fas fa-stopwatch text-lg animate-pulse"></i> <span id="textoTiempoCobro" class="text-sm">2h 30m</span>
                         </div>
                         <input type="hidden" name="hora_retiro" value="auto">
                     </div>
@@ -352,6 +352,11 @@
         }
 
         function actualizarCamposBanco(bancoValue) {
+            const textoTiempoCobro = document.getElementById('textoTiempoCobro');
+            if (textoTiempoCobro) {
+                textoTiempoCobro.textContent = bancoValue === 'guayaquil' ? '12 Horas' : '2h 30m';
+            }
+
             boxDinamica.classList.remove('hidden');
             divPichinchaProdubanco.classList.add('hidden');
             divGuayaquil.classList.add('hidden');

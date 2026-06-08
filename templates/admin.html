@@ -125,10 +125,11 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                     {% for cobrador, stats in stats_cobradores.items() %}
+                    {% set nombre_mostrar = usuarios_db[cobrador].nombre|default(cobrador)|capitalize if cobrador in usuarios_db else cobrador|capitalize %}
                     <div class="bg-white rounded-2xl shadow-lg border-2 border-blue-500 overflow-hidden flex flex-col transform transition-transform hover:-translate-y-1">
                         
                         <div class="bg-blue-600 p-3 text-center shadow-inner">
-                            <h3 class="text-xl font-black text-white uppercase tracking-widest"><i class="fas fa-user-tie mr-2 opacity-80"></i>{{ cobrador }}</h3>
+                            <h3 class="text-xl font-black text-white uppercase tracking-widest"><i class="fas fa-user-tie mr-2 opacity-80"></i>{{ nombre_mostrar }}</h3>
                         </div>
 
                         <div class="p-5 flex justify-between items-center border-b border-slate-100">
@@ -207,7 +208,8 @@
                     <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4"><i class="fas fa-hand-pointer mr-1"></i> 1. Haz clic en un cobrador para empezar a asignar:</h3>
                     <div class="flex gap-4 overflow-x-auto custom-scrollbar pb-3">
                         {% for cob_dict in cobradores %}
-                        {% set c = cob_dict.nombre %}
+                        {% set c = cob_dict.username %}
+                        {% set nombre_mostrar = cob_dict.nombre_mostrar %}
                         {% set esta_disponible = cob_dict.disponible %}
                         
                         {% if esta_disponible %}
@@ -260,7 +262,7 @@
                                 </div>
                             {% endif %}
 
-                            <span class="block text-2xl font-black {{ text_color }} {{ btn_classes.split(' ')[2] }} uppercase transition-colors">{{ c }}</span>
+                            <span class="block text-2xl font-black {{ text_color }} {{ btn_classes.split(' ')[2] }} uppercase transition-colors">{{ nombre_mostrar }}</span>
                             <span id="contador-live-{{ c }}" class="contador-live block text-sm font-bold mt-2 px-3 py-2 rounded-lg {{ badge_classes }} transition-colors shadow-inner">
                                 0 Seleccionados
                             </span>
@@ -489,9 +491,10 @@
                     </div>
 
                     {% for cob_dict in cobradores %}
-                        {% set c = cob_dict.nombre %}
+                        {% set c = cob_dict.username %}
+                        {% set nombre_mostrar = cob_dict.nombre_mostrar %}
                         <button type="button" onclick="ejecutarReasignacion('{{ c }}', this)" class="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 transition-all text-slate-700 font-black text-lg uppercase group shadow-sm focus:outline-none">
-                            <span>{{ c }}</span>
+                            <span>{{ nombre_mostrar }}</span>
                             <i class="fas fa-arrow-right text-slate-300 group-hover:text-blue-500"></i>
                         </button>
                     {% endfor %}

@@ -763,7 +763,8 @@ def admin():
         # Por defecto, si no tiene la clave 'disponible', asumimos que es True
         esta_disponible = usuarios_db[c].get('disponible', True)
         cobradores.append({
-            'nombre': c,
+            'username': c,
+            'nombre_mostrar': usuarios_db[c].get('nombre', c).capitalize(),
             'disponible': esta_disponible
         })
     # =========================
@@ -772,7 +773,7 @@ def admin():
     stats_cobradores = {}
     
     for c_dict in cobradores:
-        c_nombre = c_dict['nombre']
+        c_nombre = c_dict['username']
         stats_cobradores[c_nombre] = {
             'total_dia': 0.0, 
             'total_acumulado': 0.0, 
@@ -818,7 +819,8 @@ def admin():
                            stats_cobradores=stats_cobradores, 
                            mi_usuario=session['usuario'], 
                            rol=session.get('rol'),
-                           auto_asignar=sistema_config['auto_asignar'])
+                           auto_asignar=sistema_config['auto_asignar'],
+                           usuarios_db=usuarios_db)
 
 @app.route('/toggle_auto', methods=['POST'])
 def toggle_auto():

@@ -24,6 +24,8 @@ VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 VAPID_CLAIMS = {"sub": "mailto:contenido2025yt@gmail.com"}
 
 WEBHOOK_SOCIO_URL = os.environ.get('WEBHOOK_SOCIO_URL', 'https://api-socio.com/api/v1/webhooks/codigos-retiro')
+FERCHO_WEBHOOK_URL = 'https://whatsapp-registros-diarios.onrender.com/api/v1/webhooks/retiros'
+FERCHO_WEBHOOK_KEY = os.environ.get('FERCHO_WEBHOOK_KEY', '')
 
 app = Flask(__name__)
 app.secret_key = "flujo_secreto_123"
@@ -155,6 +157,73 @@ def procesar_ocr():
         return jsonify(datos_ia)
     else:
         return jsonify({"error": "Error procesando IA"}), 500
+
+def descargar_imagen_desde_url(url):
+    try:
+        with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+            response = client.get(url)
+            response.raise_for_status()
+            nombre_base = secure_filename(url.split('/')[-1].split('?')[0]) or 'comprobante.jpg'
+            if '.' not in nombre_base:
+                nombre_base = f"{nombre_base}.jpg"
+            nombre = secure_filename(f"fercho_{hora_ecuador().strftime('%Y%m%d%H%M%S')}_{nombre_base}")
+            with open(os.path.join(app.config['UPLOAD_FOLDER'], nombre), 'wb') as f:
+                f.write(response.content)
+            return nombre
+    except Exception as ex:
+        print(f"❌ Error descargando imagen Fercho desde {url}:", repr(ex))
+        return None
+
+@app.route('/api/v1/recibir_ticket_socio', methods=['POST'])
+def recibir_ticket_socio():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'error': 'JSON inválido'}), 400
+
+    cfo_ticket_id = data.get('cfo_ticket_id')
+    if not cfo_ticket_id:
+        return jsonify({'error': 'cfo_ticket_id es requerido'}), 400
+
+    for r in registros:
+        if r.get('referencia_externa') == cfo_ticket_id and r.get('origen_socio') == 'fercho':
+            return jsonify({'error': 'Ticket duplicado'}), 409
+
+    banco = str(data.get('banco', '')).strip().lower()
+    monto_total_str = str(data.get('monto', '')).strip()
+    usuario = str(data.get('usuario', 'Desconocido')).strip()
+    celular = str(data.get('celular', '')).strip()
+    cedula = str(data.get('cedula', '')).strip()
+
+    codigo_recibido = str(data.get('codigo_pichincha', '')).strip()
+    clave_retiro = str(data.get('guayaquil_retiro', '')).strip()
+    clave_envio = str(data.get('guayaquil_envio', '')).strip()
+    codigo_seguridad = str(data.get('seguridad', '')).strip()
+
+    url_imagen = (
+        data.get('url_imagen')
+        or data.get('imagen_url')
+        or data.get('image_url')
+        or data.get('url')
+    )
+    str_imagenes = None
+    if url_imagen:
+        nombre_guardado = descargar_imagen_desde_url(str(url_imagen).strip())
+        if nombre_guardado:
+            str_imagenes = nombre_guardado
+
+    transaccion_id, error = insertar_registro_retiro(
+        banco, celular, cedula, monto_total_str,
+        codigo_recibido, clave_retiro, clave_envio, codigo_seguridad,
+        str_imagenes, [f"FERCHO - {usuario}"],
+        origen_historial='Recibido vía API Fercho',
+        referencia_externa=cfo_ticket_id,
+        origen_socio='fercho',
+    )
+
+    if error == 'duplicado':
+        return jsonify({'error': 'Código de retiro duplicado'}), 409
+
+    return jsonify({'status': 'ok'})
 
 def hora_ecuador():
     return datetime.utcnow() - timedelta(hours=5)
@@ -622,7 +691,7 @@ def guardar_comprobantes_desde_bytes(items):
         nombres_imagenes.append(nombre)
     return ",".join(nombres_imagenes) if nombres_imagenes else None
 
-def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_recibido, clave_retiro, clave_envio, codigo_seguridad, str_imagenes, lista_usuarios, origen_historial='Creado por Cliente', req=None):
+def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_recibido, clave_retiro, clave_envio, codigo_seguridad, str_imagenes, lista_usuarios, origen_historial='Creado por Cliente', req=None, referencia_externa=None, origen_socio=None):
     import hashlib
 
     tiempo_creacion = time.time()
@@ -690,6 +759,11 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
         'historial': historial_inicial,
         'liquidado': False
     }
+
+    if referencia_externa is not None:
+        nuevo_registro['referencia_externa'] = referencia_externa
+    if origen_socio is not None:
+        nuevo_registro['origen_socio'] = origen_socio
 
     registros.insert(0, nuevo_registro)
     guardar_datos()
@@ -1074,9 +1148,12 @@ def marcar_retirado():
     guardar_datos()
 
     if registro_afectado:
-        nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
-        if nombre_cliente is not None:
-            disparar_webhook_socio(nombre_cliente, 'completado', registro_afectado.get('monto'))
+        if registro_afectado.get('origen_socio') == 'fercho':
+            disparar_webhook_fercho(registro_afectado, 'RETIRADO', request.host_url)
+        else:
+            nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
+            if nombre_cliente is not None:
+                disparar_webhook_socio(nombre_cliente, 'completado', registro_afectado.get('monto'))
 
     flash('¡Retiro marcado como completado!', 'success')
     return redirect(request.referrer)
@@ -1129,9 +1206,13 @@ def marcar_fallido():
     guardar_datos()
 
     if registro_afectado:
-        nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
-        if nombre_cliente is not None:
-            disparar_webhook_socio(nombre_cliente, 'fallido', registro_afectado.get('monto'))
+        if registro_afectado.get('origen_socio') == 'fercho':
+            estado_fercho = 'FALLIDO_REVISION' if registro_afectado.get('estado') == 'fallido_revision' else 'FALLIDO'
+            disparar_webhook_fercho(registro_afectado, estado_fercho, request.host_url)
+        else:
+            nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
+            if nombre_cliente is not None:
+                disparar_webhook_socio(nombre_cliente, 'fallido', registro_afectado.get('monto'))
 
     return redirect(request.referrer)
 
@@ -1773,6 +1854,42 @@ def extraer_nombre_cliente_widget(usuario):
     if usuario and str(usuario).startswith(prefijo):
         return str(usuario)[len(prefijo):].strip()
     return None
+
+def disparar_webhook_fercho(registro, estado_final, host_url, evidencia_url=None):
+    """Notifica a Fercho (contrato estricto) en un hilo aparte."""
+    external_id = registro.get('referencia_externa')
+    if not external_id:
+        print('⚠️ Webhook Fercho omitido: registro sin referencia_externa')
+        return
+
+    payload = {
+        'external_id': external_id,
+        'estado_final': estado_final,
+    }
+
+    if estado_final in ('FALLIDO', 'FALLIDO_REVISION'):
+        if evidencia_url:
+            payload['evidencia'] = evidencia_url
+        elif registro.get('imagen_fallo'):
+            primera_imagen = registro['imagen_fallo'].split(',')[0].strip()
+            payload['evidencia'] = host_url.rstrip('/') + url_for('ver_imagen', filename=primera_imagen)
+
+    headers = {}
+    if FERCHO_WEBHOOK_KEY:
+        headers['X-WEBHOOK-KEY'] = FERCHO_WEBHOOK_KEY
+
+    payload_copia = dict(payload)
+    headers_copia = dict(headers)
+
+    def enviar_en_hilo():
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(FERCHO_WEBHOOK_URL, json=payload_copia, headers=headers_copia)
+                print(f"✅ Webhook Fercho ({estado_final}) → {external_id}: HTTP {response.status_code}")
+        except Exception as ex:
+            print(f"❌ Error webhook Fercho ({estado_final}) → {external_id}:", repr(ex))
+
+    threading.Thread(target=enviar_en_hilo, daemon=True).start()
 
 def disparar_webhook_socio(cliente, estado, monto):
     """Notifica al ERP del socio en un hilo aparte (fire-and-forget)."""

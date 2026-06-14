@@ -585,72 +585,76 @@ def retiro_grupo(grupo):
         
     return render_template('formulario.html', es_grupo=True, nombre_grupo=grupo, usuarios_grupo=usuarios_del_grupo, form_action=url_for('retiro_grupo', grupo=grupo), recibo=session.pop('recibo_retiro', None), horario_activo=horario, bancos_activos=bancos_activos)
 
-def procesar_formulario_retiro(req, lista_usuarios):
-    banco = req.form.get('banco')
-    celular = req.form.get('celular', '')
-    cedula = req.form.get('cedula', '')
-    monto_total_str = req.form.get('monto')
-    
+def mapear_banco_desde_ocr(banco_raw):
+    b = (banco_raw or '').lower()
+    if 'pichincha' in b:
+        return 'pichincha'
+    if 'guayaquil' in b:
+        return 'guayaquil'
+    if 'produbanco' in b:
+        return 'produbanco'
+    return b.strip() or 'otro'
+
+def mapear_codigos_desde_ocr(banco, datos_ia):
+    codigo_recibido = clave_retiro = clave_envio = codigo_seguridad = ''
+    clave = datos_ia.get('CLAVE_RETIRO', '')
+    envio = datos_ia.get('CLAVE_ENVIO', '')
+    if banco in ('pichincha', 'produbanco'):
+        codigo_recibido = clave
+    elif banco == 'guayaquil':
+        clave_retiro = clave
+        clave_envio = envio
+    else:
+        codigo_seguridad = clave
+    return codigo_recibido, clave_retiro, clave_envio, codigo_seguridad
+
+def guardar_comprobantes_desde_bytes(items):
+    nombres_imagenes = []
+    for img_bytes, filename in items:
+        if not filename:
+            continue
+        nombre = secure_filename(f"{hora_ecuador().strftime('%Y%m%d%H%M%S')}_{filename}")
+        with open(os.path.join(app.config['UPLOAD_FOLDER'], nombre), 'wb') as f:
+            f.write(img_bytes)
+        nombres_imagenes.append(nombre)
+    return ",".join(nombres_imagenes) if nombres_imagenes else None
+
+def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_recibido, clave_retiro, clave_envio, codigo_seguridad, str_imagenes, lista_usuarios, origen_historial='Creado por Cliente', req=None):
+    import hashlib
+
     tiempo_creacion = time.time()
     horas_expiracion = 12 if banco == 'guayaquil' else 2.5
     tiempo_expiracion = tiempo_creacion + (horas_expiracion * 3600)
-    
-    codigo_recibido = req.form.get('codigo_recibido', '')
-    clave_retiro = req.form.get('clave_retiro', '')
-    clave_envio = req.form.get('clave_envio', '')
-    codigo_seguridad = req.form.get('codigo_seguridad', '')
-    
-    import hashlib
+
     codigos_unidos = f"{codigo_recibido}{clave_retiro}{clave_envio}{codigo_seguridad}".strip()
-    
+
     if codigos_unidos:
         hash_input = f"{monto_total_str}-{codigos_unidos}".encode('utf-8')
         transaccion_id = f"TRX-{hashlib.md5(hash_input).hexdigest()[:8].upper()}"
-        
         for r in registros:
             if r.get('transaccion_id') == transaccion_id and r.get('estado') in ['activo', 'retirado']:
-                flash('⚠️ ADVERTENCIA: Este código de retiro ya fue ingresado al sistema. No se puede duplicar.', 'error')
-                return redirect(req.url)
+                return None, 'duplicado'
     else:
         transaccion_id = f"TRX-{int(tiempo_creacion)}"
-        
-    imagenes = req.files.getlist('comprobante')
-    nombres_imagenes = []
-    
-    for img in imagenes:
-        if img and img.filename != '':
-            nombre = secure_filename(f"{hora_ecuador().strftime('%Y%m%d%H%M%S')}_{img.filename}")
-            img.save(os.path.join(app.config['UPLOAD_FOLDER'], nombre))
-            nombres_imagenes.append(nombre)
-    str_imagenes = ",".join(nombres_imagenes) if nombres_imagenes else None
 
     hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     asignado_a_quien = None
-    asignacion_estado = 'no_asignado' 
-    
+    asignacion_estado = 'no_asignado'
+
     is_split = len(lista_usuarios) > 1
     usuarios_juntos = " + ".join(lista_usuarios)
-    
     historial_inicial = []
-    usuarios_para_recibo = ""
-    
+
     if is_split:
         detalles_desglose = []
-        recibo_desglose = []
         for u in lista_usuarios:
-            monto_u = req.form.get(f'monto_usuario_{u}', '0.00')
+            monto_u = req.form.get(f'monto_usuario_{u}', '0.00') if req else '0.00'
             detalles_desglose.append(f"${monto_u} a {u}")
-            # AQUÍ CREAMOS EL TEXTO PARA EL RECIBO FINAL
-            recibo_desglose.append(f"{u} (${monto_u})")
-            
         texto_desglose = " | ".join(detalles_desglose)
-        historial_inicial.append(f"[{hora_actual}] Creado por Cliente (Múltiple: {texto_desglose})")
-        # Usamos <br> para que en el recibo cada usuario salga en una línea distinta
-        usuarios_para_recibo = "<br>".join(recibo_desglose)
+        historial_inicial.append(f"[{hora_actual}] {origen_historial} (Múltiple: {texto_desglose})")
     else:
-        historial_inicial.append(f"[{hora_actual}] Creado por Cliente")
-        usuarios_para_recibo = lista_usuarios[0]
-    
+        historial_inicial.append(f"[{hora_actual}] {origen_historial}")
+
     if sistema_config['auto_asignar']:
         cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
         if cobradores:
@@ -664,49 +668,145 @@ def procesar_formulario_retiro(req, lista_usuarios):
             historial_inicial.append(f"[{hora_actual}] 👤 Asignado a {mejor_cobrador.capitalize()} (Robot)")
 
     nuevo_registro = {
-        'id': int(time.time() * 1000) + random.randint(1, 999), # <--- LÍNEA REPARADA
-        'transaccion_id': transaccion_id, 
+        'id': int(time.time() * 1000) + random.randint(1, 999),
+        'transaccion_id': transaccion_id,
         'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"),
-        'banco': banco, 
-        'celular': celular, 
-        'cedula': cedula, 
-        'monto': monto_total_str, 
-        'usuario': usuarios_juntos, 
-        'hora_limite': '', 
-        'expira_timestamp': tiempo_expiracion, 
-        'timestamp_creacion': tiempo_creacion, 
+        'banco': banco,
+        'celular': celular,
+        'cedula': cedula,
+        'monto': monto_total_str,
+        'usuario': usuarios_juntos,
+        'hora_limite': '',
+        'expira_timestamp': tiempo_expiracion,
+        'timestamp_creacion': tiempo_creacion,
         'detalles': {'codigo_pichincha': codigo_recibido, 'guayaquil_retiro': clave_retiro, 'guayaquil_envio': clave_envio, 'seguridad': codigo_seguridad},
         'imagen': str_imagenes,
         'asignado_a': asignado_a_quien,
         'asignacion_estado': asignacion_estado,
         'estado': 'activo',
         'historial': historial_inicial,
-        'liquidado': False 
+        'liquidado': False
     }
-    
+
     registros.insert(0, nuevo_registro)
-        
+    guardar_datos()
+
+    admin_users = [u for u, info in usuarios_db.items() if info['rol'] in ['supremo', 'recaudador', 'cobrador'] or 'procesar_retiros' in info.get('permisos', [])]
+    for admin in admin_users:
+        disparar_alerta_push(admin, "¡Nuevo Retiro Cliente! 💰", f"Se han ingresado ${monto_total_str} del banco {banco}.")
+
+    if asignado_a_quien:
+        disparar_alerta_push(asignado_a_quien, "¡Retiro Asignado! 🏃‍♂️", f"Te cayó un código de ${monto_total_str} ({banco}). ¡Revisa tu bandeja!")
+
+    return transaccion_id, None
+
+@app.route('/widget_retiro', methods=['GET', 'POST'])
+def widget_retiro():
+    horario = sistema_config.get('horario_activo', True)
+    bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
+
+    token = request.args.get('token', request.form.get('token', '')).strip()
+    usuario_param = request.args.get('usuario', request.form.get('usuario', '')).strip()
+
+    if token and token in enlaces_db:
+        usuario_widget = enlaces_db[token]['usuario']
+    elif usuario_param:
+        usuario_widget = usuario_param
+    else:
+        usuario_widget = 'Widget-Externo'
+
+    if request.method == 'GET':
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario)
+
+    if not horario:
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, error='Sistema fuera de horario.'), 403
+
+    archivos = request.files.getlist('comprobante')
+    if not archivos or archivos[0].filename == '':
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, error='Debes subir al menos una imagen del comprobante.'), 400
+
+    items_bytes = [(f.read(), f.filename) for f in archivos if f and f.filename]
+    image_bytes_list = [b for b, _ in items_bytes]
+
+    datos_ia = extraer_datos_imagen_ocr(image_bytes_list)
+    if not datos_ia:
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, error='No se pudo leer el comprobante. Intenta con otra foto.'), 500
+
+    banco = mapear_banco_desde_ocr(datos_ia.get('BANCO', ''))
+    if banco in bancos_activos and not bancos_activos.get(banco, True):
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, error=f'El banco {banco.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
+
+    monto_total_str = str(datos_ia.get('MONTO', '')).strip()
+    celular = str(datos_ia.get('CELULAR', '')).strip()
+    cedula = str(datos_ia.get('CEDULA', '')).strip() if banco == 'produbanco' else ''
+    codigo_recibido, clave_retiro, clave_envio, codigo_seguridad = mapear_codigos_desde_ocr(banco, datos_ia)
+    str_imagenes = guardar_comprobantes_desde_bytes(items_bytes)
+
+    transaccion_id, error = insertar_registro_retiro(
+        banco, celular, cedula, monto_total_str,
+        codigo_recibido, clave_retiro, clave_envio, codigo_seguridad,
+        str_imagenes, [usuario_widget],
+        origen_historial='Creado por Widget Externo'
+    )
+
+    if error == 'duplicado':
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, error='Este código de retiro ya fue ingresado al sistema.'), 409
+
+    return '<script>window.parent.postMessage({tipo: "RETIRO_COMPLETADO", mensaje: "ok"}, "*");</script>'
+
+def procesar_formulario_retiro(req, lista_usuarios):
+    banco = req.form.get('banco')
+    celular = req.form.get('celular', '')
+    cedula = req.form.get('cedula', '')
+    monto_total_str = req.form.get('monto')
+
+    codigo_recibido = req.form.get('codigo_recibido', '')
+    clave_retiro = req.form.get('clave_retiro', '')
+    clave_envio = req.form.get('clave_envio', '')
+    codigo_seguridad = req.form.get('codigo_seguridad', '')
+
+    imagenes = req.files.getlist('comprobante')
+    nombres_imagenes = []
+
+    for img in imagenes:
+        if img and img.filename != '':
+            nombre = secure_filename(f"{hora_ecuador().strftime('%Y%m%d%H%M%S')}_{img.filename}")
+            img.save(os.path.join(app.config['UPLOAD_FOLDER'], nombre))
+            nombres_imagenes.append(nombre)
+    str_imagenes = ",".join(nombres_imagenes) if nombres_imagenes else None
+
+    transaccion_id, error = insertar_registro_retiro(
+        banco, celular, cedula, monto_total_str,
+        codigo_recibido, clave_retiro, clave_envio, codigo_seguridad,
+        str_imagenes, lista_usuarios,
+        origen_historial='Creado por Cliente',
+        req=req
+    )
+
+    if error == 'duplicado':
+        flash('⚠️ ADVERTENCIA: Este código de retiro ya fue ingresado al sistema. No se puede duplicar.', 'error')
+        return redirect(req.url)
+
+    is_split = len(lista_usuarios) > 1
+    usuarios_para_recibo = ""
+    if is_split:
+        recibo_desglose = []
+        for u in lista_usuarios:
+            monto_u = req.form.get(f'monto_usuario_{u}', '0.00')
+            recibo_desglose.append(f"{u} (${monto_u})")
+        usuarios_para_recibo = "<br>".join(recibo_desglose)
+    else:
+        usuarios_para_recibo = lista_usuarios[0]
+
     session['recibo_retiro'] = {
         'transaccion_id': transaccion_id,
         'banco': banco.upper() if banco else 'NO ESPECIFICADO',
         'monto': monto_total_str,
-        'usuario': usuarios_para_recibo, # <-- AHORA ENVÍA EL TEXTO CON MONTOS
+        'usuario': usuarios_para_recibo,
         'fecha': hora_ecuador().strftime("%d/%m/%Y %I:%M %p")
     }
-        
-    guardar_datos()
+
     flash(f'✅ ¡Datos enviados correctamente!', 'success')
-
-    # === DISPARAR NOTIFICACIONES PUSH REALES ===
-    # 1. Avisar a todos los usuarios operativos
-    admin_users = [u for u, info in usuarios_db.items() if info['rol'] in ['supremo', 'recaudador', 'cobrador'] or 'procesar_retiros' in info.get('permisos', [])]
-    for admin in admin_users:
-        disparar_alerta_push(admin, "¡Nuevo Retiro Cliente! 💰", f"Se han ingresado ${monto_total_str} del banco {banco}.")
-    
-    # 2. Si el robot auto-asignó a un cobrador, avisarle a él
-    if asignado_a_quien:
-        disparar_alerta_push(asignado_a_quien, "¡Retiro Asignado! 🏃‍♂️", f"Te cayó un código de ${monto_total_str} ({banco}). ¡Revisa tu bandeja!")
-
     return redirect(req.url)
 
 @app.route('/login', methods=['GET', 'POST'])

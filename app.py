@@ -7,6 +7,7 @@ import json
 import base64
 import time
 import threading
+import httpx
 from pywebpush import webpush, WebPushException
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
@@ -21,6 +22,8 @@ openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 VAPID_CLAIMS = {"sub": "mailto:contenido2025yt@gmail.com"}
+
+WEBHOOK_SOCIO_URL = os.environ.get('WEBHOOK_SOCIO_URL', 'https://api-socio.com/api/v1/webhooks/codigos-retiro')
 
 app = Flask(__name__)
 app.secret_key = "flujo_secreto_123"
@@ -1048,6 +1051,7 @@ def marcar_retirado():
     registro_id = int(request.form.get('id'))
     banco_real = request.form.get('banco_real', 'No especificado').strip()
     hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
+    registro_afectado = None
     
     for r in registros:
         if r['id'] == registro_id:
@@ -1064,9 +1068,16 @@ def marcar_retirado():
                     r['minutos_demora'] = 0.0
                     
             r['historial'].append(f"[{hora_actual}] ✅ Retirado en {banco_real.upper()} por {session['usuario'].capitalize()}")
+            registro_afectado = r
             break
             
     guardar_datos()
+
+    if registro_afectado:
+        nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
+        if nombre_cliente is not None:
+            disparar_webhook_socio(nombre_cliente, 'completado', registro_afectado.get('monto'))
+
     flash('¡Retiro marcado como completado!', 'success')
     return redirect(request.referrer)
 
@@ -1092,6 +1103,7 @@ def marcar_fallido():
     # -----------------------------------------------------------------
 
     usuario_afectado = None
+    registro_afectado = None
     
     for r in registros:
         if r['id'] == registro_id:
@@ -1110,10 +1122,17 @@ def marcar_fallido():
             else:
                 r['estado'] = 'fallido' 
                 r['historial'].append(f"[{hora_actual}] ❌ Marcado como NO SALIÓ (Deuda) por {session['usuario'].capitalize()}. Motivo: {motivo}")
-                flash(f'⚠️ Retiro de {usuario_afectado} marcado como FALLIDO (Deuda).', 'error') 
+                flash(f'⚠️ Retiro de {usuario_afectado} marcado como FALLIDO (Deuda).', 'error')
+            registro_afectado = r
             break
             
     guardar_datos()
+
+    if registro_afectado:
+        nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
+        if nombre_cliente is not None:
+            disparar_webhook_socio(nombre_cliente, 'fallido', registro_afectado.get('monto'))
+
     return redirect(request.referrer)
 
 @app.route('/gestionar_deuda', methods=['POST'])
@@ -1748,6 +1767,29 @@ def guardar_suscripcion():
         guardar_datos() 
         
     return jsonify({"status": "ok"})
+
+def extraer_nombre_cliente_widget(usuario):
+    prefijo = 'WIDGET - '
+    if usuario and str(usuario).startswith(prefijo):
+        return str(usuario)[len(prefijo):].strip()
+    return None
+
+def disparar_webhook_socio(cliente, estado, monto):
+    """Notifica al ERP del socio en un hilo aparte (fire-and-forget)."""
+    if not WEBHOOK_SOCIO_URL:
+        return
+
+    payload = {"cliente": cliente, "estado": estado, "monto": monto}
+
+    def enviar_en_hilo():
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(WEBHOOK_SOCIO_URL, json=payload)
+                print(f"✅ Webhook socio ({estado}) → {cliente}: HTTP {response.status_code}")
+        except Exception as ex:
+            print(f"❌ Error webhook socio ({estado}) → {cliente}:", repr(ex))
+
+    threading.Thread(target=enviar_en_hilo, daemon=True).start()
 
 def disparar_alerta_push(usuario_destino, titulo, mensaje):
     """Dispara la notificación push en un hilo secundario para no bloquear Flask."""

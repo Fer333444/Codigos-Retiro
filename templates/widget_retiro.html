@@ -10,124 +10,174 @@
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: transparent;
             color: #1e293b;
-            padding: 16px;
+            padding: 12px;
         }
         .widget {
             max-width: 420px;
             margin: 0 auto;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.97);
             border: 1px solid #e2e8f0;
             border-radius: 16px;
-            padding: 24px;
+            padding: 20px;
             box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
         }
         .widget h1 {
-            font-size: 1.125rem;
+            font-size: 1.05rem;
             font-weight: 800;
             text-align: center;
-            margin-bottom: 4px;
             color: #0f172a;
         }
-        .widget p.subtitle {
-            font-size: 0.75rem;
+        .subtitle {
+            font-size: 0.72rem;
             text-align: center;
             color: #64748b;
-            margin-bottom: 20px;
+            margin: 4px 0 16px;
         }
         .alert {
-            padding: 12px 14px;
+            padding: 10px 12px;
             border-radius: 10px;
-            font-size: 0.8125rem;
+            font-size: 0.78rem;
             font-weight: 600;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
             text-align: center;
         }
-        .alert-error {
-            background: #fef2f2;
-            color: #b91c1c;
-            border: 1px solid #fecaca;
-        }
-        .alert-closed {
-            background: #fff1f2;
-            color: #be123c;
-            border: 1px solid #fecdd3;
-        }
-        label.upload-area {
+        .alert-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+        .alert-closed { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
+        .upload-area {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            min-height: 140px;
+            gap: 6px;
+            min-height: 130px;
             border: 2px dashed #93c5fd;
             border-radius: 12px;
             background: #eff6ff;
             cursor: pointer;
+            padding: 18px;
+            text-align: center;
             transition: background 0.2s, border-color 0.2s;
-            padding: 20px;
-            text-align: center;
         }
-        label.upload-area:hover {
-            background: #dbeafe;
-            border-color: #3b82f6;
-        }
-        label.upload-area span.title {
-            font-size: 0.875rem;
-            font-weight: 700;
-            color: #1d4ed8;
-        }
-        label.upload-area span.hint {
-            font-size: 0.75rem;
-            color: #64748b;
-        }
+        .upload-area:hover { background: #dbeafe; border-color: #3b82f6; }
+        .upload-area .title { font-size: 0.85rem; font-weight: 700; color: #1d4ed8; }
+        .upload-area .hint { font-size: 0.7rem; color: #64748b; }
         input[type="file"] { display: none; }
-        #preview {
-            display: none;
-            margin-top: 12px;
-            text-align: center;
-        }
+        #preview { display: none; margin-top: 10px; text-align: center; }
         #preview img {
             max-width: 100%;
-            max-height: 120px;
+            max-height: 100px;
             border-radius: 8px;
             border: 1px solid #cbd5e1;
+            margin-bottom: 6px;
         }
-        button[type="submit"] {
+        .link-manual {
+            display: block;
+            text-align: center;
+            margin-top: 12px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #64748b;
+            text-decoration: underline;
+            cursor: pointer;
+            background: none;
+            border: none;
             width: 100%;
-            margin-top: 16px;
-            padding: 14px;
+        }
+        .link-manual:hover { color: #334155; }
+        .hidden { display: none !important; }
+        .loading-ocr {
+            text-align: center;
+            padding: 28px 12px;
+            color: #2563eb;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+        .loading-ocr .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #bfdbfe;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .field { margin-bottom: 12px; }
+        .field label {
+            display: block;
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 4px;
+        }
+        .field input, .field select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #0f172a;
+            background: #f8fafc;
+            outline: none;
+        }
+        .field input:focus, .field select:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+        }
+        .field input.monto { color: #059669; font-weight: 800; }
+        .field input.codigo { font-family: ui-monospace, monospace; text-align: center; letter-spacing: 0.08em; }
+        .field input.readonly-ocr {
+            opacity: 0.85;
+            cursor: not-allowed;
+            background: #f1f5f9;
+        }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .field-error { font-size: 0.65rem; color: #e11d48; font-weight: 700; margin-top: 3px; display: none; }
+        .field-error.visible { display: block; }
+        .section-title {
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #2563eb;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .btn-submit {
+            width: 100%;
+            margin-top: 6px;
+            padding: 13px;
             border: none;
             border-radius: 12px;
             background: #2563eb;
             color: #fff;
-            font-size: 0.875rem;
+            font-size: 0.82rem;
             font-weight: 800;
             letter-spacing: 0.05em;
             text-transform: uppercase;
             cursor: pointer;
             transition: background 0.2s;
         }
-        button[type="submit"]:hover:not(:disabled) { background: #1d4ed8; }
-        button[type="submit"]:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .loading {
-            display: none;
+        .btn-submit:hover:not(:disabled) { background: #1d4ed8; }
+        .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; }
+        .loading-envio {
             text-align: center;
             padding: 24px 0;
             color: #2563eb;
-            font-size: 0.875rem;
+            font-size: 0.82rem;
             font-weight: 700;
         }
-        .loading.visible { display: block; }
     </style>
 </head>
 <body>
 
     <div class="widget">
         <h1>Código de Retiro</h1>
-        <p class="subtitle">Sube la captura de tu comprobante bancario</p>
+        <p class="subtitle" id="subtituloWidget">Sube la captura de tu comprobante bancario</p>
 
         {% if not horario_activo %}
             <div class="alert alert-closed">Sistema fuera de horario. Inténtalo más tarde.</div>
@@ -137,55 +187,293 @@
                 <div class="alert alert-error">{{ error }}</div>
             {% endif %}
 
-            <form id="formWidget" action="{{ url_for('widget_retiro') }}" method="POST" enctype="multipart/form-data">
+            <div id="zonaSubida">
+                <label class="upload-area" for="comprobanteInput">
+                    <span class="title">Toca para subir imagen</span>
+                    <span class="hint">JPG o PNG · Varias fotos si es Produbanco</span>
+                </label>
+                <div id="preview"></div>
+                <button type="button" class="link-manual" id="btnManual">No tengo foto, llenar datos manualmente</button>
+            </div>
+
+            <div id="loadingOcr" class="loading-ocr hidden">
+                <div class="spinner"></div>
+                Analizando comprobante con IA…
+            </div>
+
+            <div id="loadingEnvio" class="loading-envio hidden">Enviando datos…</div>
+
+            <form id="formVerificacion" class="hidden" action="{{ url_for('widget_retiro') }}" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="usuario" value="{{ usuario }}">
                 {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
+                <input type="file" id="comprobanteInput" name="comprobante" accept="image/jpeg,image/png,image/jpg" multiple class="hidden">
 
-                <label class="upload-area" for="comprobante">
-                    <span class="title">Toca para subir imagen</span>
-                    <span class="hint">JPG o PNG · Puedes seleccionar varias si es Produbanco</span>
-                </label>
-                <input type="file" id="comprobante" name="comprobante" accept="image/jpeg,image/png,image/jpg" multiple required>
+                <p class="section-title">Verifica tus datos</p>
 
-                <div id="preview"></div>
+                <div class="field">
+                    <label for="bancoSelect">Banco</label>
+                    <select name="banco" id="bancoSelect" required>
+                        <option value="" disabled selected>-- Selecciona --</option>
+                        <option value="pichincha" {% if not bancos_activos.get('pichincha', True) %} disabled {% endif %}>
+                            Banco Pichincha{% if not bancos_activos.get('pichincha', True) %} (Fuera de servicio){% endif %}
+                        </option>
+                        <option value="guayaquil" {% if not bancos_activos.get('guayaquil', True) %} disabled {% endif %}>
+                            Banco Guayaquil{% if not bancos_activos.get('guayaquil', True) %} (Fuera de servicio){% endif %}
+                        </option>
+                        <option value="produbanco" {% if not bancos_activos.get('produbanco', True) %} disabled {% endif %}>
+                            Produbanco{% if not bancos_activos.get('produbanco', True) %} (Fuera de servicio){% endif %}
+                        </option>
+                    </select>
+                </div>
 
-                <button type="submit" id="btnEnviar" disabled>Enviar comprobante</button>
+                <div class="field">
+                    <label for="inputMonto">Monto ($)</label>
+                    <input type="number" name="monto" id="inputMonto" class="monto" step="0.01" min="0.01" required placeholder="Ej. 15.00">
+                </div>
+
+                <div class="field">
+                    <label for="inputCelular">Celular (Ecuador)</label>
+                    <input type="text" name="celular" id="inputCelular" maxlength="10" required placeholder="09XXXXXXXX">
+                    <p id="errorCelular" class="field-error">Debe empezar con 09 y tener 10 dígitos.</p>
+                </div>
+
+                <div class="field hidden" id="divCedula">
+                    <label for="inputCedula">Cédula o C.I.</label>
+                    <input type="text" name="cedula" id="inputCedula" maxlength="10" placeholder="10 dígitos">
+                    <p id="errorCedula" class="field-error">La cédula debe tener exactamente 10 dígitos.</p>
+                </div>
+
+                <div id="camposCodigos" class="hidden">
+                    <div id="divCodigoUnico" class="field hidden">
+                        <label id="lblCodigoUnico" for="inputClaveUnica">Código de Retiro</label>
+                        <input type="text" name="codigo_recibido" id="inputClaveUnica" class="codigo" maxlength="6">
+                    </div>
+                    <div id="divGuayaquil" class="grid-2 hidden">
+                        <div class="field">
+                            <label for="inputClaveRetiro">Código Retiro</label>
+                            <input type="text" name="clave_retiro" id="inputClaveRetiro" class="codigo">
+                        </div>
+                        <div class="field">
+                            <label for="inputClaveEnvio">Código Envío</label>
+                            <input type="text" name="clave_envio" id="inputClaveEnvio" class="codigo">
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" id="btnEnviar" class="btn-submit" disabled>Enviar Datos</button>
             </form>
-
-            <div id="loading" class="loading">Procesando comprobante con IA…</div>
         {% endif %}
     </div>
 
     <script>
-        const input = document.getElementById('comprobante');
+        const zonaSubida = document.getElementById('zonaSubida');
+        const loadingOcr = document.getElementById('loadingOcr');
+        const loadingEnvio = document.getElementById('loadingEnvio');
+        const formVerificacion = document.getElementById('formVerificacion');
+        const comprobanteInput = document.getElementById('comprobanteInput');
         const preview = document.getElementById('preview');
+        const btnManual = document.getElementById('btnManual');
+        const subtituloWidget = document.getElementById('subtituloWidget');
+        const select = document.getElementById('bancoSelect');
+        const inputMonto = document.getElementById('inputMonto');
+        const inputCelular = document.getElementById('inputCelular');
+        const inputCedula = document.getElementById('inputCedula');
+        const divCedula = document.getElementById('divCedula');
+        const camposCodigos = document.getElementById('camposCodigos');
+        const divCodigoUnico = document.getElementById('divCodigoUnico');
+        const divGuayaquil = document.getElementById('divGuayaquil');
+        const inputClaveUnica = document.getElementById('inputClaveUnica');
+        const inputClaveRetiro = document.getElementById('inputClaveRetiro');
+        const inputClaveEnvio = document.getElementById('inputClaveEnvio');
         const btnEnviar = document.getElementById('btnEnviar');
-        const formWidget = document.getElementById('formWidget');
-        const loading = document.getElementById('loading');
+        const errorCelular = document.getElementById('errorCelular');
+        const errorCedula = document.getElementById('errorCedula');
 
-        if (input) {
-            input.addEventListener('change', function() {
-                preview.innerHTML = '';
-                if (this.files && this.files.length > 0) {
-                    preview.style.display = 'block';
-                    for (let i = 0; i < this.files.length; i++) {
-                        const img = document.createElement('img');
-                        img.src = URL.createObjectURL(this.files[i]);
-                        img.style.marginBottom = '8px';
-                        preview.appendChild(img);
-                    }
-                    btnEnviar.disabled = false;
+        if (!comprobanteInput) {
+            // Horario cerrado: sin formulario
+        } else {
+
+            function mostrarFormularioVerificacion() {
+                zonaSubida.classList.add('hidden');
+                loadingOcr.classList.add('hidden');
+                formVerificacion.classList.remove('hidden');
+                subtituloWidget.textContent = 'Revisa y completa tus datos antes de enviar';
+                validarFormulario();
+            }
+
+            function bloquearCampo(input) {
+                input.readOnly = true;
+                input.classList.add('readonly-ocr');
+            }
+
+            function actualizarCamposBanco(bancoValue) {
+                camposCodigos.classList.remove('hidden');
+                divCodigoUnico.classList.add('hidden');
+                divGuayaquil.classList.add('hidden');
+
+                inputClaveUnica.removeAttribute('required');
+                inputClaveRetiro.removeAttribute('required');
+                inputClaveEnvio.removeAttribute('required');
+
+                if (bancoValue === 'produbanco') {
+                    divCedula.classList.remove('hidden');
+                    inputCedula.setAttribute('required', 'required');
                 } else {
-                    preview.style.display = 'none';
-                    btnEnviar.disabled = true;
+                    divCedula.classList.add('hidden');
+                    inputCedula.removeAttribute('required');
+                    if (bancoValue !== 'produbanco') inputCedula.value = '';
                 }
+
+                if (bancoValue === 'pichincha' || bancoValue === 'produbanco') {
+                    document.getElementById('lblCodigoUnico').textContent = bancoValue === 'pichincha' ? 'Código Pichincha' : 'Código Produbanco';
+                    divCodigoUnico.classList.remove('hidden');
+                    inputClaveUnica.setAttribute('required', 'required');
+                } else if (bancoValue === 'guayaquil') {
+                    divGuayaquil.classList.remove('hidden');
+                    inputClaveRetiro.setAttribute('required', 'required');
+                    inputClaveEnvio.setAttribute('required', 'required');
+                }
+
+                validarFormulario();
+            }
+
+            function validarFormulario() {
+                const banco = select.value;
+                const monto = parseFloat(inputMonto.value);
+                const celular = inputCelular.value.trim();
+                const celularOk = /^09\d{8}$/.test(celular);
+
+                errorCelular.classList.toggle('visible', celular.length > 0 && !celularOk);
+
+                let cedulaOk = true;
+                if (banco === 'produbanco') {
+                    cedulaOk = /^\d{10}$/.test(inputCedula.value.trim());
+                    errorCedula.classList.toggle('visible', inputCedula.value.length > 0 && !cedulaOk);
+                } else {
+                    errorCedula.classList.remove('visible');
+                }
+
+                let codigosOk = false;
+                if (banco === 'pichincha' || banco === 'produbanco') {
+                    codigosOk = inputClaveUnica.value.trim().length > 0;
+                } else if (banco === 'guayaquil') {
+                    codigosOk = inputClaveRetiro.value.trim().length > 0 && inputClaveEnvio.value.trim().length > 0;
+                } else {
+                    codigosOk = !!banco;
+                }
+
+                const esValido = banco && !isNaN(monto) && monto > 0 && celularOk && cedulaOk && codigosOk;
+                btnEnviar.disabled = !esValido;
+                return esValido;
+            }
+
+            function aplicarDatosOcr(data) {
+                if (data.BANCO) {
+                    const b = data.BANCO.toLowerCase();
+                    let bancoElegido = '';
+                    if (b.includes('pichincha')) bancoElegido = 'pichincha';
+                    else if (b.includes('guayaquil')) bancoElegido = 'guayaquil';
+                    else if (b.includes('produbanco')) bancoElegido = 'produbanco';
+
+                    if (bancoElegido) {
+                        const option = Array.from(select.options).find(opt => opt.value === bancoElegido);
+                        if (option && option.disabled) {
+                            alert('El banco detectado (' + bancoElegido.toUpperCase() + ') está fuera de servicio.');
+                            comprobanteInput.value = '';
+                            preview.innerHTML = '';
+                            preview.style.display = 'none';
+                            zonaSubida.classList.remove('hidden');
+                            loadingOcr.classList.add('hidden');
+                            return false;
+                        }
+                        select.value = bancoElegido;
+                        actualizarCamposBanco(bancoElegido);
+                    }
+                }
+
+                if (data.MONTO) inputMonto.value = data.MONTO;
+                if (data.CELULAR) inputCelular.value = data.CELULAR;
+                if (data.CEDULA && select.value === 'produbanco') inputCedula.value = data.CEDULA;
+
+                if ((select.value === 'pichincha' || select.value === 'produbanco') && data.CLAVE_RETIRO) {
+                    inputClaveUnica.value = data.CLAVE_RETIRO;
+                    bloquearCampo(inputClaveUnica);
+                }
+                if (select.value === 'guayaquil') {
+                    if (data.CLAVE_RETIRO) {
+                        inputClaveRetiro.value = data.CLAVE_RETIRO;
+                        bloquearCampo(inputClaveRetiro);
+                    }
+                    if (data.CLAVE_ENVIO) {
+                        inputClaveEnvio.value = data.CLAVE_ENVIO;
+                        bloquearCampo(inputClaveEnvio);
+                    }
+                }
+
+                validarFormulario();
+                return true;
+            }
+
+            function procesarOcr(input) {
+                preview.innerHTML = '';
+                if (!input.files || input.files.length === 0) return;
+
+                for (let i = 0; i < input.files.length; i++) {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(input.files[i]);
+                    preview.appendChild(img);
+                }
+                preview.style.display = 'block';
+
+                zonaSubida.classList.add('hidden');
+                loadingOcr.classList.remove('hidden');
+
+                const formData = new FormData();
+                for (let i = 0; i < input.files.length; i++) {
+                    formData.append('imagenes', input.files[i]);
+                }
+
+                fetch('/api/procesar_ocr', { method: 'POST', body: formData })
+                    .then(r => r.json())
+                    .then(data => {
+                        mostrarFormularioVerificacion();
+                        if (data.error) {
+                            alert('No se pudo leer la foto. Completa los datos manualmente.');
+                        } else {
+                            aplicarDatosOcr(data);
+                        }
+                    })
+                    .catch(() => {
+                        mostrarFormularioVerificacion();
+                        alert('Error de conexión al analizar la imagen. Completa los datos manualmente.');
+                    });
+            }
+
+            comprobanteInput.addEventListener('change', function() {
+                procesarOcr(this);
             });
 
-            formWidget.addEventListener('submit', function() {
-                btnEnviar.disabled = true;
-                btnEnviar.textContent = 'Enviando…';
-                formWidget.style.display = 'none';
-                loading.classList.add('visible');
+            btnManual.addEventListener('click', function() {
+                mostrarFormularioVerificacion();
+            });
+
+            select.addEventListener('change', function() {
+                actualizarCamposBanco(this.value);
+            });
+
+            [inputMonto, inputCelular, inputCedula, inputClaveUnica, inputClaveRetiro, inputClaveEnvio].forEach(el => {
+                el.addEventListener('input', validarFormulario);
+                el.addEventListener('keyup', validarFormulario);
+            });
+
+            formVerificacion.addEventListener('submit', function(e) {
+                if (!validarFormulario()) {
+                    e.preventDefault();
+                    return;
+                }
+                formVerificacion.classList.add('hidden');
+                loadingEnvio.classList.remove('hidden');
+                subtituloWidget.textContent = 'Procesando envío…';
             });
         }
     </script>

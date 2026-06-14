@@ -716,45 +716,18 @@ def widget_retiro():
         usuario_widget = 'Widget-Externo'
 
     if request.method == 'GET':
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario)
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos)
 
     if not horario:
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, error='Sistema fuera de horario.'), 403
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, error='Sistema fuera de horario.'), 403
 
-    archivos = request.files.getlist('comprobante')
-    if not archivos or archivos[0].filename == '':
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, error='Debes subir al menos una imagen del comprobante.'), 400
+    banco_seleccionado = request.form.get('banco')
+    if banco_seleccionado and not bancos_activos.get(banco_seleccionado, True):
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
 
-    items_bytes = [(f.read(), f.filename) for f in archivos if f and f.filename]
-    image_bytes_list = [b for b, _ in items_bytes]
+    return procesar_formulario_retiro(request, [usuario_widget], modo_widget=True, origen_historial='Creado por Widget Externo')
 
-    datos_ia = extraer_datos_imagen_ocr(image_bytes_list)
-    if not datos_ia:
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, error='No se pudo leer el comprobante. Intenta con otra foto.'), 500
-
-    banco = mapear_banco_desde_ocr(datos_ia.get('BANCO', ''))
-    if banco in bancos_activos and not bancos_activos.get(banco, True):
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, error=f'El banco {banco.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
-
-    monto_total_str = str(datos_ia.get('MONTO', '')).strip()
-    celular = str(datos_ia.get('CELULAR', '')).strip()
-    cedula = str(datos_ia.get('CEDULA', '')).strip() if banco == 'produbanco' else ''
-    codigo_recibido, clave_retiro, clave_envio, codigo_seguridad = mapear_codigos_desde_ocr(banco, datos_ia)
-    str_imagenes = guardar_comprobantes_desde_bytes(items_bytes)
-
-    transaccion_id, error = insertar_registro_retiro(
-        banco, celular, cedula, monto_total_str,
-        codigo_recibido, clave_retiro, clave_envio, codigo_seguridad,
-        str_imagenes, [usuario_widget],
-        origen_historial='Creado por Widget Externo'
-    )
-
-    if error == 'duplicado':
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, error='Este código de retiro ya fue ingresado al sistema.'), 409
-
-    return '<script>window.parent.postMessage({tipo: "RETIRO_COMPLETADO", mensaje: "ok"}, "*");</script>'
-
-def procesar_formulario_retiro(req, lista_usuarios):
+def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente'):
     banco = req.form.get('banco')
     celular = req.form.get('celular', '')
     cedula = req.form.get('cedula', '')
@@ -779,13 +752,23 @@ def procesar_formulario_retiro(req, lista_usuarios):
         banco, celular, cedula, monto_total_str,
         codigo_recibido, clave_retiro, clave_envio, codigo_seguridad,
         str_imagenes, lista_usuarios,
-        origen_historial='Creado por Cliente',
+        origen_historial=origen_historial,
         req=req
     )
 
     if error == 'duplicado':
+        if modo_widget:
+            horario = sistema_config.get('horario_activo', True)
+            bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
+            token = req.form.get('token', '').strip()
+            usuario_widget = lista_usuarios[0] if lista_usuarios else 'Widget-Externo'
+            return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, error='Este código de retiro ya fue ingresado al sistema.'), 409
         flash('⚠️ ADVERTENCIA: Este código de retiro ya fue ingresado al sistema. No se puede duplicar.', 'error')
         return redirect(req.url)
+
+    if modo_widget:
+        monto_js = json.dumps(monto_total_str)
+        return f'<script>window.parent.postMessage({{tipo: "RETIRO_COMPLETADO", monto: {monto_js}}}, "*");</script>'
 
     is_split = len(lista_usuarios) > 1
     usuarios_para_recibo = ""

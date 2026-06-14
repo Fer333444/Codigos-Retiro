@@ -716,16 +716,21 @@ def widget_retiro():
         usuario_widget = 'Widget-Externo'
 
     if request.method == 'GET':
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos)
+        cliente_externo = request.args.get('cliente', 'Desconocido')
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo)
+
+    nombre_cliente = request.form.get('cliente_externo', 'Desconocido')
+    usuario_registro = f"WIDGET - {nombre_cliente}"
+    cliente_externo = nombre_cliente
 
     if not horario:
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, error='Sistema fuera de horario.'), 403
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, error='Sistema fuera de horario.'), 403
 
     banco_seleccionado = request.form.get('banco')
     if banco_seleccionado and not bancos_activos.get(banco_seleccionado, True):
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
 
-    return procesar_formulario_retiro(request, [usuario_widget], modo_widget=True, origen_historial='Creado por Widget Externo')
+    return procesar_formulario_retiro(request, [usuario_registro], modo_widget=True, origen_historial='Creado por Widget Externo')
 
 def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente'):
     banco = req.form.get('banco')
@@ -761,8 +766,9 @@ def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_hi
             horario = sistema_config.get('horario_activo', True)
             bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
             token = req.form.get('token', '').strip()
-            usuario_widget = lista_usuarios[0] if lista_usuarios else 'Widget-Externo'
-            return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, error='Este código de retiro ya fue ingresado al sistema.'), 409
+            usuario_widget = req.form.get('usuario', 'Widget-Externo')
+            cliente_externo = req.form.get('cliente_externo', 'Desconocido')
+            return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, error='Este código de retiro ya fue ingresado al sistema.'), 409
         flash('⚠️ ADVERTENCIA: Este código de retiro ya fue ingresado al sistema. No se puede duplicar.', 'error')
         return redirect(req.url)
 

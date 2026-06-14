@@ -188,12 +188,15 @@
             {% endif %}
 
             <div id="zonaSubida">
-                <label class="upload-area" for="comprobanteInput">
-                    <span class="title">Toca para subir imagen</span>
-                    <span class="hint">JPG o PNG · Varias fotos si es Produbanco</span>
-                </label>
-                <div id="preview"></div>
-                <button type="button" class="link-manual" id="btnManual">No tengo foto, llenar datos manualmente</button>
+                <form id="formSubida" onsubmit="return false;">
+                    <input type="hidden" name="cliente_externo" value="{{ cliente_externo|default('Desconocido') }}">
+                    <label class="upload-area" for="comprobanteInput">
+                        <span class="title">Toca para subir imagen</span>
+                        <span class="hint">JPG o PNG · Varias fotos si es Produbanco</span>
+                    </label>
+                    <div id="preview"></div>
+                    <button type="button" class="link-manual" id="btnManual">No tengo foto, llenar datos manualmente</button>
+                </form>
             </div>
 
             <div id="loadingOcr" class="loading-ocr hidden">
@@ -204,6 +207,7 @@
             <div id="loadingEnvio" class="loading-envio hidden">Enviando datos…</div>
 
             <form id="formVerificacion" class="hidden" action="{{ url_for('widget_retiro') }}" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="cliente_externo" value="{{ cliente_externo|default('Desconocido') }}">
                 <input type="hidden" name="usuario" value="{{ usuario }}">
                 {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
                 <input type="file" id="comprobanteInput" name="comprobante" accept="image/jpeg,image/png,image/jpg" multiple class="hidden">

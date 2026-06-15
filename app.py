@@ -1150,6 +1150,10 @@ def marcar_retirado():
     if registro_afectado:
         if registro_afectado.get('origen_socio') == 'fercho':
             disparar_webhook_fercho(registro_afectado, 'RETIRADO', request.host_url)
+        elif registro_afectado.get('origen_socio') == 'alex':
+            cliente_real = extraer_nombre_cliente_alex(registro_afectado.get('usuario', ''))
+            if cliente_real:
+                disparar_webhook_socio(cliente_real, 'completado', registro_afectado.get('monto'))
         else:
             nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
             if nombre_cliente is not None:
@@ -1209,6 +1213,10 @@ def marcar_fallido():
         if registro_afectado.get('origen_socio') == 'fercho':
             estado_fercho = 'FALLIDO_REVISION' if registro_afectado.get('estado') == 'fallido_revision' else 'FALLIDO'
             disparar_webhook_fercho(registro_afectado, estado_fercho, request.host_url)
+        elif registro_afectado.get('origen_socio') == 'alex':
+            cliente_real = extraer_nombre_cliente_alex(registro_afectado.get('usuario', ''))
+            if cliente_real:
+                disparar_webhook_socio(cliente_real, 'fallido', registro_afectado.get('monto'))
         else:
             nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
             if nombre_cliente is not None:
@@ -1851,6 +1859,12 @@ def guardar_suscripcion():
 
 def extraer_nombre_cliente_widget(usuario):
     prefijo = 'WIDGET - '
+    if usuario and str(usuario).startswith(prefijo):
+        return str(usuario)[len(prefijo):].strip()
+    return None
+
+def extraer_nombre_cliente_alex(usuario):
+    prefijo = 'ALEX - '
     if usuario and str(usuario).startswith(prefijo):
         return str(usuario)[len(prefijo):].strip()
     return None

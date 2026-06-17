@@ -24,6 +24,7 @@ VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 VAPID_CLAIMS = {"sub": "mailto:contenido2025yt@gmail.com"}
 
 WEBHOOK_SOCIO_URL = os.environ.get('WEBHOOK_SOCIO_URL', 'https://api-socio.com/api/v1/webhooks/codigos-retiro')
+WEBHOOK_SOCIO_API_KEY = os.environ.get('WEBHOOK_SOCIO_API_KEY', 'LaClaveSecretaQueElijamos123')
 FERCHO_WEBHOOK_URL = 'https://whatsapp-registros-diarios.onrender.com/api/v1/webhooks/retiros'
 FERCHO_WEBHOOK_KEY = os.environ.get('FERCHO_WEBHOOK_KEY', '')
 
@@ -1937,11 +1938,12 @@ def disparar_webhook_socio(cliente, estado, monto):
         return
 
     payload = {"cliente": cliente, "estado": estado, "monto": monto}
+    headers = {"X-API-Key": WEBHOOK_SOCIO_API_KEY}
 
     def enviar_en_hilo():
         try:
             with httpx.Client(timeout=10.0) as client:
-                response = client.post(WEBHOOK_SOCIO_URL, json=payload)
+                response = client.post(WEBHOOK_SOCIO_URL, json=payload, headers=headers)
                 print(f"✅ Webhook socio ({estado}) → {cliente}: HTTP {response.status_code}")
         except Exception as ex:
             print(f"❌ Error webhook socio ({estado}) → {cliente}:", repr(ex))

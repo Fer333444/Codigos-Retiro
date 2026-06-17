@@ -267,6 +267,30 @@ def mantenimiento_datos():
                 r['estado'] = 'expirado'
                 r['historial'].append(f"[{hora_actual}] ❌ Expirado automáticamente (Tiempo agotado)")
                 cambios_realizados = True
+
+        # === NUEVO: ALERTA DE DEUDA PASADA 24 HORAS ===
+        if r['estado'] in ['fallido', 'fallido_revision', 'expirado'] and not r.get('notificado_deuda_1dia'):
+            debe_notificar = False
+            if 'timestamp_creacion' in r:
+                if (tiempo_ahora - r['timestamp_creacion']) >= 86400: 
+                    debe_notificar = True
+            else:
+                try:
+                    creacion_dt = datetime.strptime(r['fecha'], "%d/%m/%Y %H:%M")
+                    if (hora_ecuador() - creacion_dt).total_seconds() >= 86400:
+                        debe_notificar = True
+                except:
+                    pass
+            
+            if debe_notificar:
+                r['notificado_deuda_1dia'] = True
+                cambios_realizados = True
+                
+                auditores = [u for u, info in usuarios_db.items() if info.get('rol') == 'notificacion_deuda' or 'notificacion_deuda' in info.get('permisos', [])]
+                
+                for auditor in auditores:
+                    disparar_alerta_push(auditor, "⚠️ Deuda sin resolver (24h)", f"El retiro de ${r.get('monto')} de {r.get('usuario')} lleva 1 día caído y no ha sido saldado.")
+        # ===============================================
             
     for k, v in enlaces_db.items():
         if 'grupo' not in v:
@@ -303,7 +327,7 @@ def ruta_por_rol(rol, usuario):
         return '/admin'
     if rol == 'cobrador': 
         return f'/trabajador/{usuario}'
-    if rol == 'reportes': 
+    if rol in ['reportes', 'notificacion_deuda']: 
         return '/reportes'
         
     return '/'

@@ -1549,7 +1549,7 @@ def ejecutar_marcar_fallido():
             if str_imagenes_fallo:
                 r['imagen_fallo'] = str_imagenes_fallo
 
-            tiene_deuda_previa = any(reg for reg in regs if reg['usuario'] == usuario_afectado and reg['estado'] == 'fallido')
+            tiene_deuda_previa = any(reg for reg in regs if reg['usuario'] == usuario_afectado and reg['estado'] in ['fallido', 'expirado'])
             
             if tiene_deuda_previa:
                 r['estado'] = 'fallido_revision'

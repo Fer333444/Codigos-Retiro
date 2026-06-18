@@ -1077,9 +1077,13 @@ def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
         return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
 
     # Se envía el origen modificado a la función principal de guardado
-    return procesar_formulario_retiro(request, [usuario_registro], modo_widget=True, origen_historial=origen, es_prueba=es_prueba, modo_prueba=modo_prueba, form_action=form_action)
+    referencia_externa = request.form.get('referencia_externa', request.args.get('referencia_externa'))
+    return procesar_formulario_retiro(
+        request, [usuario_registro], modo_widget=True, origen_historial=origen, es_prueba=es_prueba,
+        modo_prueba=modo_prueba, form_action=form_action, referencia_externa=referencia_externa, origen_socio='alex',
+    )
 
-def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente', es_prueba=False, modo_prueba='real', form_action=None):
+def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente', es_prueba=False, modo_prueba='real', form_action=None, referencia_externa=None, origen_socio=None):
     banco = req.form.get('banco')
     celular = req.form.get('celular', '')
     cedula = req.form.get('cedula', '')
@@ -1106,6 +1110,8 @@ def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_hi
         str_imagenes, lista_usuarios,
         origen_historial=origen_historial,
         req=req,
+        referencia_externa=referencia_externa,
+        origen_socio=origen_socio,
         es_prueba=es_prueba
     )
 
@@ -1474,17 +1480,29 @@ def ejecutar_marcar_retirado():
             
     guardar_datos()
 
-    if registro_afectado and not es_entorno_staging():
+    if registro_afectado:
         if registro_afectado.get('origen_socio') == 'fercho':
             disparar_webhook_fercho(registro_afectado, 'RETIRADO', request.host_url)
         elif registro_afectado.get('origen_socio') == 'alex':
             cliente_real = extraer_nombre_cliente_alex(registro_afectado.get('usuario', ''))
             if cliente_real:
-                disparar_webhook_socio(cliente_real, 'completado', registro_afectado.get('monto'))
+                disparar_webhook_socio(
+                    cliente_real,
+                    'completado',
+                    registro_afectado.get('monto'),
+                    referencia_externa=registro_afectado.get('referencia_externa'),
+                    es_prueba=registro_afectado.get('es_prueba', False),
+                )
         else:
             nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
             if nombre_cliente is not None:
-                disparar_webhook_socio(nombre_cliente, 'completado', registro_afectado.get('monto'))
+                disparar_webhook_socio(
+                    nombre_cliente,
+                    'completado',
+                    registro_afectado.get('monto'),
+                    referencia_externa=registro_afectado.get('referencia_externa'),
+                    es_prueba=registro_afectado.get('es_prueba', False),
+                )
 
     flash('¡Retiro marcado como completado!', 'success')
     return redirect(request.referrer)
@@ -1545,18 +1563,30 @@ def ejecutar_marcar_fallido():
             
     guardar_datos()
 
-    if registro_afectado and not es_entorno_staging():
+    if registro_afectado:
         if registro_afectado.get('origen_socio') == 'fercho':
             estado_fercho = 'FALLIDO_REVISION' if registro_afectado.get('estado') == 'fallido_revision' else 'FALLIDO'
             disparar_webhook_fercho(registro_afectado, estado_fercho, request.host_url)
         elif registro_afectado.get('origen_socio') == 'alex':
             cliente_real = extraer_nombre_cliente_alex(registro_afectado.get('usuario', ''))
             if cliente_real:
-                disparar_webhook_socio(cliente_real, 'fallido', registro_afectado.get('monto'))
+                disparar_webhook_socio(
+                    cliente_real,
+                    'fallido',
+                    registro_afectado.get('monto'),
+                    referencia_externa=registro_afectado.get('referencia_externa'),
+                    es_prueba=registro_afectado.get('es_prueba', False),
+                )
         else:
             nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
             if nombre_cliente is not None:
-                disparar_webhook_socio(nombre_cliente, 'fallido', registro_afectado.get('monto'))
+                disparar_webhook_socio(
+                    nombre_cliente,
+                    'fallido',
+                    registro_afectado.get('monto'),
+                    referencia_externa=registro_afectado.get('referencia_externa'),
+                    es_prueba=registro_afectado.get('es_prueba', False),
+                )
 
     return redirect(request.referrer)
 
@@ -2291,9 +2321,15 @@ def extraer_nombre_cliente_widget(usuario):
     return None
 
 def extraer_nombre_cliente_alex(usuario):
+    u = str(usuario or '').strip()
+    prefijo_prueba = '🔴 [PRUEBA] '
+    if u.startswith(prefijo_prueba):
+        u = u[len(prefijo_prueba):]
+        if ' - ' in u:
+            return u.split(' - ', 1)[1].strip()
     prefijo = 'ALEX - '
-    if usuario and str(usuario).startswith(prefijo):
-        return str(usuario)[len(prefijo):].strip()
+    if u.startswith(prefijo):
+        return u[len(prefijo):].strip()
     return None
 
 def disparar_webhook_fercho(registro, estado_final, host_url, evidencia_url=None):
@@ -2332,12 +2368,18 @@ def disparar_webhook_fercho(registro, estado_final, host_url, evidencia_url=None
 
     threading.Thread(target=enviar_en_hilo, daemon=True).start()
 
-def disparar_webhook_socio(cliente, estado, monto):
+def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None, es_prueba=False):
     """Notifica al ERP del socio en un hilo aparte (fire-and-forget)."""
     if not WEBHOOK_SOCIO_URL:
         return
 
-    payload = {"cliente": cliente, "estado": estado, "monto": monto}
+    payload = {
+        "cliente": cliente,
+        "estado": estado,
+        "monto": monto,
+        "referencia_externa": referencia_externa,
+        "es_prueba": es_prueba,
+    }
     headers = {"X-API-Key": WEBHOOK_SOCIO_API_KEY}
 
     def enviar_en_hilo():

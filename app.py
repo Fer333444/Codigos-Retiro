@@ -53,6 +53,16 @@ else:
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True) # Construye la bóveda de fotos si no existe
 
+def es_entorno_staging():
+    if not has_request_context():
+        return False
+    return request.path.startswith('/pruebas')
+
+@app.context_processor
+def inject_entorno():
+    # Retorna True si la URL actual empieza con /pruebas
+    return dict(entorno_staging=es_entorno_staging())
+
 # ==========================================
 # 📸 RUTA MÁGICA PARA LEER LAS FOTOS DEL DISCO
 # ==========================================
@@ -255,11 +265,6 @@ def asegurar_datos_simulador():
 
 def inicializar_simulador_por_defecto():
     asegurar_datos_simulador()
-
-def es_entorno_staging():
-    if not has_request_context():
-        return False
-    return request.path.startswith('/pruebas')
 
 def db_registros():
     return registros_pruebas if es_entorno_staging() else registros
@@ -1054,12 +1059,15 @@ def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
     nombre_cliente = request.form.get('cliente_externo', 'Desconocido')
     cliente_externo = nombre_cliente
 
+    # === ETIQUETAS VISUALES PARA LA BANDEJA Y EL HISTORIAL ===
     if forzar_codigo_prueba or es_entorno_staging() or modo_prueba == 'prueba':
-        usuario_registro = f"🧪 [CÓDIGO DE PRUEBA] {usuario_widget.upper()} - {cliente_externo}"
+        usuario_registro = f"🔴 [PRUEBA] {usuario_widget.upper()} - {cliente_externo}"
         es_prueba = True
+        origen = '🔴 CÓDIGO DE PRUEBA (Staging)'
     else:
         usuario_registro = f"WIDGET - {nombre_cliente}"
         es_prueba = False
+        origen = 'Creado por Widget Externo'
 
     if not horario:
         return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba, error='Sistema fuera de horario.'), 403
@@ -1068,7 +1076,7 @@ def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
     if banco_seleccionado and not bancos_activos.get(banco_seleccionado, True):
         return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
 
-    origen = '🧪 CÓDIGO DE PRUEBA — Widget Staging ERP' if forzar_codigo_prueba else ('Creado por Widget Externo (Staging)' if es_entorno_staging() else 'Creado por Widget Externo')
+    # Se envía el origen modificado a la función principal de guardado
     return procesar_formulario_retiro(request, [usuario_registro], modo_widget=True, origen_historial=origen, es_prueba=es_prueba, modo_prueba=modo_prueba, form_action=form_action)
 
 def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente', es_prueba=False, modo_prueba='real', form_action=None):
@@ -1414,8 +1422,16 @@ def restaurar_papelera():
 
 @app.route('/papelera')
 def vista_papelera():
-    if session.get('rol') not in ['supremo', 'reportes'] and 'ver_reportes' not in session.get('permisos', []): return redirect(url_for('login'))
-    eliminados = [r for r in registros if r['estado'] == 'papelera']
+    return render_vista_papelera(url_prefix='')
+
+def render_vista_papelera(url_prefix=''):
+    bloqueo = asegurar_sesion_simulador() if url_prefix else asegurar_sesion_produccion()
+    if bloqueo:
+        return bloqueo
+    login_route = f'{url_prefix}/login' if url_prefix else url_for('login')
+    if session.get('rol') not in ['supremo', 'reportes'] and 'ver_reportes' not in session.get('permisos', []):
+        return redirect(login_route)
+    eliminados = [r for r in db_registros() if r['estado'] == 'papelera']
     return render_template('papelera.html', eliminados=eliminados, mi_usuario=session['usuario'], rol=session.get('rol'))
 
 @app.route('/marcar_retirado', methods=['POST'])
@@ -2519,7 +2535,7 @@ def sincronizar_usuarios_pruebas():
     return redirect('/pruebas/login')
 
 @pruebas_bp.route('/usuarios')
-def lista_usuarios_pruebas():
+def usuarios_pruebas_view():
     return vista_lista_usuarios(url_prefix='/pruebas')
 
 @pruebas_bp.route('/usuarios/crear', methods=['GET', 'POST'])
@@ -2537,6 +2553,18 @@ def eliminar_usuario_pruebas():
 @pruebas_bp.route('/reportes')
 def reportes_pruebas():
     return vista_reportes(url_prefix='/pruebas')
+
+@pruebas_bp.route('/papelera')
+def papelera_pruebas():
+    return render_vista_papelera(url_prefix='/pruebas')
+
+@pruebas_bp.route('/grupos')
+def grupos_pruebas():
+    bloqueo = asegurar_sesion_simulador()
+    if bloqueo:
+        return bloqueo
+    flash('El módulo de grupos no está disponible en el simulador. Usa Retiros Activos o Reportes.', 'error')
+    return redirect('/pruebas/admin')
 
 @pruebas_bp.route('/marcar_retirado', methods=['POST'])
 def marcar_retirado_pruebas():

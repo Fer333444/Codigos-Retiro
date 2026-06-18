@@ -15,11 +15,11 @@
         </div>
         <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
             <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-link w-5"></i> Links Clientes</a>
-            <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
+            <a href="{{ '/pruebas' if entorno_staging else '' }}/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
             <a href="/reporte_diario" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-cash-register w-5"></i> Reporte Diario</a>
-            <a href="/reportes?vista=metricas" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-chart-line w-5"></i> Reportes</a>
+            <a href="{{ '/pruebas' if entorno_staging else '' }}/reportes?vista=metricas" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-chart-line w-5"></i> Reportes</a>
             
-            <a href="/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-black text-rose-700 bg-rose-50 rounded-lg mt-4 border border-rose-200"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
+            <a href="{{ '/pruebas' if entorno_staging else '' }}/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-black text-rose-700 bg-rose-50 rounded-lg mt-4 border border-rose-200"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
         </nav>
     </aside>
 
@@ -28,7 +28,7 @@
             <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
             <div class="flex items-center gap-4">
                 <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }}</span>
-                <a href="/logout" class="text-sm font-medium text-red-500">Cerrar sesión</a>
+                <a href="{{ '/pruebas' if entorno_staging else '' }}/logout" class="text-sm font-medium text-red-500">Cerrar sesión</a>
             </div>
         </header>
 

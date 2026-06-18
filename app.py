@@ -439,7 +439,27 @@ def mantenimiento_datos():
     hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     tiempo_ahora = time.time()
     regs = db_registros()
-# --- 🛠️ AUTO-REPARADOR DE IDs DUPLICADOS ---
+
+    # --- 🛠️ AUTO-REPARADOR RETROACTIVO DE DEUDAS ---
+    deudas_vistas = set()
+    # Iteramos desde el código más viejo al más nuevo usando el ID
+    for r in sorted(regs, key=lambda x: x.get('id', 0)):
+        estado_actual = r.get('estado')
+        usuario = r.get('usuario')
+
+        if estado_actual == 'fallido':
+            # Si ya habíamos visto una deuda más vieja de este usuario, lo pasamos a revisión
+            if usuario in deudas_vistas:
+                r['estado'] = 'fallido_revision'
+                cambios_realizados = True
+
+        # Si el estado cuenta como deuda, anotamos a este usuario para los códigos que le sigan
+        if r.get('estado') in ['fallido', 'expirado', 'fallido_revision']:
+            if usuario:
+                deudas_vistas.add(usuario)
+    # ------------------------------------------------
+
+    # --- 🛠️ AUTO-REPARADOR DE IDs DUPLICADOS ---
     ids_vistos = set()
     # Leemos la lista al revés para que los códigos viejos conserven su ID original
     for r in reversed(regs):

@@ -1077,13 +1077,13 @@ def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
         return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
 
     # Se envía el origen modificado a la función principal de guardado
-    referencia_externa = request.form.get('referencia_externa', request.args.get('referencia_externa'))
     return procesar_formulario_retiro(
         request, [usuario_registro], modo_widget=True, origen_historial=origen, es_prueba=es_prueba,
-        modo_prueba=modo_prueba, form_action=form_action, referencia_externa=referencia_externa, origen_socio='alex',
+        modo_prueba=modo_prueba, form_action=form_action, origen_socio='alex',
     )
 
-def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente', es_prueba=False, modo_prueba='real', form_action=None, referencia_externa=None, origen_socio=None):
+def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente', es_prueba=False, modo_prueba='real', form_action=None, origen_socio=None):
+    referencia_externa = req.form.get('referencia_externa')
     banco = req.form.get('banco')
     celular = req.form.get('celular', '')
     cedula = req.form.get('cedula', '')
@@ -1481,6 +1481,7 @@ def ejecutar_marcar_retirado():
     guardar_datos()
 
     if registro_afectado:
+        es_prueba = "PRUEBA" in registro_afectado.get('historial', [''])[0]
         if registro_afectado.get('origen_socio') == 'fercho':
             disparar_webhook_fercho(registro_afectado, 'RETIRADO', request.host_url)
         elif registro_afectado.get('origen_socio') == 'alex':
@@ -1491,7 +1492,7 @@ def ejecutar_marcar_retirado():
                     'completado',
                     registro_afectado.get('monto'),
                     referencia_externa=registro_afectado.get('referencia_externa'),
-                    es_prueba=registro_afectado.get('es_prueba', False),
+                    es_prueba=es_prueba,
                 )
         else:
             nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
@@ -1501,7 +1502,7 @@ def ejecutar_marcar_retirado():
                     'completado',
                     registro_afectado.get('monto'),
                     referencia_externa=registro_afectado.get('referencia_externa'),
-                    es_prueba=registro_afectado.get('es_prueba', False),
+                    es_prueba=es_prueba,
                 )
 
     flash('¡Retiro marcado como completado!', 'success')
@@ -1564,6 +1565,7 @@ def ejecutar_marcar_fallido():
     guardar_datos()
 
     if registro_afectado:
+        es_prueba = "PRUEBA" in registro_afectado.get('historial', [''])[0]
         if registro_afectado.get('origen_socio') == 'fercho':
             estado_fercho = 'FALLIDO_REVISION' if registro_afectado.get('estado') == 'fallido_revision' else 'FALLIDO'
             disparar_webhook_fercho(registro_afectado, estado_fercho, request.host_url)
@@ -1575,7 +1577,7 @@ def ejecutar_marcar_fallido():
                     'fallido',
                     registro_afectado.get('monto'),
                     referencia_externa=registro_afectado.get('referencia_externa'),
-                    es_prueba=registro_afectado.get('es_prueba', False),
+                    es_prueba=es_prueba,
                 )
         else:
             nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
@@ -1585,7 +1587,7 @@ def ejecutar_marcar_fallido():
                     'fallido',
                     registro_afectado.get('monto'),
                     referencia_externa=registro_afectado.get('referencia_externa'),
-                    es_prueba=registro_afectado.get('es_prueba', False),
+                    es_prueba=es_prueba,
                 )
 
     return redirect(request.referrer)
@@ -2373,13 +2375,9 @@ def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None, es_p
     if not WEBHOOK_SOCIO_URL:
         return
 
-    payload = {
-        "cliente": cliente,
-        "estado": estado,
-        "monto": monto,
-        "referencia_externa": referencia_externa,
-        "es_prueba": es_prueba,
-    }
+    payload = {"cliente": cliente, "estado": estado, "monto": monto, "es_prueba": es_prueba}
+    if referencia_externa:
+        payload["referencia_externa"] = referencia_externa
     headers = {"X-API-Key": WEBHOOK_SOCIO_API_KEY}
 
     def enviar_en_hilo():

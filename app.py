@@ -273,13 +273,13 @@ def login_url_simulador():
     return '/pruebas/login'
 
 def asegurar_sesion_produccion():
-    if session.get('entorno') == 'pruebas':
-        return redirect(login_url_simulador())
+    if 'usuario' not in session or session.get('entorno') != 'produccion':
+        return redirect(url_for('login'))
     return None
 
 def asegurar_sesion_simulador():
-    if session.get('entorno') != 'pruebas':
-        return redirect(login_url_simulador())
+    if 'usuario' not in session or session.get('entorno') != 'pruebas':
+        return redirect('/pruebas/login')
     return None
 
 cargar_datos()
@@ -1146,12 +1146,11 @@ def vista_login(url_prefix=''):
     if url_prefix:
         asegurar_datos_simulador()
 
-    if url_prefix and session.get('entorno') == 'pruebas' and request.method == 'GET':
-        pass
-    elif not url_prefix and session.get('entorno') == 'pruebas':
-        return redirect('/pruebas/admin')
-    elif not url_prefix and 'usuario' in session and session.get('entorno') != 'pruebas' and request.method == 'GET':
-        return redirect(ruta_por_rol(session.get('rol'), session.get('usuario')))
+    entorno_solicitado = 'pruebas' if url_prefix else 'produccion'
+    if 'usuario' in session and session.get('entorno') == entorno_solicitado and request.method == 'GET':
+        if url_prefix:
+            return redirect(ruta_por_rol_simulador(session['rol'], session['usuario']))
+        return redirect(ruta_por_rol(session['rol'], session['usuario']))
 
     if request.method == 'POST':
         username = request.form.get('username').lower()
@@ -1162,19 +1161,19 @@ def vista_login(url_prefix=''):
             session['usuario'] = username
             session['rol'] = users[username]['rol']
             session['permisos'] = users[username].get('permisos', [])
-            session['entorno'] = 'pruebas' if url_prefix else 'produccion'
+            session['entorno'] = entorno_solicitado
             if url_prefix:
                 return redirect(ruta_por_rol_simulador(session['rol'], username))
             return redirect(ruta_por_rol(session['rol'], username))
         flash('Usuario o contraseña incorrectos', 'error')
+
     form_action = f'{url_prefix}/login' if url_prefix else url_for('login')
     return render_template('login.html', form_action=form_action, entorno_staging=bool(url_prefix))
 
 @app.route('/logout')
 def logout():
-    era_simulador = session.get('entorno') == 'pruebas'
     session.clear()
-    return redirect('/pruebas/login' if era_simulador else url_for('login'))
+    return redirect(url_for('login'))
 
 @app.route('/actualizar_ubicacion', methods=['POST'])
 def actualizar_ubicacion():

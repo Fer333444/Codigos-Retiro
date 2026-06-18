@@ -14,6 +14,11 @@
     </style>
 </head>
 <body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
+    {% if entorno_staging %}
+    <div class="fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-white text-center text-xs font-black py-1.5 tracking-widest uppercase shadow-md">
+        🧪 Entorno de Pruebas — Los datos NO afectan producción
+    </div>
+    {% endif %}
 
     <header class="md:hidden fixed top-0 w-full h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-40 shadow-sm">
         <div class="flex items-center gap-3">
@@ -77,7 +82,7 @@
             {% endif %}
 
             {% if rol == 'cobrador' or 'procesar_retiros' in mis_permisos %}
-                <a href="/trabajador/{{ mi_usuario }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-blue-600 rounded-lg hover:bg-blue-50 mt-4 border border-transparent hover:border-blue-200 transition-colors"><i class="fas fa-briefcase w-5"></i> Mi Bandeja (Cobrar)</a>
+                <a href="{{ url_prefix|default('') }}/trabajador/{{ mi_usuario }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-blue-600 rounded-lg hover:bg-blue-50 mt-4 border border-transparent hover:border-blue-200 transition-colors"><i class="fas fa-briefcase w-5"></i> Mi Bandeja (Cobrar)</a>
             {% endif %}
 
             {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
@@ -571,7 +576,7 @@
             formData.append('trabajador', nuevoCobrador);
             
             try {
-                await fetch('/asignar', {
+                await fetch('{{ url_prefix|default("") }}/asignar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: formData.toString()
@@ -686,7 +691,7 @@
                 formData.append('trabajador', cobradorParaAsignar);
                 
                 try {
-                    await fetch('/asignar', {
+                    await fetch('{{ url_prefix|default("") }}/asignar', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: formData.toString()

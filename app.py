@@ -9,7 +9,7 @@ import time
 import threading
 import httpx
 from pywebpush import webpush, WebPushException
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory, Blueprint, has_request_context
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 
@@ -38,9 +38,11 @@ app.permanent_session_lifetime = timedelta(days=365)
 # Si el código detecta que está en Render, guarda JSON y FOTOS en el disco blindado (/var/data)
 if os.path.exists('/var/data'):
     DATA_FILE = '/var/data/base_datos_erp.json'
+    STAGING_DATA_FILE = '/var/data/registros_pruebas.json'
     UPLOAD_FOLDER = '/var/data/uploads'
 else:
     DATA_FILE = 'base_datos_local.json'
+    STAGING_DATA_FILE = 'registros_pruebas.json'
     UPLOAD_FOLDER = 'static/uploads'
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -55,6 +57,7 @@ def ver_imagen(filename):
 
 # --- Variables Globales ---
 registros = []
+registros_pruebas = []
 sistema_config = {'auto_asignar': False}
 enlaces_db = {}
 grupos_creados = [] 
@@ -64,6 +67,9 @@ historial_pagos = []
 suscripciones_push = {}
 
 def guardar_datos():
+    if es_entorno_staging():
+        guardar_registros_pruebas()
+        return
     data_a_guardar = {
         'registros': registros,
         'sistema_config': sistema_config,
@@ -100,7 +106,34 @@ def cargar_datos():
         except Exception as e:
             print("Error crítico al cargar desde el disco:", e)
 
+def cargar_registros_pruebas():
+    global registros_pruebas
+    if os.path.exists(STAGING_DATA_FILE):
+        try:
+            with open(STAGING_DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                registros_pruebas = data.get('registros', [])
+            print("✅ Registros de staging cargados desde", STAGING_DATA_FILE)
+        except Exception as e:
+            print("Error al cargar registros de staging:", e)
+
+def guardar_registros_pruebas():
+    try:
+        with open(STAGING_DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump({'registros': registros_pruebas}, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        print("Error al guardar registros de staging:", e)
+
+def es_entorno_staging():
+    if not has_request_context():
+        return False
+    return request.path.startswith('/pruebas')
+
+def db_registros():
+    return registros_pruebas if es_entorno_staging() else registros
+
 cargar_datos()
+cargar_registros_pruebas()
 # ==========================================
 
 def extraer_datos_imagen_ocr(image_bytes_list):
@@ -185,7 +218,7 @@ def recibir_ticket_socio():
     if not cfo_ticket_id:
         return jsonify({'error': 'cfo_ticket_id es requerido'}), 400
 
-    for r in registros:
+    for r in db_registros():
         if r.get('referencia_externa') == cfo_ticket_id and r.get('origen_socio') == 'fercho':
             return jsonify({'error': 'Ticket duplicado'}), 409
 
@@ -247,17 +280,18 @@ def mantenimiento_datos():
     cambios_realizados = False
     hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     tiempo_ahora = time.time()
+    regs = db_registros()
 # --- 🛠️ AUTO-REPARADOR DE IDs DUPLICADOS ---
     ids_vistos = set()
     # Leemos la lista al revés para que los códigos viejos conserven su ID original
-    for r in reversed(registros):
+    for r in reversed(regs):
         if r.get('id') in ids_vistos:
             # Si encontramos un clon, le damos un ID único basado en milisegundos
             r['id'] = int(tiempo_ahora * 1000) + random.randint(1, 9999)
             cambios_realizados = True
         ids_vistos.add(r.get('id'))
     
-    for r in registros:
+    for r in regs:
         if r['estado'] == 'activo':
             if 'expira_timestamp' in r:
                 if tiempo_ahora >= r['expira_timestamp']:
@@ -270,7 +304,7 @@ def mantenimiento_datos():
                 cambios_realizados = True
 
         # === NUEVO: ALERTA DE DEUDA PASADA 24 HORAS ===
-        if r['estado'] in ['fallido', 'fallido_revision', 'expirado'] and not r.get('notificado_deuda_1dia'):
+        if not es_entorno_staging() and r['estado'] in ['fallido', 'fallido_revision', 'expirado'] and not r.get('notificado_deuda_1dia'):
             debe_notificar = False
             
             if 'timestamp_creacion' in r:
@@ -721,6 +755,10 @@ def guardar_comprobantes_desde_bytes(items):
 def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_recibido, clave_retiro, clave_envio, codigo_seguridad, str_imagenes, lista_usuarios, origen_historial='Creado por Cliente', req=None, referencia_externa=None, origen_socio=None, es_prueba=False):
     import hashlib
 
+    regs = db_registros()
+    if es_entorno_staging():
+        es_prueba = True
+
     tiempo_creacion = time.time()
     horas_expiracion = 12 if banco == 'guayaquil' else 2.5
     tiempo_expiracion = tiempo_creacion + (horas_expiracion * 3600)
@@ -730,7 +768,7 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
     if codigos_unidos:
         hash_input = f"{monto_total_str}-{codigos_unidos}".encode('utf-8')
         transaccion_id = f"TRX-{hashlib.md5(hash_input).hexdigest()[:8].upper()}"
-        for r in registros:
+        for r in regs:
             if r.get('transaccion_id') == transaccion_id and r.get('estado') in ['activo', 'retirado']:
                 return None, 'duplicado'
     else:
@@ -758,7 +796,7 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
         cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
         if cobradores:
             cargas = {c: 0 for c in cobradores}
-            for r in registros:
+            for r in regs:
                 if r['estado'] == 'activo' and r['asignado_a'] in cargas:
                     cargas[r['asignado_a']] += 1
             mejor_cobrador = min(cargas, key=cargas.get)
@@ -792,8 +830,10 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
     if origen_socio is not None:
         nuevo_registro['origen_socio'] = origen_socio
     nuevo_registro['es_prueba'] = es_prueba
+    if es_entorno_staging():
+        nuevo_registro['entorno_staging'] = True
 
-    registros.insert(0, nuevo_registro)
+    regs.insert(0, nuevo_registro)
     guardar_datos()
 
     admin_users = [u for u, info in usuarios_db.items() if info['rol'] in ['supremo', 'recaudador', 'cobrador'] or 'procesar_retiros' in info.get('permisos', [])]
@@ -807,6 +847,9 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
 
 @app.route('/widget_retiro', methods=['GET', 'POST'])
 def widget_retiro():
+    return vista_widget_retiro(form_action=url_for('widget_retiro'))
+
+def vista_widget_retiro(form_action=None):
     horario = sistema_config.get('horario_activo', True)
     bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
 
@@ -823,13 +866,13 @@ def widget_retiro():
     if request.method == 'GET':
         cliente_externo = request.args.get('cliente', 'Desconocido')
         modo_prueba = request.args.get('modo', 'real')
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba)
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action)
 
     modo_prueba = request.form.get('modo_prueba', 'real')
     nombre_cliente = request.form.get('cliente_externo', 'Desconocido')
     cliente_externo = nombre_cliente
 
-    if modo_prueba == 'prueba':
+    if es_entorno_staging() or modo_prueba == 'prueba':
         usuario_registro = f"🧪 [PRUEBA] {usuario_widget.upper()} - {cliente_externo}"
         es_prueba = True
     else:
@@ -837,15 +880,15 @@ def widget_retiro():
         es_prueba = False
 
     if not horario:
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, error='Sistema fuera de horario.'), 403
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, error='Sistema fuera de horario.'), 403
 
     banco_seleccionado = request.form.get('banco')
     if banco_seleccionado and not bancos_activos.get(banco_seleccionado, True):
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
 
-    return procesar_formulario_retiro(request, [usuario_registro], modo_widget=True, origen_historial='Creado por Widget Externo', es_prueba=es_prueba, modo_prueba=modo_prueba)
+    return procesar_formulario_retiro(request, [usuario_registro], modo_widget=True, origen_historial='Creado por Widget Externo (Staging)' if es_entorno_staging() else 'Creado por Widget Externo', es_prueba=es_prueba, modo_prueba=modo_prueba, form_action=form_action)
 
-def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente', es_prueba=False, modo_prueba='real'):
+def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente', es_prueba=False, modo_prueba='real', form_action=None):
     banco = req.form.get('banco')
     celular = req.form.get('celular', '')
     cedula = req.form.get('cedula', '')
@@ -882,7 +925,7 @@ def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_hi
             token = req.form.get('token', '').strip()
             usuario_widget = req.form.get('usuario', 'Widget-Externo')
             cliente_externo = req.form.get('cliente_externo', 'Desconocido')
-            return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, error='Este código de retiro ya fue ingresado al sistema.'), 409
+            return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, error='Este código de retiro ya fue ingresado al sistema.'), 409
         flash('⚠️ ADVERTENCIA: Este código de retiro ya fue ingresado al sistema. No se puede duplicar.', 'error')
         return redirect(req.url)
 
@@ -952,10 +995,14 @@ def obtener_ubicaciones():
 # (Solo te muestro la parte que cambia dentro de la función admin())
 @app.route('/admin')
 def admin():
+    return vista_admin(url_prefix='')
+
+def vista_admin(url_prefix=''):
     mis_permisos = session.get('permisos', [])
     if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_retiros' not in mis_permisos: return redirect(url_for('login'))
     
-    activos = [r for r in registros if r['estado'] == 'activo']
+    regs = db_registros()
+    activos = [r for r in regs if r['estado'] == 'activo']
     
     # === MODIFICACIÓN AQUÍ ===
     # En lugar de solo sacar el nombre, ahora pasamos un diccionario con el nombre y su estado de disponibilidad
@@ -986,7 +1033,7 @@ def admin():
             'asignados_valor': 0.0
         }
         
-    for r in registros:
+    for r in regs:
         asignado = r.get('asignado_a')
         if asignado in stats_cobradores:
             if not r.get('es_prueba', False):
@@ -1024,7 +1071,9 @@ def admin():
                            mi_usuario=session['usuario'], 
                            rol=session.get('rol'),
                            auto_asignar=sistema_config['auto_asignar'],
-                           usuarios_db=usuarios_db)
+                           usuarios_db=usuarios_db,
+                           url_prefix=url_prefix,
+                           entorno_staging=bool(url_prefix))
 
 @app.route('/toggle_auto', methods=['POST'])
 def toggle_auto():
@@ -1054,12 +1103,15 @@ def toggle_auto():
 
 @app.route('/asignar', methods=['POST'])
 def asignar_trabajo():
+    return ejecutar_asignar(url_prefix='')
+
+def ejecutar_asignar(url_prefix=''):
     mis_permisos = session.get('permisos', [])
     
     if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_retiros' not in mis_permisos and 'procesar_retiros' not in mis_permisos: 
         return redirect(url_for('login'))
         
-    url_retorno = request.referrer or url_for('admin')
+    url_retorno = request.referrer or (f'{url_prefix}/admin' if url_prefix else url_for('admin'))
     
     try:
         registro_id = int(request.form.get('id', 0))
@@ -1071,8 +1123,9 @@ def asignar_trabajo():
         return redirect(url_retorno)
         
     hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
+    regs = db_registros()
     
-    for r in registros:
+    for r in regs:
         if r['id'] == registro_id:
             viejo_asignado = r.get('asignado_a')
             
@@ -1157,6 +1210,9 @@ def vista_papelera():
 
 @app.route('/marcar_retirado', methods=['POST'])
 def marcar_retirado():
+    return ejecutar_marcar_retirado()
+
+def ejecutar_marcar_retirado():
     mis_permisos = session.get('permisos', [])
     if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: return redirect(url_for('login'))
     
@@ -1164,8 +1220,9 @@ def marcar_retirado():
     banco_real = request.form.get('banco_real', 'No especificado').strip()
     hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     registro_afectado = None
+    regs = db_registros()
     
-    for r in registros:
+    for r in regs:
         if r['id'] == registro_id:
             r['estado'] = 'retirado'
             r['banco_real_retiro'] = banco_real.upper() 
@@ -1202,6 +1259,9 @@ def marcar_retirado():
 
 @app.route('/marcar_fallido', methods=['POST'])
 def marcar_fallido():
+    return ejecutar_marcar_fallido()
+
+def ejecutar_marcar_fallido():
     mis_permisos = session.get('permisos', [])
     if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: 
         return redirect(url_for('login'))
@@ -1223,8 +1283,9 @@ def marcar_fallido():
 
     usuario_afectado = None
     registro_afectado = None
+    regs = db_registros()
     
-    for r in registros:
+    for r in regs:
         if r['id'] == registro_id:
             usuario_afectado = r['usuario']
             
@@ -1232,7 +1293,7 @@ def marcar_fallido():
             if str_imagenes_fallo:
                 r['imagen_fallo'] = str_imagenes_fallo
 
-            tiene_deuda_previa = any(reg for reg in registros if reg['usuario'] == usuario_afectado and reg['estado'] == 'fallido')
+            tiene_deuda_previa = any(reg for reg in regs if reg['usuario'] == usuario_afectado and reg['estado'] == 'fallido')
             
             if tiene_deuda_previa:
                 r['estado'] = 'fallido_revision'
@@ -1793,6 +1854,9 @@ def vista_reportes():
 
 @app.route('/trabajador/<nombre>')
 def vista_trabajador(nombre):
+    return render_vista_trabajador(nombre, url_prefix='')
+
+def render_vista_trabajador(nombre, url_prefix=''):
     mis_permisos = session.get('permisos', [])
     if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: 
         return redirect(url_for('login'))
@@ -1803,12 +1867,13 @@ def vista_trabajador(nombre):
         flash('Tu rol no te permite entrar a la bandeja de otros cobradores.', 'error')
         return redirect(ruta_por_rol(session.get('rol'), session.get('usuario')))
         
+    regs = db_registros()
     # 1. Códigos Pendientes
-    mis_activos = [r for r in registros if r.get('asignado_a') == nombre and r['estado'] in ['activo', 'expirado']]
+    mis_activos = [r for r in regs if r.get('asignado_a') == nombre and r['estado'] in ['activo', 'expirado']]
     
     # 2. Historial de retiros completados (Agrupados por fecha)
     historial_agrupado = {}
-    for r in registros:
+    for r in regs:
         if r.get('asignado_a') == nombre and r['estado'] in ['retirado', 'liquidado', 'saldado']:
             fecha_corta = r.get('fecha', '').split(' ')[0] if r.get('fecha') else 'Sin fecha'
             if fecha_corta not in historial_agrupado:
@@ -1833,9 +1898,14 @@ def vista_trabajador(nombre):
                            nombre=nombre.capitalize(), 
                            mi_usuario=session['usuario'],
                            mi_estado_disp=mi_estado_disp,
-                           rol=session.get('rol'))
+                           rol=session.get('rol'),
+                           url_prefix=url_prefix,
+                           entorno_staging=bool(url_prefix))
 @app.route('/notificar_visto', methods=['POST'])
 def notificar_visto():
+    return ejecutar_notificar_visto()
+
+def ejecutar_notificar_visto():
     # Verificamos que quien presiona el botón sea un cobrador
     if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in session.get('permisos', []): 
         return jsonify({"error": "No autorizado"}), 403
@@ -1845,9 +1915,10 @@ def notificar_visto():
     cobrador_nombre = session.get('usuario').capitalize()
     
     banco = "Desconocido"
+    regs = db_registros()
     
     # Buscamos el registro para marcarlo como visto y sacar el nombre del banco
-    for r in registros:
+    for r in regs:
         if r['id'] == int(registro_id):
             banco = r.get('banco', 'Desconocido').capitalize()
             r['visto_por_cobrador'] = True  # Guardamos que ya lo vio
@@ -2105,6 +2176,45 @@ def toggle_disponibilidad():
         return jsonify({"status": "ok", "estado": usuarios_db[usuario]['disponible'], "mensaje": f"Estado cambiado a: {nuevo_estado}"})
     
     return jsonify({"error": "Usuario no encontrado"}), 404
+
+# ==========================================
+# 🧪 ENTORNO DE STAGING (/pruebas)
+# ==========================================
+pruebas_bp = Blueprint('pruebas', __name__, url_prefix='/pruebas')
+
+@pruebas_bp.route('/admin')
+def admin_pruebas():
+    return vista_admin(url_prefix='/pruebas')
+
+@pruebas_bp.route('/asignar', methods=['POST'])
+def asignar_pruebas():
+    return ejecutar_asignar(url_prefix='/pruebas')
+
+@pruebas_bp.route('/trabajador/<nombre>')
+def trabajador_pruebas(nombre):
+    return render_vista_trabajador(nombre, url_prefix='/pruebas')
+
+@pruebas_bp.route('/widget_retiro', methods=['GET', 'POST'])
+def widget_retiro_pruebas():
+    return vista_widget_retiro(form_action=url_for('pruebas.widget_retiro_pruebas'))
+
+@pruebas_bp.route('/api/v1/recibir_ticket_socio', methods=['POST'])
+def recibir_ticket_socio_pruebas():
+    return recibir_ticket_socio()
+
+@pruebas_bp.route('/marcar_retirado', methods=['POST'])
+def marcar_retirado_pruebas():
+    return ejecutar_marcar_retirado()
+
+@pruebas_bp.route('/marcar_fallido', methods=['POST'])
+def marcar_fallido_pruebas():
+    return ejecutar_marcar_fallido()
+
+@pruebas_bp.route('/notificar_visto', methods=['POST'])
+def notificar_visto_pruebas():
+    return ejecutar_notificar_visto()
+
+app.register_blueprint(pruebas_bp)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

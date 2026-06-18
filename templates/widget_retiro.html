@@ -206,7 +206,7 @@
 
             <div id="loadingEnvio" class="loading-envio hidden">Enviando datos…</div>
 
-            <form id="formVerificacion" class="hidden" action="{{ url_for('widget_retiro') }}" method="POST" enctype="multipart/form-data">
+            <form id="formVerificacion" class="hidden" action="{{ form_action|default(url_for('widget_retiro')) }}" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="cliente_externo" value="{{ cliente_externo|default('Desconocido') }}">
                 <input type="hidden" name="modo_prueba" value="{{ modo_prueba|default('real') }}">
                 <input type="hidden" name="usuario" value="{{ usuario }}">

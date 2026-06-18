@@ -175,9 +175,13 @@ def _es_cobrador_simulador(info):
     return info.get('rol') == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])
 
 def sembrar_simulador_desde_produccion():
-    global usuarios_pruebas, cobradores_pruebas
     if not usuarios_db:
         return False
+    return sincronizar_usuarios_desde_produccion() > 0
+
+def sincronizar_usuarios_desde_produccion():
+    """Copia exacta de usuarios_db hacia los JSON de staging."""
+    global usuarios_pruebas, cobradores_pruebas
     usuarios_pruebas = {}
     cobradores_pruebas = {}
     for username, info in usuarios_db.items():
@@ -190,8 +194,40 @@ def sembrar_simulador_desde_produccion():
     guardar_usuarios_pruebas()
     guardar_cobradores_pruebas()
     total = len(usuarios_pruebas) + len(cobradores_pruebas)
-    print(f"✅ Simulador: {total} usuario(s) copiado(s) desde producción.")
-    return total > 0
+    print(f"✅ Simulador: {total} usuario(s) sincronizado(s) desde producción.")
+    return total
+
+def usuario_existe_en_staging(username):
+    clave = str(username).lower()
+    return clave in usuarios_pruebas or clave in cobradores_pruebas
+
+def obtener_usuario_staging(username):
+    clave = str(username).lower()
+    if clave in usuarios_pruebas:
+        return usuarios_pruebas[clave]
+    return cobradores_pruebas.get(clave)
+
+def guardar_usuario_en_staging(username, info):
+    global usuarios_pruebas, cobradores_pruebas
+    clave = str(username).lower()
+    usuarios_pruebas.pop(clave, None)
+    cobradores_pruebas.pop(clave, None)
+    if _es_cobrador_simulador(info):
+        cobradores_pruebas[clave] = info
+    else:
+        usuarios_pruebas[clave] = info
+    guardar_usuarios_pruebas()
+    guardar_cobradores_pruebas()
+
+def eliminar_usuario_de_staging(username):
+    global usuarios_pruebas, cobradores_pruebas
+    clave = str(username).lower()
+    eliminado = usuarios_pruebas.pop(clave, None) or cobradores_pruebas.pop(clave, None)
+    if eliminado is not None:
+        guardar_usuarios_pruebas()
+        guardar_cobradores_pruebas()
+        return True
+    return False
 
 def crear_usuario_simulador_por_defecto():
     global usuarios_pruebas, cobradores_pruebas
@@ -1716,80 +1752,147 @@ def eliminar_registro():
 
 @app.route('/usuarios')
 def lista_usuarios():
+    return vista_lista_usuarios(url_prefix='')
+
+def vista_lista_usuarios(url_prefix=''):
+    bloqueo = asegurar_sesion_simulador() if url_prefix else asegurar_sesion_produccion()
+    if bloqueo:
+        return bloqueo
     mis_permisos = session.get('permisos', [])
-    if session.get('rol') != 'supremo' and 'gestionar_usuarios' not in mis_permisos: return redirect(url_for('login'))
-    return render_template('usuarios.html', usuarios=usuarios_db, mi_usuario=session['usuario'], rol=session.get('rol'))
+    login_route = f'{url_prefix}/login' if url_prefix else url_for('login')
+    if session.get('rol') != 'supremo' and 'gestionar_usuarios' not in mis_permisos:
+        return redirect(login_route)
+    users = {**usuarios_pruebas, **cobradores_pruebas} if url_prefix else usuarios_db
+    return render_template('usuarios.html', usuarios=users, mi_usuario=session['usuario'], rol=session.get('rol'), url_prefix=url_prefix, entorno_staging=bool(url_prefix))
 
 @app.route('/usuarios/crear', methods=['GET', 'POST'])
 def crear_usuario():
+    return vista_crear_usuario(url_prefix='')
+
+def vista_crear_usuario(url_prefix=''):
+    bloqueo = asegurar_sesion_simulador() if url_prefix else asegurar_sesion_produccion()
+    if bloqueo:
+        return bloqueo
     mis_permisos = session.get('permisos', [])
-    if session.get('rol') != 'supremo' and 'gestionar_usuarios' not in mis_permisos: return redirect(url_for('login'))
+    login_route = f'{url_prefix}/login' if url_prefix else url_for('login')
+    lista_route = f'{url_prefix}/usuarios' if url_prefix else url_for('lista_usuarios')
+    if session.get('rol') != 'supremo' and 'gestionar_usuarios' not in mis_permisos:
+        return redirect(login_route)
     if request.method == 'POST':
         username = request.form.get('username').lower()
-        if username in usuarios_db:
-            flash('El nombre de usuario ya existe.', 'error')
-            return redirect(url_for('crear_usuario'))
-            
-        permisos_marcados = request.form.getlist('permisos') 
-        
-        usuarios_db[username] = {
-            'nombre': request.form.get('nombre', username), 
-            'apellido': '', 
+        permisos_marcados = request.form.getlist('permisos')
+        nuevo_usuario = {
+            'nombre': request.form.get('nombre', username),
+            'apellido': '',
             'email': '',
-            'password': request.form.get('password'), 
-            'rol': request.form.get('rol'), 
-            'permisos': permisos_marcados, 
-            'estado': 'Activo'
+            'password': request.form.get('password'),
+            'rol': request.form.get('rol'),
+            'permisos': permisos_marcados,
+            'estado': 'Activo',
         }
-        guardar_datos()
+        if url_prefix:
+            if usuario_existe_en_staging(username):
+                flash('El nombre de usuario ya existe en el simulador.', 'error')
+                return redirect(f'{url_prefix}/usuarios/crear')
+            if _es_cobrador_simulador(nuevo_usuario):
+                nuevo_usuario['disponible'] = True
+            guardar_usuario_en_staging(username, nuevo_usuario)
+        else:
+            if username in usuarios_db:
+                flash('El nombre de usuario ya existe.', 'error')
+                return redirect(url_for('crear_usuario'))
+            usuarios_db[username] = nuevo_usuario
+            guardar_datos()
         flash(f'Usuario {username} creado con éxito como {request.form.get("rol")}.', 'success')
-        return redirect(url_for('lista_usuarios'))
-    return render_template('crear_usuario.html', mi_usuario=session['usuario'], rol=session.get('rol'))
+        return redirect(lista_route)
+    return render_template('crear_usuario.html', mi_usuario=session['usuario'], rol=session.get('rol'), url_prefix=url_prefix, entorno_staging=bool(url_prefix))
 
 @app.route('/editar_usuario', methods=['POST'])
 def editar_usuario():
+    return ejecutar_editar_usuario(url_prefix='')
+
+def ejecutar_editar_usuario(url_prefix=''):
+    bloqueo = asegurar_sesion_simulador() if url_prefix else asegurar_sesion_produccion()
+    if bloqueo:
+        return bloqueo
     mis_permisos = session.get('permisos', [])
-    if session.get('rol') != 'supremo' and 'gestionar_usuarios' not in mis_permisos: return redirect(url_for('login'))
-    
-    username = request.form.get('username')
-    
-    if username in usuarios_db:
-        usuarios_db[username]['nombre'] = request.form.get('nombre', usuarios_db[username]['nombre'])
-        usuarios_db[username]['email'] = request.form.get('email', usuarios_db[username]['email'])
-        usuarios_db[username]['rol'] = request.form.get('rol', usuarios_db[username]['rol'])
-        usuarios_db[username]['estado'] = request.form.get('estado', usuarios_db[username]['estado'])
-        
-        usuarios_db[username]['permisos'] = request.form.getlist('permisos')
-        
+    login_route = f'{url_prefix}/login' if url_prefix else url_for('login')
+    lista_route = f'{url_prefix}/usuarios' if url_prefix else url_for('lista_usuarios')
+    if session.get('rol') != 'supremo' and 'gestionar_usuarios' not in mis_permisos:
+        return redirect(login_route)
+
+    username = request.form.get('username', '').lower()
+    permisos_marcados = request.form.getlist('permisos')
+
+    if url_prefix:
+        existente = obtener_usuario_staging(username)
+        if not existente:
+            flash('Error: Usuario no encontrado en el simulador.', 'error')
+            return redirect(lista_route)
+        actualizado = copy.deepcopy(existente)
+        actualizado['nombre'] = request.form.get('nombre', actualizado.get('nombre'))
+        actualizado['email'] = request.form.get('email', actualizado.get('email', ''))
+        actualizado['rol'] = request.form.get('rol', actualizado.get('rol'))
+        actualizado['estado'] = request.form.get('estado', actualizado.get('estado'))
+        actualizado['permisos'] = permisos_marcados
         nueva_pass = request.form.get('password')
-        if nueva_pass and nueva_pass.strip() != '':
-            usuarios_db[username]['password'] = nueva_pass
-            
-        guardar_datos()
-        flash(f'✅ Usuario "{username}" actualizado correctamente.', 'success')
+        if nueva_pass and nueva_pass.strip():
+            actualizado['password'] = nueva_pass
+        if _es_cobrador_simulador(actualizado):
+            actualizado.setdefault('disponible', True)
+        guardar_usuario_en_staging(username, actualizado)
     else:
-        flash('Error: Usuario no encontrado en la base de datos.', 'error')
-        
-    return redirect(url_for('lista_usuarios'))
+        if username in usuarios_db:
+            usuarios_db[username]['nombre'] = request.form.get('nombre', usuarios_db[username]['nombre'])
+            usuarios_db[username]['email'] = request.form.get('email', usuarios_db[username]['email'])
+            usuarios_db[username]['rol'] = request.form.get('rol', usuarios_db[username]['rol'])
+            usuarios_db[username]['estado'] = request.form.get('estado', usuarios_db[username]['estado'])
+            usuarios_db[username]['permisos'] = permisos_marcados
+            nueva_pass = request.form.get('password')
+            if nueva_pass and nueva_pass.strip() != '':
+                usuarios_db[username]['password'] = nueva_pass
+            guardar_datos()
+        else:
+            flash('Error: Usuario no encontrado en la base de datos.', 'error')
+            return redirect(lista_route)
+
+    flash(f'✅ Usuario "{username}" actualizado correctamente.', 'success')
+    return redirect(lista_route)
 
 @app.route('/eliminar_usuario', methods=['POST'])
 def eliminar_usuario():
+    return ejecutar_eliminar_usuario(url_prefix='')
+
+def ejecutar_eliminar_usuario(url_prefix=''):
+    bloqueo = asegurar_sesion_simulador() if url_prefix else asegurar_sesion_produccion()
+    if bloqueo:
+        return bloqueo
     mis_permisos = session.get('permisos', [])
-    if session.get('rol') != 'supremo' and 'gestionar_usuarios' not in mis_permisos: return redirect(url_for('login'))
-    
-    username = request.form.get('username')
-    
-    if username in usuarios_db:
-        if username == session.get('usuario'):
-            flash('No puedes eliminar tu propia cuenta activa.', 'error')
+    login_route = f'{url_prefix}/login' if url_prefix else url_for('login')
+    lista_route = f'{url_prefix}/usuarios' if url_prefix else url_for('lista_usuarios')
+    if session.get('rol') != 'supremo' and 'gestionar_usuarios' not in mis_permisos:
+        return redirect(login_route)
+
+    username = request.form.get('username', '').lower()
+
+    if username == session.get('usuario'):
+        flash('No puedes eliminar tu propia cuenta activa.', 'error')
+        return redirect(lista_route)
+
+    if url_prefix:
+        if eliminar_usuario_de_staging(username):
+            flash(f'🗑️ Usuario "{username}" eliminado del simulador.', 'success')
         else:
+            flash('Error: Usuario no encontrado en el simulador.', 'error')
+    else:
+        if username in usuarios_db:
             del usuarios_db[username]
             guardar_datos()
             flash(f'🗑️ Usuario "{username}" ha sido eliminado permanentemente.', 'success')
-    else:
-        flash('Error: Usuario no encontrado.', 'error')
-        
-    return redirect(url_for('lista_usuarios'))
+        else:
+            flash('Error: Usuario no encontrado.', 'error')
+
+    return redirect(lista_route)
 @app.route('/marcar_recibido', methods=['POST'])
 def marcar_recibido():
     if session.get('rol') not in ['supremo', 'recaudador']: return redirect(url_for('login'))
@@ -2394,6 +2497,31 @@ def asignar_pruebas():
 @pruebas_bp.route('/trabajador/<nombre>')
 def trabajador_pruebas(nombre):
     return render_vista_trabajador(nombre, url_prefix='/pruebas')
+
+@pruebas_bp.route('/sincronizar_usuarios')
+def sincronizar_usuarios_pruebas():
+    if not usuarios_db:
+        flash('⚠️ No hay usuarios de producción para copiar.', 'error')
+        return redirect('/pruebas/login')
+    sincronizar_usuarios_desde_produccion()
+    flash('✅ Sincronización exitosa. Ya puedes entrar con tu contraseña real.', 'success')
+    return redirect('/pruebas/login')
+
+@pruebas_bp.route('/usuarios')
+def lista_usuarios_pruebas():
+    return vista_lista_usuarios(url_prefix='/pruebas')
+
+@pruebas_bp.route('/usuarios/crear', methods=['GET', 'POST'])
+def crear_usuario_pruebas():
+    return vista_crear_usuario(url_prefix='/pruebas')
+
+@pruebas_bp.route('/editar_usuario', methods=['POST'])
+def editar_usuario_pruebas():
+    return ejecutar_editar_usuario(url_prefix='/pruebas')
+
+@pruebas_bp.route('/eliminar_usuario', methods=['POST'])
+def eliminar_usuario_pruebas():
+    return ejecutar_eliminar_usuario(url_prefix='/pruebas')
 
 @pruebas_bp.route('/marcar_retirado', methods=['POST'])
 def marcar_retirado_pruebas():

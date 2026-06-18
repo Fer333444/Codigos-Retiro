@@ -43,11 +43,11 @@
             {% endif %}
             
             {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
-                <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
+                <a href="{{ url_prefix|default('') }}/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50"><i class="fas fa-home w-5"></i> Retiros Activos</a>
             {% endif %}
             
             {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
-                <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
+                <a href="{{ url_prefix|default('') }}/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-green-700 bg-green-50 rounded-lg"><i class="fas fa-users w-5"></i> Administrar usuarios</a>
             {% endif %}
             
             {% if rol == 'supremo' or 'ver_reportes' in mis_permisos %}
@@ -80,7 +80,7 @@
         <div class="p-4 border-t border-slate-200 shrink-0">
             <div class="flex items-center justify-between">
                 <span class="text-sm font-bold text-slate-600 uppercase truncate">{{ mi_usuario }}</span>
-                <a href="/logout" class="text-xs font-medium text-red-500 hover:underline"><i class="fas fa-sign-out-alt"></i> Salir</a>
+                <a href="{{ url_prefix|default('') }}/logout" class="text-xs font-medium text-red-500 hover:underline"><i class="fas fa-sign-out-alt"></i> Salir</a>
             </div>
         </div>
     </aside>
@@ -90,7 +90,7 @@
             <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
             <div class="flex items-center gap-4">
                 <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }}</span>
-                <a href="/logout" class="text-sm font-medium text-red-500 hover:underline">Cerrar sesión</a>
+                <a href="{{ url_prefix|default('') }}/logout" class="text-sm font-medium text-red-500 hover:underline">Cerrar sesión</a>
             </div>
         </header>
 
@@ -123,7 +123,7 @@
                             <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
                             <input type="text" placeholder="Buscar..." class="w-full border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 font-medium">
                         </div>
-                        <a href="/usuarios/crear" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition-colors text-sm text-center">
+                        <a href="{{ url_prefix|default('') }}/usuarios/crear" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition-colors text-sm text-center">
                             Agregar usuario
                         </a>
                     </div>
@@ -203,7 +203,7 @@
             
             <div class="p-6 space-y-4 overflow-y-auto">
                 
-                <form id="formEditarUsuario" action="/editar_usuario" method="POST" class="space-y-4">
+                <form id="formEditarUsuario" action="{{ url_prefix|default('') }}/editar_usuario" method="POST" class="space-y-4">
                     <input type="hidden" name="username" id="edit_username">
                     
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -312,7 +312,7 @@
                 </form>
 
                 <div class="flex gap-2 pt-4 mt-6">
-                    <form action="/eliminar_usuario" method="POST" onsubmit="return confirm('ATENCIÓN: ¿Estás completamente seguro de eliminar este usuario? Esta acción no se puede deshacer.');" class="m-0">
+                    <form action="{{ url_prefix|default('') }}/eliminar_usuario" method="POST" onsubmit="return confirm('ATENCIÓN: ¿Estás completamente seguro de eliminar este usuario? Esta acción no se puede deshacer.');" class="m-0">
                         <input type="hidden" name="username" id="delete_username">
                         <button type="submit" class="bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 font-black px-4 py-3 rounded-lg transition-colors shadow-sm focus:outline-none flex items-center justify-center" title="Eliminar Usuario">
                             <i class="fas fa-trash-alt text-lg"></i>

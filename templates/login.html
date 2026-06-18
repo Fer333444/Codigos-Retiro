@@ -22,7 +22,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="mb-6 p-3 rounded-xl bg-red-50 text-red-600 text-sm font-bold text-center border border-red-200">
+              <div class="mb-6 p-3 rounded-xl text-sm font-bold text-center border {% if category == 'success' %}bg-green-50 text-green-700 border-green-200{% else %}bg-red-50 text-red-600 border-red-200{% endif %}">
                 {{ message }}
               </div>
             {% endfor %}
@@ -42,6 +42,11 @@
                 ENTRAR AL SISTEMA
             </button>
         </form>
+        {% if entorno_staging %}
+        <a href="/pruebas/sincronizar_usuarios" class="block mt-5 text-center text-xs font-bold text-amber-700 hover:text-amber-900 underline">
+            ¿Sin acceso? Sincronizar usuarios desde producción
+        </a>
+        {% endif %}
     </div>
 </body>
 </html>

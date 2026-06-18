@@ -718,7 +718,7 @@ def guardar_comprobantes_desde_bytes(items):
         nombres_imagenes.append(nombre)
     return ",".join(nombres_imagenes) if nombres_imagenes else None
 
-def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_recibido, clave_retiro, clave_envio, codigo_seguridad, str_imagenes, lista_usuarios, origen_historial='Creado por Cliente', req=None, referencia_externa=None, origen_socio=None):
+def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_recibido, clave_retiro, clave_envio, codigo_seguridad, str_imagenes, lista_usuarios, origen_historial='Creado por Cliente', req=None, referencia_externa=None, origen_socio=None, es_prueba=False):
     import hashlib
 
     tiempo_creacion = time.time()
@@ -791,6 +791,7 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
         nuevo_registro['referencia_externa'] = referencia_externa
     if origen_socio is not None:
         nuevo_registro['origen_socio'] = origen_socio
+    nuevo_registro['es_prueba'] = es_prueba
 
     registros.insert(0, nuevo_registro)
     guardar_datos()
@@ -821,22 +822,30 @@ def widget_retiro():
 
     if request.method == 'GET':
         cliente_externo = request.args.get('cliente', 'Desconocido')
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo)
+        modo_prueba = request.args.get('modo', 'real')
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba)
 
+    modo_prueba = request.form.get('modo_prueba', 'real')
     nombre_cliente = request.form.get('cliente_externo', 'Desconocido')
-    usuario_registro = f"WIDGET - {nombre_cliente}"
     cliente_externo = nombre_cliente
 
+    if modo_prueba == 'prueba':
+        usuario_registro = f"🧪 [PRUEBA] {usuario_widget.upper()} - {cliente_externo}"
+        es_prueba = True
+    else:
+        usuario_registro = f"WIDGET - {nombre_cliente}"
+        es_prueba = False
+
     if not horario:
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, error='Sistema fuera de horario.'), 403
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, error='Sistema fuera de horario.'), 403
 
     banco_seleccionado = request.form.get('banco')
     if banco_seleccionado and not bancos_activos.get(banco_seleccionado, True):
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
 
-    return procesar_formulario_retiro(request, [usuario_registro], modo_widget=True, origen_historial='Creado por Widget Externo')
+    return procesar_formulario_retiro(request, [usuario_registro], modo_widget=True, origen_historial='Creado por Widget Externo', es_prueba=es_prueba, modo_prueba=modo_prueba)
 
-def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente'):
+def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente', es_prueba=False, modo_prueba='real'):
     banco = req.form.get('banco')
     celular = req.form.get('celular', '')
     cedula = req.form.get('cedula', '')
@@ -862,7 +871,8 @@ def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_hi
         codigo_recibido, clave_retiro, clave_envio, codigo_seguridad,
         str_imagenes, lista_usuarios,
         origen_historial=origen_historial,
-        req=req
+        req=req,
+        es_prueba=es_prueba
     )
 
     if error == 'duplicado':
@@ -872,7 +882,7 @@ def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_hi
             token = req.form.get('token', '').strip()
             usuario_widget = req.form.get('usuario', 'Widget-Externo')
             cliente_externo = req.form.get('cliente_externo', 'Desconocido')
-            return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, error='Este código de retiro ya fue ingresado al sistema.'), 409
+            return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, error='Este código de retiro ya fue ingresado al sistema.'), 409
         flash('⚠️ ADVERTENCIA: Este código de retiro ya fue ingresado al sistema. No se puede duplicar.', 'error')
         return redirect(req.url)
 
@@ -979,32 +989,33 @@ def admin():
     for r in registros:
         asignado = r.get('asignado_a')
         if asignado in stats_cobradores:
-            if r['estado'] == 'activo':
-                stats_cobradores[asignado]['asignados_count'] += 1
-                try: stats_cobradores[asignado]['asignados_valor'] += float(r['monto'])
-                except: pass
-                
-            if not r.get('liquidado', False):
-                if r['estado'] == 'retirado':
-                    try:
-                        monto = float(r['monto'])
-                        stats_cobradores[asignado]['total_acumulado'] += monto
-                        
-                        fecha_corta = r['fecha'].split(' ')[0]
-                        if fecha_corta not in stats_cobradores[asignado]['desglose_fechas']:
-                            stats_cobradores[asignado]['desglose_fechas'][fecha_corta] = 0.0
-                        stats_cobradores[asignado]['desglose_fechas'][fecha_corta] += monto
-                        
-                        if r['fecha'].startswith(hoy_ecuador):
-                            stats_cobradores[asignado]['total_dia'] += monto
+            if not r.get('es_prueba', False):
+                if r['estado'] == 'activo':
+                    stats_cobradores[asignado]['asignados_count'] += 1
+                    try: stats_cobradores[asignado]['asignados_valor'] += float(r['monto'])
                     except: pass
                     
-                # Mostrar las deudas SIEMPRE hasta que se salden. 
-                # Los expirados los dejamos solo por hoy para que no se acumule basura.
-                elif r['estado'] in ['fallido', 'fallido_revision']:
-                    stats_cobradores[asignado]['fallidos'].append(r)
-                elif r['estado'] == 'expirado' and r['fecha'].startswith(hoy_ecuador):
-                    stats_cobradores[asignado]['fallidos'].append(r)
+                if not r.get('liquidado', False):
+                    if r['estado'] == 'retirado':
+                        try:
+                            monto = float(r['monto'])
+                            stats_cobradores[asignado]['total_acumulado'] += monto
+                            
+                            fecha_corta = r['fecha'].split(' ')[0]
+                            if fecha_corta not in stats_cobradores[asignado]['desglose_fechas']:
+                                stats_cobradores[asignado]['desglose_fechas'][fecha_corta] = 0.0
+                            stats_cobradores[asignado]['desglose_fechas'][fecha_corta] += monto
+                            
+                            if r['fecha'].startswith(hoy_ecuador):
+                                stats_cobradores[asignado]['total_dia'] += monto
+                        except: pass
+                        
+                    # Mostrar las deudas SIEMPRE hasta que se salden. 
+                    # Los expirados los dejamos solo por hoy para que no se acumule basura.
+                    elif r['estado'] in ['fallido', 'fallido_revision']:
+                        stats_cobradores[asignado]['fallidos'].append(r)
+                    elif r['estado'] == 'expirado' and r['fecha'].startswith(hoy_ecuador):
+                        stats_cobradores[asignado]['fallidos'].append(r)
                 
     return render_template('admin.html', 
                            activos=activos, 

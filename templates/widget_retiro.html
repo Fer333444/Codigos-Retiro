@@ -208,6 +208,7 @@
 
             <form id="formVerificacion" class="hidden" action="{{ url_for('widget_retiro') }}" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="cliente_externo" value="{{ cliente_externo|default('Desconocido') }}">
+                <input type="hidden" name="modo_prueba" value="{{ modo_prueba|default('real') }}">
                 <input type="hidden" name="usuario" value="{{ usuario }}">
                 {% if token %}<input type="hidden" name="token" value="{{ token }}">{% endif %}
                 <input type="file" id="comprobanteInput" name="comprobante" accept="image/jpeg,image/png,image/jpg" multiple class="hidden">

@@ -7,6 +7,7 @@ import json
 import base64
 import time
 import threading
+import copy
 import httpx
 from pywebpush import webpush, WebPushException
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory, Blueprint, has_request_context
@@ -167,31 +168,57 @@ def guardar_cobradores_pruebas():
     except Exception as e:
         print("Error al guardar cobradores de staging:", e)
 
-def inicializar_simulador_por_defecto():
+def simulador_usuarios_vacio():
+    return not usuarios_pruebas and not cobradores_pruebas
+
+def _es_cobrador_simulador(info):
+    return info.get('rol') == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])
+
+def sembrar_simulador_desde_produccion():
     global usuarios_pruebas, cobradores_pruebas
-    if not usuarios_pruebas:
-        usuarios_pruebas = {
-            'recaudador_prueba': {
-                'password': 'prueba123',
-                'rol': 'recaudador',
-                'permisos': ['ver_retiros'],
-                'nombre': 'Recaudador Simulador',
-                'estado': 'Activo',
-            }
+    if not usuarios_db:
+        return False
+    usuarios_pruebas = {}
+    cobradores_pruebas = {}
+    for username, info in usuarios_db.items():
+        clave = str(username).lower()
+        copia = copy.deepcopy(info)
+        if _es_cobrador_simulador(copia):
+            cobradores_pruebas[clave] = copia
+        else:
+            usuarios_pruebas[clave] = copia
+    guardar_usuarios_pruebas()
+    guardar_cobradores_pruebas()
+    total = len(usuarios_pruebas) + len(cobradores_pruebas)
+    print(f"✅ Simulador: {total} usuario(s) copiado(s) desde producción.")
+    return total > 0
+
+def crear_usuario_simulador_por_defecto():
+    global usuarios_pruebas, cobradores_pruebas
+    usuarios_pruebas = {
+        'fernando': {
+            'password': '12345',
+            'rol': 'recaudador',
+            'permisos': ['ver_retiros', 'procesar_retiros'],
+            'nombre': 'Fernando',
+            'estado': 'Activo',
+            'disponible': True,
         }
-        guardar_usuarios_pruebas()
-    if not cobradores_pruebas:
-        cobradores_pruebas = {
-            'cobrador_prueba': {
-                'password': 'prueba123',
-                'rol': 'cobrador',
-                'permisos': ['procesar_retiros'],
-                'nombre': 'Cobrador Fake',
-                'estado': 'Activo',
-                'disponible': True,
-            }
-        }
-        guardar_cobradores_pruebas()
+    }
+    cobradores_pruebas = {}
+    guardar_usuarios_pruebas()
+    guardar_cobradores_pruebas()
+    print("✅ Simulador: usuario por defecto creado (fernando / 12345).")
+
+def asegurar_datos_simulador():
+    """Si los JSON de prueba no existen o están vacíos, copia producción o crea Fernando."""
+    if not simulador_usuarios_vacio():
+        return
+    if not sembrar_simulador_desde_produccion():
+        crear_usuario_simulador_por_defecto()
+
+def inicializar_simulador_por_defecto():
+    asegurar_datos_simulador()
 
 def es_entorno_staging():
     if not has_request_context():
@@ -897,6 +924,9 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
     else:
         historial_inicial.append(f"[{hora_actual}] {origen_historial}")
 
+    if es_prueba:
+        historial_inicial.insert(0, f"[{hora_actual}] 🧪 CÓDIGO DE PRUEBA — No es dinero real (Staging ERP)")
+
     if sistema_config['auto_asignar']:
         cobradores = [u for u, info in db_usuarios().items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
         if cobradores:
@@ -935,6 +965,8 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
     if origen_socio is not None:
         nuevo_registro['origen_socio'] = origen_socio
     nuevo_registro['es_prueba'] = es_prueba
+    if es_prueba:
+        nuevo_registro['codigo_prueba'] = True
     if es_entorno_staging():
         nuevo_registro['entorno_staging'] = True
 
@@ -955,7 +987,15 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
 def widget_retiro():
     return vista_widget_retiro(form_action=url_for('widget_retiro'))
 
-def vista_widget_retiro(form_action=None):
+@app.route('/pruebas/widget_retiro', methods=['GET', 'POST'])
+def widget_retiro_pruebas():
+    """Widget de staging para tráfico de prueba del ERP socio — aislado y marcado visualmente."""
+    return vista_widget_retiro(
+        form_action=url_for('widget_retiro_pruebas'),
+        forzar_codigo_prueba=True,
+    )
+
+def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
     horario = sistema_config.get('horario_activo', True)
     bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
 
@@ -971,28 +1011,29 @@ def vista_widget_retiro(form_action=None):
 
     if request.method == 'GET':
         cliente_externo = request.args.get('cliente', 'Desconocido')
-        modo_prueba = request.args.get('modo', 'real')
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action)
+        modo_prueba = 'prueba' if forzar_codigo_prueba else request.args.get('modo', 'real')
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba)
 
-    modo_prueba = request.form.get('modo_prueba', 'real')
+    modo_prueba = 'prueba' if forzar_codigo_prueba else request.form.get('modo_prueba', 'real')
     nombre_cliente = request.form.get('cliente_externo', 'Desconocido')
     cliente_externo = nombre_cliente
 
-    if es_entorno_staging() or modo_prueba == 'prueba':
-        usuario_registro = f"🧪 [PRUEBA] {usuario_widget.upper()} - {cliente_externo}"
+    if forzar_codigo_prueba or es_entorno_staging() or modo_prueba == 'prueba':
+        usuario_registro = f"🧪 [CÓDIGO DE PRUEBA] {usuario_widget.upper()} - {cliente_externo}"
         es_prueba = True
     else:
         usuario_registro = f"WIDGET - {nombre_cliente}"
         es_prueba = False
 
     if not horario:
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, error='Sistema fuera de horario.'), 403
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba, error='Sistema fuera de horario.'), 403
 
     banco_seleccionado = request.form.get('banco')
     if banco_seleccionado and not bancos_activos.get(banco_seleccionado, True):
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
 
-    return procesar_formulario_retiro(request, [usuario_registro], modo_widget=True, origen_historial='Creado por Widget Externo (Staging)' if es_entorno_staging() else 'Creado por Widget Externo', es_prueba=es_prueba, modo_prueba=modo_prueba, form_action=form_action)
+    origen = '🧪 CÓDIGO DE PRUEBA — Widget Staging ERP' if forzar_codigo_prueba else ('Creado por Widget Externo (Staging)' if es_entorno_staging() else 'Creado por Widget Externo')
+    return procesar_formulario_retiro(request, [usuario_registro], modo_widget=True, origen_historial=origen, es_prueba=es_prueba, modo_prueba=modo_prueba, form_action=form_action)
 
 def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente', es_prueba=False, modo_prueba='real', form_action=None):
     banco = req.form.get('banco')
@@ -1066,6 +1107,9 @@ def login():
     return vista_login(url_prefix='')
 
 def vista_login(url_prefix=''):
+    if url_prefix:
+        asegurar_datos_simulador()
+
     if url_prefix and session.get('entorno') == 'pruebas' and request.method == 'GET':
         pass
     elif not url_prefix and session.get('entorno') == 'pruebas':
@@ -2326,6 +2370,10 @@ def toggle_disponibilidad():
 # ==========================================
 pruebas_bp = Blueprint('pruebas', __name__, url_prefix='/pruebas')
 
+@pruebas_bp.before_request
+def sembrar_simulador_si_vacio():
+    asegurar_datos_simulador()
+
 @pruebas_bp.route('/login', methods=['GET', 'POST'])
 def login_pruebas():
     return vista_login(url_prefix='/pruebas')
@@ -2346,10 +2394,6 @@ def asignar_pruebas():
 @pruebas_bp.route('/trabajador/<nombre>')
 def trabajador_pruebas(nombre):
     return render_vista_trabajador(nombre, url_prefix='/pruebas')
-
-@pruebas_bp.route('/widget_retiro', methods=['GET', 'POST'])
-def widget_retiro_pruebas():
-    return vista_widget_retiro(form_action=url_for('pruebas.widget_retiro_pruebas'))
 
 @pruebas_bp.route('/marcar_retirado', methods=['POST'])
 def marcar_retirado_pruebas():

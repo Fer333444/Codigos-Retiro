@@ -39,10 +39,14 @@ app.permanent_session_lifetime = timedelta(days=365)
 if os.path.exists('/var/data'):
     DATA_FILE = '/var/data/base_datos_erp.json'
     STAGING_DATA_FILE = '/var/data/registros_pruebas.json'
+    STAGING_USERS_FILE = '/var/data/usuarios_pruebas.json'
+    STAGING_COBRADORES_FILE = '/var/data/cobradores_pruebas.json'
     UPLOAD_FOLDER = '/var/data/uploads'
 else:
     DATA_FILE = 'base_datos_local.json'
     STAGING_DATA_FILE = 'registros_pruebas.json'
+    STAGING_USERS_FILE = 'usuarios_pruebas.json'
+    STAGING_COBRADORES_FILE = 'cobradores_pruebas.json'
     UPLOAD_FOLDER = 'static/uploads'
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -58,6 +62,9 @@ def ver_imagen(filename):
 # --- Variables Globales ---
 registros = []
 registros_pruebas = []
+usuarios_db = {}
+usuarios_pruebas = {}
+cobradores_pruebas = {}
 sistema_config = {'auto_asignar': False}
 enlaces_db = {}
 grupos_creados = [] 
@@ -69,6 +76,8 @@ suscripciones_push = {}
 def guardar_datos():
     if es_entorno_staging():
         guardar_registros_pruebas()
+        guardar_usuarios_pruebas()
+        guardar_cobradores_pruebas()
         return
     data_a_guardar = {
         'registros': registros,
@@ -124,6 +133,66 @@ def guardar_registros_pruebas():
     except Exception as e:
         print("Error al guardar registros de staging:", e)
 
+def cargar_usuarios_pruebas():
+    global usuarios_pruebas
+    if os.path.exists(STAGING_USERS_FILE):
+        try:
+            with open(STAGING_USERS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                usuarios_pruebas = data.get('usuarios_db', data.get('usuarios', {}))
+        except Exception as e:
+            print("Error al cargar usuarios de staging:", e)
+
+def guardar_usuarios_pruebas():
+    try:
+        with open(STAGING_USERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump({'usuarios_db': usuarios_pruebas}, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        print("Error al guardar usuarios de staging:", e)
+
+def cargar_cobradores_pruebas():
+    global cobradores_pruebas
+    if os.path.exists(STAGING_COBRADORES_FILE):
+        try:
+            with open(STAGING_COBRADORES_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                cobradores_pruebas = data.get('cobradores_db', data.get('cobradores', {}))
+        except Exception as e:
+            print("Error al cargar cobradores de staging:", e)
+
+def guardar_cobradores_pruebas():
+    try:
+        with open(STAGING_COBRADORES_FILE, 'w', encoding='utf-8') as f:
+            json.dump({'cobradores_db': cobradores_pruebas}, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        print("Error al guardar cobradores de staging:", e)
+
+def inicializar_simulador_por_defecto():
+    global usuarios_pruebas, cobradores_pruebas
+    if not usuarios_pruebas:
+        usuarios_pruebas = {
+            'recaudador_prueba': {
+                'password': 'prueba123',
+                'rol': 'recaudador',
+                'permisos': ['ver_retiros'],
+                'nombre': 'Recaudador Simulador',
+                'estado': 'Activo',
+            }
+        }
+        guardar_usuarios_pruebas()
+    if not cobradores_pruebas:
+        cobradores_pruebas = {
+            'cobrador_prueba': {
+                'password': 'prueba123',
+                'rol': 'cobrador',
+                'permisos': ['procesar_retiros'],
+                'nombre': 'Cobrador Fake',
+                'estado': 'Activo',
+                'disponible': True,
+            }
+        }
+        guardar_cobradores_pruebas()
+
 def es_entorno_staging():
     if not has_request_context():
         return False
@@ -132,8 +201,29 @@ def es_entorno_staging():
 def db_registros():
     return registros_pruebas if es_entorno_staging() else registros
 
+def db_usuarios():
+    if es_entorno_staging():
+        return {**usuarios_pruebas, **cobradores_pruebas}
+    return usuarios_db
+
+def login_url_simulador():
+    return '/pruebas/login'
+
+def asegurar_sesion_produccion():
+    if session.get('entorno') == 'pruebas':
+        return redirect(login_url_simulador())
+    return None
+
+def asegurar_sesion_simulador():
+    if session.get('entorno') != 'pruebas':
+        return redirect(login_url_simulador())
+    return None
+
 cargar_datos()
 cargar_registros_pruebas()
+cargar_usuarios_pruebas()
+cargar_cobradores_pruebas()
+inicializar_simulador_por_defecto()
 # ==========================================
 
 def extraer_datos_imagen_ocr(image_bytes_list):
@@ -368,6 +458,21 @@ def ruta_por_rol(rol, usuario):
         return '/reportes'
         
     return '/'
+
+def ruta_por_rol_simulador(rol, usuario):
+    permisos = session.get('permisos', [])
+    prefijo = '/pruebas'
+    if rol == 'supremo':
+        return f'{prefijo}/admin'
+    if 'ver_retiros' in permisos:
+        return f'{prefijo}/admin'
+    if 'procesar_retiros' in permisos:
+        return f'{prefijo}/trabajador/{usuario}'
+    if rol == 'recaudador':
+        return f'{prefijo}/admin'
+    if rol == 'cobrador':
+        return f'{prefijo}/trabajador/{usuario}'
+    return f'{prefijo}/admin'
 
 @app.route('/')
 def index():
@@ -793,7 +898,7 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
         historial_inicial.append(f"[{hora_actual}] {origen_historial}")
 
     if sistema_config['auto_asignar']:
-        cobradores = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
+        cobradores = [u for u, info in db_usuarios().items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
         if cobradores:
             cargas = {c: 0 for c in cobradores}
             for r in regs:
@@ -836,12 +941,13 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
     regs.insert(0, nuevo_registro)
     guardar_datos()
 
-    admin_users = [u for u, info in usuarios_db.items() if info['rol'] in ['supremo', 'recaudador', 'cobrador'] or 'procesar_retiros' in info.get('permisos', [])]
-    for admin in admin_users:
-        disparar_alerta_push(admin, "¡Nuevo Retiro Cliente! 💰", f"Se han ingresado ${monto_total_str} del banco {banco}.")
+    if not es_entorno_staging():
+        admin_users = [u for u, info in db_usuarios().items() if info['rol'] in ['supremo', 'recaudador', 'cobrador'] or 'procesar_retiros' in info.get('permisos', [])]
+        for admin in admin_users:
+            disparar_alerta_push(admin, "¡Nuevo Retiro Cliente! 💰", f"Se han ingresado ${monto_total_str} del banco {banco}.")
 
-    if asignado_a_quien:
-        disparar_alerta_push(asignado_a_quien, "¡Retiro Asignado! 🏃‍♂️", f"Te cayó un código de ${monto_total_str} ({banco}). ¡Revisa tu bandeja!")
+        if asignado_a_quien:
+            disparar_alerta_push(asignado_a_quien, "¡Retiro Asignado! 🏃‍♂️", f"Te cayó un código de ${monto_total_str} ({banco}). ¡Revisa tu bandeja!")
 
     return transaccion_id, None
 
@@ -957,22 +1063,38 @@ def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_hi
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    return vista_login(url_prefix='')
+
+def vista_login(url_prefix=''):
+    if url_prefix and session.get('entorno') == 'pruebas' and request.method == 'GET':
+        pass
+    elif not url_prefix and session.get('entorno') == 'pruebas':
+        return redirect('/pruebas/admin')
+    elif not url_prefix and 'usuario' in session and session.get('entorno') != 'pruebas' and request.method == 'GET':
+        return redirect(ruta_por_rol(session.get('rol'), session.get('usuario')))
+
     if request.method == 'POST':
         username = request.form.get('username').lower()
         password = request.form.get('password')
-        if username in usuarios_db and usuarios_db[username]['password'] == password:
-            session.permanent = True # <-- AGREGA ESTA LÍNEA AQUÍ
+        users = db_usuarios()
+        if username in users and users[username]['password'] == password:
+            session.permanent = True
             session['usuario'] = username
-            session['rol'] = usuarios_db[username]['rol']
-            session['permisos'] = usuarios_db[username].get('permisos', [])
+            session['rol'] = users[username]['rol']
+            session['permisos'] = users[username].get('permisos', [])
+            session['entorno'] = 'pruebas' if url_prefix else 'produccion'
+            if url_prefix:
+                return redirect(ruta_por_rol_simulador(session['rol'], username))
             return redirect(ruta_por_rol(session['rol'], username))
         flash('Usuario o contraseña incorrectos', 'error')
-    return render_template('login.html')
+    form_action = f'{url_prefix}/login' if url_prefix else url_for('login')
+    return render_template('login.html', form_action=form_action, entorno_staging=bool(url_prefix))
 
 @app.route('/logout')
 def logout():
+    era_simulador = session.get('entorno') == 'pruebas'
     session.clear()
-    return redirect(url_for('login'))
+    return redirect('/pruebas/login' if era_simulador else url_for('login'))
 
 @app.route('/actualizar_ubicacion', methods=['POST'])
 def actualizar_ubicacion():
@@ -998,26 +1120,29 @@ def admin():
     return vista_admin(url_prefix='')
 
 def vista_admin(url_prefix=''):
+    bloqueo = asegurar_sesion_simulador() if url_prefix else asegurar_sesion_produccion()
+    if bloqueo:
+        return bloqueo
+
     mis_permisos = session.get('permisos', [])
-    if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_retiros' not in mis_permisos: return redirect(url_for('login'))
+    login_route = f'{url_prefix}/login' if url_prefix else url_for('login')
+    if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_retiros' not in mis_permisos:
+        return redirect(login_route)
     
     regs = db_registros()
     activos = [r for r in regs if r['estado'] == 'activo']
+    users = db_usuarios()
     
-    # === MODIFICACIÓN AQUÍ ===
-    # En lugar de solo sacar el nombre, ahora pasamos un diccionario con el nombre y su estado de disponibilidad
-    cobradores_raw = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
+    cobradores_raw = [u for u, info in users.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
     
     cobradores = []
     for c in cobradores_raw:
-        # Por defecto, si no tiene la clave 'disponible', asumimos que es True
-        esta_disponible = usuarios_db[c].get('disponible', True)
+        esta_disponible = users[c].get('disponible', True)
         cobradores.append({
             'username': c,
-            'nombre_mostrar': usuarios_db[c].get('nombre', c).capitalize(),
+            'nombre_mostrar': users[c].get('nombre', c).capitalize(),
             'disponible': esta_disponible
         })
-    # =========================
     
     hoy_ecuador = hora_ecuador().strftime("%d/%m/%Y")
     stats_cobradores = {}
@@ -1036,7 +1161,7 @@ def vista_admin(url_prefix=''):
     for r in regs:
         asignado = r.get('asignado_a')
         if asignado in stats_cobradores:
-            if not r.get('es_prueba', False):
+            if url_prefix or not r.get('es_prueba', False):
                 if r['estado'] == 'activo':
                     stats_cobradores[asignado]['asignados_count'] += 1
                     try: stats_cobradores[asignado]['asignados_valor'] += float(r['monto'])
@@ -1071,7 +1196,7 @@ def vista_admin(url_prefix=''):
                            mi_usuario=session['usuario'], 
                            rol=session.get('rol'),
                            auto_asignar=sistema_config['auto_asignar'],
-                           usuarios_db=usuarios_db,
+                           usuarios_db=users,
                            url_prefix=url_prefix,
                            entorno_staging=bool(url_prefix))
 
@@ -1106,10 +1231,15 @@ def asignar_trabajo():
     return ejecutar_asignar(url_prefix='')
 
 def ejecutar_asignar(url_prefix=''):
+    bloqueo = asegurar_sesion_simulador() if url_prefix else asegurar_sesion_produccion()
+    if bloqueo:
+        return bloqueo
+
     mis_permisos = session.get('permisos', [])
+    login_route = f'{url_prefix}/login' if url_prefix else url_for('login')
     
     if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_retiros' not in mis_permisos and 'procesar_retiros' not in mis_permisos: 
-        return redirect(url_for('login'))
+        return redirect(login_route)
         
     url_retorno = request.referrer or (f'{url_prefix}/admin' if url_prefix else url_for('admin'))
     
@@ -1151,7 +1281,8 @@ def ejecutar_asignar(url_prefix=''):
                 r['asignacion_estado'] = 'asignado' 
                 r['historial'].append(f"[{hora_actual}] 👤 Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
             
-            disparar_alerta_push(trabajador, "¡Nuevo Retiro Asignado! 🏃‍♂️", "Tienes un nuevo código de retiro listo en tu bandeja.")
+            if not es_entorno_staging():
+                disparar_alerta_push(trabajador, "¡Nuevo Retiro Asignado! 🏃‍♂️", "Tienes un nuevo código de retiro listo en tu bandeja.")
             break
             
     guardar_datos()
@@ -1213,8 +1344,14 @@ def marcar_retirado():
     return ejecutar_marcar_retirado()
 
 def ejecutar_marcar_retirado():
+    bloqueo = asegurar_sesion_simulador() if es_entorno_staging() else asegurar_sesion_produccion()
+    if bloqueo:
+        return bloqueo
+
     mis_permisos = session.get('permisos', [])
-    if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: return redirect(url_for('login'))
+    login_route = login_url_simulador() if es_entorno_staging() else url_for('login')
+    if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos:
+        return redirect(login_route)
     
     registro_id = int(request.form.get('id'))
     banco_real = request.form.get('banco_real', 'No especificado').strip()
@@ -1242,7 +1379,7 @@ def ejecutar_marcar_retirado():
             
     guardar_datos()
 
-    if registro_afectado:
+    if registro_afectado and not es_entorno_staging():
         if registro_afectado.get('origen_socio') == 'fercho':
             disparar_webhook_fercho(registro_afectado, 'RETIRADO', request.host_url)
         elif registro_afectado.get('origen_socio') == 'alex':
@@ -1262,9 +1399,14 @@ def marcar_fallido():
     return ejecutar_marcar_fallido()
 
 def ejecutar_marcar_fallido():
+    bloqueo = asegurar_sesion_simulador() if es_entorno_staging() else asegurar_sesion_produccion()
+    if bloqueo:
+        return bloqueo
+
     mis_permisos = session.get('permisos', [])
+    login_route = login_url_simulador() if es_entorno_staging() else url_for('login')
     if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: 
-        return redirect(url_for('login'))
+        return redirect(login_route)
         
     registro_id = int(request.form.get('id'))
     motivo = request.form.get('motivo', 'Sin especificar')
@@ -1308,7 +1450,7 @@ def ejecutar_marcar_fallido():
             
     guardar_datos()
 
-    if registro_afectado:
+    if registro_afectado and not es_entorno_staging():
         if registro_afectado.get('origen_socio') == 'fercho':
             estado_fercho = 'FALLIDO_REVISION' if registro_afectado.get('estado') == 'fallido_revision' else 'FALLIDO'
             disparar_webhook_fercho(registro_afectado, estado_fercho, request.host_url)
@@ -1857,9 +1999,14 @@ def vista_trabajador(nombre):
     return render_vista_trabajador(nombre, url_prefix='')
 
 def render_vista_trabajador(nombre, url_prefix=''):
+    bloqueo = asegurar_sesion_simulador() if url_prefix else asegurar_sesion_produccion()
+    if bloqueo:
+        return bloqueo
+
     mis_permisos = session.get('permisos', [])
+    login_route = f'{url_prefix}/login' if url_prefix else url_for('login')
     if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: 
-        return redirect(url_for('login'))
+        return redirect(login_route)
         
     nombre = nombre.lower()
     
@@ -1890,7 +2037,7 @@ def render_vista_trabajador(nombre, url_prefix=''):
     except:
         historial_ordenado = historial_agrupado
 
-    mi_estado_disp = usuarios_db.get(nombre, {}).get('disponible', True) if nombre in usuarios_db else True
+    mi_estado_disp = db_usuarios().get(nombre, {}).get('disponible', True) if nombre in db_usuarios() else True
 
     return render_template('trabajador.html', 
                            registros=mis_activos, 
@@ -1906,7 +2053,10 @@ def notificar_visto():
     return ejecutar_notificar_visto()
 
 def ejecutar_notificar_visto():
-    # Verificamos que quien presiona el botón sea un cobrador
+    bloqueo = asegurar_sesion_simulador() if es_entorno_staging() else asegurar_sesion_produccion()
+    if bloqueo:
+        return bloqueo
+
     if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in session.get('permisos', []): 
         return jsonify({"error": "No autorizado"}), 403
 
@@ -1917,27 +2067,21 @@ def ejecutar_notificar_visto():
     banco = "Desconocido"
     regs = db_registros()
     
-    # Buscamos el registro para marcarlo como visto y sacar el nombre del banco
     for r in regs:
         if r['id'] == int(registro_id):
             banco = r.get('banco', 'Desconocido').capitalize()
-            r['visto_por_cobrador'] = True  # Guardamos que ya lo vio
+            r['visto_por_cobrador'] = True
             break
             
     guardar_datos()
 
-    # Preparamos el mensaje Push
-    titulo = "👀 Código Visto"
-    mensaje = f"El cobrador {cobrador_nombre} ha recibido y visto el código de {banco}."
-    
-    # Filtramos SOLO a los usuarios que sean supremo o recaudador
-    admin_users = [u for u, info in usuarios_db.items() if info['rol'] in ['supremo', 'recaudador']]
-    
-    # Le disparamos la alerta a todos los jefes
-    for admin in admin_users:
-        disparar_alerta_push(admin, titulo, mensaje)
+    if not es_entorno_staging():
+        titulo = "👀 Código Visto"
+        mensaje = f"El cobrador {cobrador_nombre} ha recibido y visto el código de {banco}."
+        admin_users = [u for u, info in db_usuarios().items() if info['rol'] in ['supremo', 'recaudador']]
+        for admin in admin_users:
+            disparar_alerta_push(admin, titulo, mensaje)
 
-    # 👇 ESTA ES LA LÍNEA CRÍTICA QUE SE HABÍA BORRADO 👇
     return jsonify({"status": "ok", "mensaje": "Notificado correctamente"})
 # --- RUTA MÁGICA PARA EL SERVICE WORKER ---
 # Esto engaña al navegador dándole permiso total al sw.js
@@ -2178,9 +2322,18 @@ def toggle_disponibilidad():
     return jsonify({"error": "Usuario no encontrado"}), 404
 
 # ==========================================
-# 🧪 ENTORNO DE STAGING (/pruebas)
+# 🧪 SIMULADOR CERRADO (/pruebas)
 # ==========================================
 pruebas_bp = Blueprint('pruebas', __name__, url_prefix='/pruebas')
+
+@pruebas_bp.route('/login', methods=['GET', 'POST'])
+def login_pruebas():
+    return vista_login(url_prefix='/pruebas')
+
+@pruebas_bp.route('/logout')
+def logout_pruebas():
+    session.clear()
+    return redirect('/pruebas/login')
 
 @pruebas_bp.route('/admin')
 def admin_pruebas():
@@ -2197,10 +2350,6 @@ def trabajador_pruebas(nombre):
 @pruebas_bp.route('/widget_retiro', methods=['GET', 'POST'])
 def widget_retiro_pruebas():
     return vista_widget_retiro(form_action=url_for('pruebas.widget_retiro_pruebas'))
-
-@pruebas_bp.route('/api/v1/recibir_ticket_socio', methods=['POST'])
-def recibir_ticket_socio_pruebas():
-    return recibir_ticket_socio()
 
 @pruebas_bp.route('/marcar_retirado', methods=['POST'])
 def marcar_retirado_pruebas():

@@ -1966,16 +1966,26 @@ def marcar_recibido():
         
     return redirect(request.referrer)
 
-@app.route('/reportes')
-def vista_reportes():
+@app.route('/reportes', endpoint='vista_reportes')
+def vista_reportes_produccion():
+    return vista_reportes(url_prefix='')
+
+def vista_reportes(url_prefix=''):
+    bloqueo = asegurar_sesion_simulador() if url_prefix else asegurar_sesion_produccion()
+    if bloqueo:
+        return bloqueo
+
     mis_permisos = session.get('permisos', [])
-    
-    if session.get('rol') != 'supremo' and 'ver_reportes' not in mis_permisos: 
-        return redirect(url_for('login'))
-    
-    lista_clientes = sorted(list(set(r['usuario'] for r in registros if r.get('usuario'))))
-    lista_estados = sorted(list(set(r['estado'] for r in registros if r.get('estado'))))
-    lista_sucursales = sorted(list(set(r['banco'] for r in registros if r.get('banco'))))
+    login_route = f'{url_prefix}/login' if url_prefix else url_for('login')
+    if session.get('rol') != 'supremo' and 'ver_reportes' not in mis_permisos:
+        return redirect(login_route)
+
+    regs = db_registros()
+    users = db_usuarios()
+
+    lista_clientes = sorted(list(set(r['usuario'] for r in regs if r.get('usuario'))))
+    lista_estados = sorted(list(set(r['estado'] for r in regs if r.get('estado'))))
+    lista_sucursales = sorted(list(set(r['banco'] for r in regs if r.get('banco'))))
     
     vista = request.args.get('vista', 'completados')
     
@@ -2032,7 +2042,7 @@ def vista_reportes():
     datos_grafico = {'labels': [], 'exitos': [], 'fallos': []}
     
     if vista == 'metricas':
-        for r in registros:
+        for r in regs:
             if r['estado'] == 'retirado' and r.get('asignado_a'):
                 cob = r['asignado_a']
                 if cob not in metricas_cobradores:
@@ -2065,7 +2075,7 @@ def vista_reportes():
         exitos_por_dia = [0] * 7
         fallos_por_dia = [0] * 7
 
-        for r in registros:
+        for r in regs:
             try:
                 fecha_corta = r['fecha'].split(' ')[0]
                 if fecha_corta in ultimos_7_dias:
@@ -2082,8 +2092,8 @@ def vista_reportes():
         datos_grafico['fallos'] = fallos_por_dia
 
     # APLICANDO FILTROS COMPLETOS A LAS TABLAS
-    exitosos = [r for r in registros if r['estado'] == 'retirado' and pasa_filtros_basicos(r)]
-    no_exitosos_raw = [r for r in registros if r['estado'] in ['expirado', 'fallido', 'saldado', 'fallido_revision', 'fusionado'] and pasa_filtros_basicos(r)]
+    exitosos = [r for r in regs if r['estado'] == 'retirado' and pasa_filtros_basicos(r)]
+    no_exitosos_raw = [r for r in regs if r['estado'] in ['expirado', 'fallido', 'saldado', 'fallido_revision', 'fusionado'] and pasa_filtros_basicos(r)]
     
     deudas_agrupadas = {}
     for r in no_exitosos_raw:
@@ -2091,7 +2101,7 @@ def vista_reportes():
         if user not in deudas_agrupadas: deudas_agrupadas[user] = []
         deudas_agrupadas[user].append(r)
         
-    cobradores_activos = [u for u, info in usuarios_db.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
+    cobradores_activos = [u for u, info in users.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
     cobradores_mostrar = [filtro_cobrador] if filtro_cobrador in cobradores_activos else cobradores_activos
     stats_cobradores = {}
     for c in cobradores_mostrar:
@@ -2099,7 +2109,7 @@ def vista_reportes():
 
     registros_tabla_dinamica = [] 
     
-    for r in registros:
+    for r in regs:
         if r['estado'] in ['papelera', 'activo']:
             continue
             
@@ -2137,8 +2147,10 @@ def vista_reportes():
                            filtro_sucursal=filtro_sucursal,
                            filtro_fecha_desde=filtro_fecha_desde,
                            filtro_fecha_hasta=filtro_fecha_hasta,
-                           rol=session.get('rol'), 
-                           mi_usuario=session['usuario'])
+                           rol=session.get('rol'),
+                           mi_usuario=session['usuario'],
+                           url_prefix=url_prefix,
+                           entorno_staging=bool(url_prefix))
 
 @app.route('/trabajador/<nombre>')
 def vista_trabajador(nombre):
@@ -2521,6 +2533,10 @@ def editar_usuario_pruebas():
 @pruebas_bp.route('/eliminar_usuario', methods=['POST'])
 def eliminar_usuario_pruebas():
     return ejecutar_eliminar_usuario(url_prefix='/pruebas')
+
+@pruebas_bp.route('/reportes')
+def reportes_pruebas():
+    return vista_reportes(url_prefix='/pruebas')
 
 @pruebas_bp.route('/marcar_retirado', methods=['POST'])
 def marcar_retirado_pruebas():

@@ -51,11 +51,11 @@
             {% endif %}
             
             {% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}
-                <a href="/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-home w-5"></i> Retiros Activos</a>
+                <a href="{{ url_prefix|default('') }}/admin" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-home w-5"></i> Retiros Activos</a>
             {% endif %}
             
             {% if rol == 'supremo' or 'gestionar_usuarios' in mis_permisos %}
-                <a href="/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-users w-5"></i> Adm. Usuarios</a>
+                <a href="{{ url_prefix|default('') }}/usuarios" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-users w-5"></i> Adm. Usuarios</a>
             {% endif %}
             
             {% if rol == 'supremo' or 'ver_reportes' in mis_permisos %}
@@ -68,20 +68,20 @@
                 </button>
                 
                 <div id="submenu-rep-1" class="flex flex-col pl-11 pr-2 py-1 space-y-1">
-                    <a href="/reportes?vista=completados" class="block py-1.5 text-xs font-bold {% if vista == 'completados' %}text-emerald-600{% else %}text-slate-500 hover:text-emerald-600{% endif %} transition-colors"><i class="fas fa-check-circle mr-1"></i> Retiros Completados</a>
-                    <a href="/reportes?vista=historial" class="block py-1.5 text-xs font-bold {% if vista == 'historial' %}text-rose-600{% else %}text-slate-500 hover:text-rose-600{% endif %} transition-colors"><i class="fas fa-history mr-1"></i> Historial y Deudas</a>
-                    <a href="/reportes?vista=metricas" class="block py-1.5 text-xs font-bold {% if vista == 'metricas' %}text-purple-600{% else %}text-slate-500 hover:text-purple-600{% endif %} transition-colors"><i class="fas fa-chart-bar mr-1"></i> Métricas de Rendimiento</a>
-                    <a href="/reportes?vista=cobradores" class="block py-1.5 text-xs font-bold {% if vista == 'cobradores' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-user-tie mr-1"></i> Por Cobrador</a>
-                    <a href="/reportes?vista=valor" class="block py-1.5 text-xs font-bold {% if vista == 'valor' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-dollar-sign mr-1"></i> Por Valor</a>
-                    <a href="/reportes?vista=usuario" class="block py-1.5 text-xs font-bold {% if vista == 'usuario' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-user mr-1"></i> Por Usuario</a>
-                    <a href="/reportes?vista=estado" class="block py-1.5 text-xs font-bold {% if vista == 'estado' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-info-circle mr-1"></i> Por Estado</a>
-                    <a href="/reportes?vista=sucursal" class="block py-1.5 text-xs font-bold {% if vista == 'sucursal' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-building mr-1"></i> Por Forma Pago</a>
+                    <a href="{{ url_prefix|default('') }}/reportes?vista=completados" class="block py-1.5 text-xs font-bold {% if vista == 'completados' %}text-emerald-600{% else %}text-slate-500 hover:text-emerald-600{% endif %} transition-colors"><i class="fas fa-check-circle mr-1"></i> Retiros Completados</a>
+                    <a href="{{ url_prefix|default('') }}/reportes?vista=historial" class="block py-1.5 text-xs font-bold {% if vista == 'historial' %}text-rose-600{% else %}text-slate-500 hover:text-rose-600{% endif %} transition-colors"><i class="fas fa-history mr-1"></i> Historial y Deudas</a>
+                    <a href="{{ url_prefix|default('') }}/reportes?vista=metricas" class="block py-1.5 text-xs font-bold {% if vista == 'metricas' %}text-purple-600{% else %}text-slate-500 hover:text-purple-600{% endif %} transition-colors"><i class="fas fa-chart-bar mr-1"></i> Métricas de Rendimiento</a>
+                    <a href="{{ url_prefix|default('') }}/reportes?vista=cobradores" class="block py-1.5 text-xs font-bold {% if vista == 'cobradores' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-user-tie mr-1"></i> Por Cobrador</a>
+                    <a href="{{ url_prefix|default('') }}/reportes?vista=valor" class="block py-1.5 text-xs font-bold {% if vista == 'valor' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-dollar-sign mr-1"></i> Por Valor</a>
+                    <a href="{{ url_prefix|default('') }}/reportes?vista=usuario" class="block py-1.5 text-xs font-bold {% if vista == 'usuario' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-user mr-1"></i> Por Usuario</a>
+                    <a href="{{ url_prefix|default('') }}/reportes?vista=estado" class="block py-1.5 text-xs font-bold {% if vista == 'estado' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-info-circle mr-1"></i> Por Estado</a>
+                    <a href="{{ url_prefix|default('') }}/reportes?vista=sucursal" class="block py-1.5 text-xs font-bold {% if vista == 'sucursal' %}text-indigo-600{% else %}text-slate-500 hover:text-indigo-600{% endif %} transition-colors"><i class="fas fa-building mr-1"></i> Por Forma Pago</a>
                 </div>
             </div>
             {% endif %}
 
             {% if rol == 'cobrador' or 'procesar_retiros' in mis_permisos %}
-                <a href="/trabajador/{{ mi_usuario }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-blue-600 rounded-lg hover:bg-blue-50 mt-4 border border-transparent hover:border-blue-200 transition-colors"><i class="fas fa-briefcase w-5"></i> Mi Bandeja (Cobrar)</a>
+                <a href="{{ url_prefix|default('') }}/trabajador/{{ mi_usuario }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-blue-600 rounded-lg hover:bg-blue-50 mt-4 border border-transparent hover:border-blue-200 transition-colors"><i class="fas fa-briefcase w-5"></i> Mi Bandeja (Cobrar)</a>
             {% endif %}
 
             {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
@@ -95,7 +95,7 @@
             <h1 class="text-lg font-semibold text-slate-800">Negocios Online</h1>
             <div class="flex items-center gap-4">
                 <span class="text-sm font-bold text-slate-600 uppercase">{{ mi_usuario }}</span>
-                <a href="/logout" class="text-sm font-medium text-red-500">Cerrar sesión</a>
+                <a href="{{ url_prefix|default('') }}/logout" class="text-sm font-medium text-red-500">Cerrar sesión</a>
             </div>
         </header>
 
@@ -250,7 +250,7 @@
                 {% elif vista == 'historial' %}
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
-                        <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
+                        <form action="{{ url_prefix|default('') }}/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
                             <input type="hidden" name="vista" value="{{ vista }}">
                             
                             <div class="w-full md:w-auto flex-1">
@@ -270,7 +270,7 @@
                             <div class="w-full md:w-auto flex gap-2 pt-1">
                                 <button type="submit" class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 px-6 rounded-lg transition-colors shadow-sm text-sm"><i class="fas fa-search mr-1"></i> Buscar</button>
                                 {% if filtro_cliente or filtro_fecha_desde or filtro_fecha_hasta %}
-                                    <a href="/reportes?vista={{ vista }}" class="flex-1 sm:flex-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-black py-2.5 px-4 rounded-lg transition-colors shadow-sm text-sm text-center" title="Limpiar Filtros"><i class="fas fa-times"></i></a>
+                                    <a href="{{ url_prefix|default('') }}/reportes?vista={{ vista }}" class="flex-1 sm:flex-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-black py-2.5 px-4 rounded-lg transition-colors shadow-sm text-sm text-center" title="Limpiar Filtros"><i class="fas fa-times"></i></a>
                                 {% endif %}
                             </div>
                         </form>
@@ -530,7 +530,7 @@
                 {% elif vista == 'completados' %}
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
-                        <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
+                        <form action="{{ url_prefix|default('') }}/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
                             <input type="hidden" name="vista" value="{{ vista }}">
                             
                             <div class="w-full md:w-auto flex-1">
@@ -550,7 +550,7 @@
                             <div class="w-full md:w-auto flex gap-2 pt-1">
                                 <button type="submit" class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 px-6 rounded-lg transition-colors shadow-sm text-sm"><i class="fas fa-search mr-1"></i> Buscar</button>
                                 {% if filtro_cliente or filtro_fecha_desde or filtro_fecha_hasta %}
-                                    <a href="/reportes?vista={{ vista }}" class="flex-1 sm:flex-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-black py-2.5 px-4 rounded-lg transition-colors shadow-sm text-sm text-center" title="Limpiar Filtros"><i class="fas fa-times"></i></a>
+                                    <a href="{{ url_prefix|default('') }}/reportes?vista={{ vista }}" class="flex-1 sm:flex-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-black py-2.5 px-4 rounded-lg transition-colors shadow-sm text-sm text-center" title="Limpiar Filtros"><i class="fas fa-times"></i></a>
                                 {% endif %}
                             </div>
                         </form>
@@ -650,7 +650,7 @@
                 {% else %}
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
-                        <form action="/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
+                        <form action="{{ url_prefix|default('') }}/reportes" method="GET" class="flex flex-col md:flex-row gap-4 items-end md:items-center">
                             <input type="hidden" name="vista" value="{{ vista }}">
                             
                             <div class="w-full md:w-auto flex-1">
@@ -696,7 +696,7 @@
                             <div class="w-full md:w-auto flex gap-2 pt-1">
                                 <button type="submit" class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 px-6 rounded-lg transition-colors shadow-sm text-sm"><i class="fas fa-search mr-1"></i> Buscar</button>
                                 {% if filtro_cobrador or filtro_valor or filtro_cliente or filtro_estado or filtro_sucursal or filtro_fecha_desde or filtro_fecha_hasta %}
-                                    <a href="/reportes?vista={{ vista }}" class="flex-1 sm:flex-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-black py-2.5 px-4 rounded-lg transition-colors shadow-sm text-sm text-center" title="Limpiar Filtros"><i class="fas fa-times"></i></a>
+                                    <a href="{{ url_prefix|default('') }}/reportes?vista={{ vista }}" class="flex-1 sm:flex-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-black py-2.5 px-4 rounded-lg transition-colors shadow-sm text-sm text-center" title="Limpiar Filtros"><i class="fas fa-times"></i></a>
                                 {% endif %}
                             </div>
                         </form>

@@ -9,6 +9,7 @@ import time
 import threading
 import copy
 import httpx
+import requests
 from pywebpush import webpush, WebPushException
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory, Blueprint, has_request_context
 from werkzeug.utils import secure_filename
@@ -1100,13 +1101,15 @@ def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
     # Se envía el origen modificado a la función principal de guardado
     return procesar_formulario_retiro(
         request, [usuario_registro], modo_widget=True, origen_historial=origen, es_prueba=es_prueba,
-        modo_prueba=modo_prueba, form_action=form_action, origen_socio='alex',
+        modo_prueba=modo_prueba, form_action=form_action,
     )
 
-def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente', es_prueba=False, modo_prueba='real', form_action=None, origen_socio=None):
-    referencia_externa = req.form.get('referencia_externa') or req.args.get('referencia_externa')
-    if modo_widget and not origen_socio:
-        origen_socio = 'alex'
+def procesar_formulario_retiro(req, usuarios, modo_widget=False, origen_historial=None, es_prueba=False, modo_prueba='real', form_action=None):
+    # 1. Capturar la referencia externa enviada por el socio en el formulario
+    referencia_externa = req.form.get('referencia_externa')
+    if origen_historial is None:
+        origen_historial = 'Creado por Cliente'
+
     banco = req.form.get('banco')
     celular = req.form.get('celular', '')
     cedula = req.form.get('cedula', '')
@@ -1130,11 +1133,11 @@ def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_hi
     transaccion_id, error = insertar_registro_retiro(
         banco, celular, cedula, monto_total_str,
         codigo_recibido, clave_retiro, clave_envio, codigo_seguridad,
-        str_imagenes, lista_usuarios,
+        str_imagenes, usuarios,
         origen_historial=origen_historial,
         req=req,
         referencia_externa=referencia_externa,
-        origen_socio=origen_socio,
+        origen_socio='alex' if modo_widget else None,
         es_prueba=es_prueba
     )
 
@@ -1153,16 +1156,16 @@ def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_hi
         monto_js = json.dumps(monto_total_str)
         return f'<script>window.parent.postMessage({{tipo: "RETIRO_COMPLETADO", monto: {monto_js}}}, "*");</script>'
 
-    is_split = len(lista_usuarios) > 1
+    is_split = len(usuarios) > 1
     usuarios_para_recibo = ""
     if is_split:
         recibo_desglose = []
-        for u in lista_usuarios:
+        for u in usuarios:
             monto_u = req.form.get(f'monto_usuario_{u}', '0.00')
             recibo_desglose.append(f"{u} (${monto_u})")
         usuarios_para_recibo = "<br>".join(recibo_desglose)
     else:
-        usuarios_para_recibo = lista_usuarios[0]
+        usuarios_para_recibo = usuarios[0]
 
     session['recibo_retiro'] = {
         'transaccion_id': transaccion_id,
@@ -1474,7 +1477,7 @@ def render_vista_papelera(url_prefix=''):
 def marcar_retirado():
     return ejecutar_marcar_retirado()
 
-def ejecutar_marcar_retirado():
+def ejecutar_marcar_retirado(registro_id=None, banco_real=None):
     bloqueo = asegurar_sesion_simulador() if es_entorno_staging() else asegurar_sesion_produccion()
     if bloqueo:
         return bloqueo
@@ -1483,18 +1486,21 @@ def ejecutar_marcar_retirado():
     login_route = login_url_simulador() if es_entorno_staging() else url_for('login')
     if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos:
         return redirect(login_route)
-    
-    registro_id = int(request.form.get('id'))
-    banco_real = request.form.get('banco_real', 'No especificado').strip()
+
+    if registro_id is None:
+        registro_id = int(request.form.get('id'))
+    if banco_real is None:
+        banco_real = request.form.get('banco_real', 'No especificado').strip()
+
     hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     registro_afectado = None
     regs = db_registros()
-    
+
     for r in regs:
         if r['id'] == registro_id:
             r['estado'] = 'retirado'
-            r['banco_real_retiro'] = banco_real.upper() 
-            
+            r['banco_real_retiro'] = banco_real.upper()
+
             if 'timestamp_creacion' in r:
                 r['minutos_demora'] = round((time.time() - r['timestamp_creacion']) / 60, 1)
             else:
@@ -1503,34 +1509,18 @@ def ejecutar_marcar_retirado():
                     r['minutos_demora'] = round((hora_ecuador() - creacion_dt).total_seconds() / 60, 1)
                 except:
                     r['minutos_demora'] = 0.0
-                    
+
             r['historial'].append(f"[{hora_actual}] ✅ Retirado en {banco_real.upper()} por {session['usuario'].capitalize()}")
             registro_afectado = r
             break
-            
+
     guardar_datos()
 
     if registro_afectado:
         if registro_afectado.get('origen_socio') == 'fercho':
             disparar_webhook_fercho(registro_afectado, 'RETIRADO', request.host_url)
-        elif registro_afectado.get('origen_socio') == 'alex':
-            cliente_real = extraer_nombre_cliente_alex(registro_afectado.get('usuario', ''))
-            if cliente_real:
-                disparar_webhook_socio(
-                    cliente_real,
-                    'completado',
-                    registro_afectado.get('monto'),
-                    referencia_externa=registro_afectado.get('referencia_externa'),
-                )
         else:
-            nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
-            if nombre_cliente is not None:
-                disparar_webhook_socio(
-                    nombre_cliente,
-                    'completado',
-                    registro_afectado.get('monto'),
-                    referencia_externa=registro_afectado.get('referencia_externa'),
-                )
+            notificar_webhook_socio_desde_registro(registro_afectado, 'completado')
 
     flash('¡Retiro marcado como completado!', 'success')
     return redirect(request.referrer)
@@ -1539,21 +1529,23 @@ def ejecutar_marcar_retirado():
 def marcar_fallido():
     return ejecutar_marcar_fallido()
 
-def ejecutar_marcar_fallido():
+def ejecutar_marcar_fallido(registro_id=None, motivo=None):
     bloqueo = asegurar_sesion_simulador() if es_entorno_staging() else asegurar_sesion_produccion()
     if bloqueo:
         return bloqueo
 
     mis_permisos = session.get('permisos', [])
     login_route = login_url_simulador() if es_entorno_staging() else url_for('login')
-    if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos: 
+    if session.get('rol') not in ['supremo', 'cobrador'] and 'procesar_retiros' not in mis_permisos:
         return redirect(login_route)
-        
-    registro_id = int(request.form.get('id'))
-    motivo = request.form.get('motivo', 'Sin especificar')
+
+    if registro_id is None:
+        registro_id = int(request.form.get('id'))
+    if motivo is None:
+        motivo = request.form.get('motivo', 'Sin especificar')
+
     hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
-    
-    # --- NUEVO: GUARDAR LA FOTO DE EVIDENCIA TOMADA CON EL CELULAR ---
+
     imagenes = request.files.getlist('evidencia_fallo')
     nombres_imagenes = []
     for img in imagenes:
@@ -1562,57 +1554,39 @@ def ejecutar_marcar_fallido():
             img.save(os.path.join(app.config['UPLOAD_FOLDER'], nombre))
             nombres_imagenes.append(nombre)
     str_imagenes_fallo = ",".join(nombres_imagenes) if nombres_imagenes else None
-    # -----------------------------------------------------------------
 
     usuario_afectado = None
     registro_afectado = None
     regs = db_registros()
-    
+
     for r in regs:
         if r['id'] == registro_id:
             usuario_afectado = r['usuario']
-            
-            # Vinculamos la foto al registro para que se vea en el historial
+
             if str_imagenes_fallo:
                 r['imagen_fallo'] = str_imagenes_fallo
 
             tiene_deuda_previa = any(reg for reg in regs if reg['usuario'] == usuario_afectado and reg['estado'] in ['fallido', 'expirado'])
-            
+
             if tiene_deuda_previa:
                 r['estado'] = 'fallido_revision'
                 r['historial'].append(f"[{hora_actual}] ⚠️ Marcado como NO SALIÓ por {session['usuario'].capitalize()}. Motivo: {motivo}")
                 flash(f'El retiro de {usuario_afectado} se envió a REVISIÓN porque el cliente ya tiene deudas previas.', 'error')
             else:
-                r['estado'] = 'fallido' 
+                r['estado'] = 'fallido'
                 r['historial'].append(f"[{hora_actual}] ❌ Marcado como NO SALIÓ (Deuda) por {session['usuario'].capitalize()}. Motivo: {motivo}")
                 flash(f'⚠️ Retiro de {usuario_afectado} marcado como FALLIDO (Deuda).', 'error')
             registro_afectado = r
             break
-            
+
     guardar_datos()
 
     if registro_afectado:
         if registro_afectado.get('origen_socio') == 'fercho':
             estado_fercho = 'FALLIDO_REVISION' if registro_afectado.get('estado') == 'fallido_revision' else 'FALLIDO'
             disparar_webhook_fercho(registro_afectado, estado_fercho, request.host_url)
-        elif registro_afectado.get('origen_socio') == 'alex':
-            cliente_real = extraer_nombre_cliente_alex(registro_afectado.get('usuario', ''))
-            if cliente_real:
-                disparar_webhook_socio(
-                    cliente_real,
-                    'fallido',
-                    registro_afectado.get('monto'),
-                    referencia_externa=registro_afectado.get('referencia_externa'),
-                )
         else:
-            nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
-            if nombre_cliente is not None:
-                disparar_webhook_socio(
-                    nombre_cliente,
-                    'fallido',
-                    registro_afectado.get('monto'),
-                    referencia_externa=registro_afectado.get('referencia_externa'),
-                )
+            notificar_webhook_socio_desde_registro(registro_afectado, 'fallido')
 
     return redirect(request.referrer)
 
@@ -2359,6 +2333,35 @@ def extraer_nombre_cliente_alex(usuario):
         return u[len(prefijo):].strip()
     return None
 
+def es_prueba_desde_registro(registro_afectado):
+    primera_linea_historial = registro_afectado.get('historial', [''])[0]
+    return "PRUEBA" in primera_linea_historial or registro_afectado.get('es_prueba', False)
+
+def notificar_webhook_socio_desde_registro(registro_afectado, estado):
+    ref = registro_afectado.get('referencia_externa')
+    es_prueba = es_prueba_desde_registro(registro_afectado)
+
+    if registro_afectado.get('origen_socio') == 'alex':
+        cliente = extraer_nombre_cliente_alex(registro_afectado.get('usuario', '')) or registro_afectado.get('usuario', 'Widget-Externo')
+        disparar_webhook_socio(
+            cliente=cliente,
+            estado=estado,
+            monto=registro_afectado.get('monto'),
+            referencia_externa=ref,
+            es_prueba=es_prueba,
+        )
+        return
+
+    nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
+    if nombre_cliente is not None:
+        disparar_webhook_socio(
+            cliente=nombre_cliente,
+            estado=estado,
+            monto=registro_afectado.get('monto'),
+            referencia_externa=ref,
+            es_prueba=es_prueba,
+        )
+
 def disparar_webhook_fercho(registro, estado_final, host_url, evidencia_url=None):
     """Notifica a Fercho (contrato estricto) en un hilo aparte."""
     external_id = registro.get('referencia_externa')
@@ -2395,23 +2398,31 @@ def disparar_webhook_fercho(registro, estado_final, host_url, evidencia_url=None
 
     threading.Thread(target=enviar_en_hilo, daemon=True).start()
 
-def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None):
-    """Notifica al ERP del socio en un hilo aparte (fire-and-forget)."""
-    if not WEBHOOK_SOCIO_URL:
-        return
+def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None, es_prueba=False):
+    """Envía la notificación automática al ERP del socio con el rastreador asignado."""
+    webhook_url = os.environ.get('WEBHOOK_SOCIO_URL') or WEBHOOK_SOCIO_URL
+    if not webhook_url:
+        print("⚠️ WEBHOOK_SOCIO_URL no configurada en las variables de entorno.")
+        return False
 
-    payload = {"cliente": cliente, "estado": estado, "monto": monto, "referencia_externa": referencia_externa}
+    payload = {
+        "cliente": cliente,
+        "estado": estado,
+        "monto": monto,
+        "referencia_externa": referencia_externa,
+        "es_prueba": es_prueba,
+    }
     headers = {"X-API-Key": WEBHOOK_SOCIO_API_KEY}
 
     def enviar_en_hilo():
         try:
-            with httpx.Client(timeout=10.0) as client:
-                response = client.post(WEBHOOK_SOCIO_URL, json=payload, headers=headers)
-                print(f"✅ Webhook socio ({estado}) → {cliente}: HTTP {response.status_code}")
-        except Exception as ex:
-            print(f"❌ Error webhook socio ({estado}) → {cliente}:", repr(ex))
+            response = requests.post(webhook_url, json=payload, headers=headers, timeout=10)
+            print(f"📡 Webhook enviado. Status: {response.status_code}")
+        except Exception as e:
+            print(f"❌ Error al disparar el webhook: {str(e)}")
 
     threading.Thread(target=enviar_en_hilo, daemon=True).start()
+    return True
 
 def disparar_alerta_push(usuario_destino, titulo, mensaje):
     """Dispara la notificación push en un hilo secundario para no bloquear Flask."""

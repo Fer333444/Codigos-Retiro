@@ -2334,6 +2334,8 @@ def extraer_nombre_cliente_alex(usuario):
     return None
 
 def es_prueba_desde_registro(registro_afectado):
+    if es_entorno_staging() or registro_afectado.get('entorno_staging'):
+        return True
     primera_linea_historial = registro_afectado.get('historial', [''])[0]
     return "PRUEBA" in primera_linea_historial or registro_afectado.get('es_prueba', False)
 
@@ -2370,6 +2372,10 @@ def notificar_webhook_socio_desde_registro(registro_afectado, estado):
         return
 
     nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
+    if nombre_cliente is None:
+        nombre_cliente = extraer_nombre_cliente_alex(registro_afectado.get('usuario', ''))
+    if nombre_cliente is None and (es_prueba or registro_afectado.get('origen_socio') == 'alex'):
+        nombre_cliente = registro_afectado.get('usuario', 'Widget-Externo')
     if nombre_cliente is not None:
         disparar_webhook_socio(
             cliente=nombre_cliente,
@@ -2377,6 +2383,16 @@ def notificar_webhook_socio_desde_registro(registro_afectado, estado):
             monto=registro_afectado.get('monto'),
             referencia_externa=ref,
             es_prueba=es_prueba,
+            banco=banco_str,
+            moneda=moneda_calculada,
+        )
+    elif es_prueba:
+        disparar_webhook_socio(
+            cliente=registro_afectado.get('usuario', 'Widget-Externo'),
+            estado=estado,
+            monto=registro_afectado.get('monto'),
+            referencia_externa=ref,
+            es_prueba=True,
             banco=banco_str,
             moneda=moneda_calculada,
         )
@@ -2423,6 +2439,9 @@ def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None, es_p
     if not webhook_url:
         print("⚠️ WEBHOOK_SOCIO_URL no configurada en las variables de entorno.")
         return False
+
+    if es_entorno_staging():
+        es_prueba = True
 
     payload = {
         "cliente": cliente,

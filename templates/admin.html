@@ -414,7 +414,8 @@
                 <button onclick="cerrarModalPapelera()" class="text-rose-400 hover:text-rose-600"><i class="fas fa-times-circle text-2xl"></i></button>
             </div>
             
-            <form action="/mover_papelera" method="POST" class="p-6 space-y-4 bg-white form-mantener-scroll" id="formRealPapelera">
+            <form action="{{ url_prefix if url_prefix else '' }}/mover_papelera" method="POST" class="p-6 space-y-4 bg-white form-mantener-scroll" id="formRealPapelera">
+                <input type="hidden" name="url_prefix" value="{{ url_prefix if url_prefix else '' }}">
                 <input type="hidden" name="id" id="papelera_id">
                 <p class="text-sm font-bold text-slate-600">Vas a eliminar el retiro de <strong id="papelera_info" class="text-slate-800"></strong></p>
                 <div>

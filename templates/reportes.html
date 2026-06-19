@@ -408,7 +408,8 @@
                                                     {% endif %}
                                                     <!-- FIN NUEVO BOTÓN -->
 
-                                                    <form action="/mover_papelera" method="POST" class="m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
+                                                    <form action="{{ url_prefix if url_prefix else '' }}/mover_papelera" method="POST" class="m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
+                                                        <input type="hidden" name="url_prefix" value="{{ url_prefix if url_prefix else '' }}">
                                                         <input type="hidden" name="id" value="{{ r.id }}">
                                                         <button type="submit" class="text-slate-300 hover:text-red-500 transition-colors ml-1" title="Eliminar (Mover a papelera)"><i class="fas fa-trash-alt"></i></button>
                                                     </form>
@@ -597,7 +598,8 @@
                             {% for r in exitosos %}
                             <div class="bg-white rounded-xl border-l-4 border-emerald-500 p-4 md:p-5 flex flex-col md:flex-row gap-4 shadow-sm hover:shadow-md transition-shadow relative item-paginado">
                                 
-                                <form action="/mover_papelera" method="POST" class="absolute top-3 right-3 m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
+                                <form action="{{ url_prefix if url_prefix else '' }}/mover_papelera" method="POST" class="absolute top-3 right-3 m-0" onsubmit="return prompt('Motivo para enviar a papelera:') !== null;">
+                                    <input type="hidden" name="url_prefix" value="{{ url_prefix if url_prefix else '' }}">
                                     <input type="hidden" name="id" value="{{ r.id }}">
                                     <button type="submit" class="text-slate-300 hover:text-rose-600 bg-white rounded p-1 transition-colors" title="Eliminar (Mover a papelera)"><i class="fas fa-trash-alt"></i></button>
                                 </form>

@@ -1021,9 +1021,9 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
         'liquidado': False
     }
 
-    if referencia_externa is not None:
+    if referencia_externa:
         nuevo_registro['referencia_externa'] = referencia_externa
-    if origen_socio is not None:
+    if origen_socio:
         nuevo_registro['origen_socio'] = origen_socio
     nuevo_registro['es_prueba'] = es_prueba
     if es_prueba:
@@ -1072,8 +1072,9 @@ def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
 
     if request.method == 'GET':
         cliente_externo = request.args.get('cliente', 'Desconocido')
+        referencia_externa = request.args.get('referencia_externa', '')
         modo_prueba = 'prueba' if forzar_codigo_prueba else request.args.get('modo', 'real')
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba)
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, referencia_externa=referencia_externa, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba)
 
     modo_prueba = 'prueba' if forzar_codigo_prueba else request.form.get('modo_prueba', 'real')
     nombre_cliente = request.form.get('cliente_externo', 'Desconocido')
@@ -1103,7 +1104,9 @@ def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
     )
 
 def procesar_formulario_retiro(req, lista_usuarios, modo_widget=False, origen_historial='Creado por Cliente', es_prueba=False, modo_prueba='real', form_action=None, origen_socio=None):
-    referencia_externa = req.form.get('referencia_externa')
+    referencia_externa = req.form.get('referencia_externa') or req.args.get('referencia_externa')
+    if modo_widget and not origen_socio:
+        origen_socio = 'alex'
     banco = req.form.get('banco')
     celular = req.form.get('celular', '')
     cedula = req.form.get('cedula', '')
@@ -1411,22 +1414,29 @@ def ejecutar_asignar(url_prefix=''):
 @app.route('/mover_papelera', methods=['POST'])
 def mover_papelera():
     mis_permisos = session.get('permisos', [])
-    if session.get('rol') not in ['supremo', 'reportes'] and 'ver_reportes' not in mis_permisos: return redirect(url_for('login'))
-    
+    if session.get('rol') not in ['supremo', 'reportes'] and 'ver_reportes' not in mis_permisos:
+        return redirect(url_for('login'))
+
     registro_id = int(request.form.get('id'))
     motivo = request.form.get('motivo_borrado', 'Sin motivo')
+    prefix = request.form.get('url_prefix', '')
     hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
-    
-    for r in registros:
+
+    regs = db_registros()
+    for r in regs:
         if r['id'] == registro_id:
-            r['estado_previo'] = r['estado'] # Guardamos estado por si restauramos
+            r['estado_previo'] = r['estado']
             r['estado'] = 'papelera'
             r['historial'].append(f"[{hora_actual}] 🗑️ Movido a papelera por {session['usuario'].capitalize()}. Motivo: {motivo}")
             break
-            
+
     guardar_datos()
     flash('Registro movido a la papelera.', 'success')
-    return redirect(url_for('admin'))
+
+    # Retornar al administrador o a reportes manteniendo el entorno
+    if 'reportes' in request.referrer:
+        return redirect(request.referrer)
+    return redirect(f"{prefix}/admin")
 
 @app.route('/restaurar_papelera', methods=['POST'])
 def restaurar_papelera():
@@ -1458,7 +1468,7 @@ def render_vista_papelera(url_prefix=''):
     if session.get('rol') not in ['supremo', 'reportes'] and 'ver_reportes' not in session.get('permisos', []):
         return redirect(login_route)
     eliminados = [r for r in db_registros() if r['estado'] == 'papelera']
-    return render_template('papelera.html', eliminados=eliminados, mi_usuario=session['usuario'], rol=session.get('rol'))
+    return render_template('papelera.html', eliminados=eliminados, mi_usuario=session['usuario'], rol=session.get('rol'), url_prefix=url_prefix)
 
 @app.route('/marcar_retirado', methods=['POST'])
 def marcar_retirado():
@@ -1501,7 +1511,6 @@ def ejecutar_marcar_retirado():
     guardar_datos()
 
     if registro_afectado:
-        es_prueba = "PRUEBA" in registro_afectado.get('historial', [''])[0]
         if registro_afectado.get('origen_socio') == 'fercho':
             disparar_webhook_fercho(registro_afectado, 'RETIRADO', request.host_url)
         elif registro_afectado.get('origen_socio') == 'alex':
@@ -1512,7 +1521,6 @@ def ejecutar_marcar_retirado():
                     'completado',
                     registro_afectado.get('monto'),
                     referencia_externa=registro_afectado.get('referencia_externa'),
-                    es_prueba=es_prueba,
                 )
         else:
             nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
@@ -1522,7 +1530,6 @@ def ejecutar_marcar_retirado():
                     'completado',
                     registro_afectado.get('monto'),
                     referencia_externa=registro_afectado.get('referencia_externa'),
-                    es_prueba=es_prueba,
                 )
 
     flash('¡Retiro marcado como completado!', 'success')
@@ -1585,7 +1592,6 @@ def ejecutar_marcar_fallido():
     guardar_datos()
 
     if registro_afectado:
-        es_prueba = "PRUEBA" in registro_afectado.get('historial', [''])[0]
         if registro_afectado.get('origen_socio') == 'fercho':
             estado_fercho = 'FALLIDO_REVISION' if registro_afectado.get('estado') == 'fallido_revision' else 'FALLIDO'
             disparar_webhook_fercho(registro_afectado, estado_fercho, request.host_url)
@@ -1597,7 +1603,6 @@ def ejecutar_marcar_fallido():
                     'fallido',
                     registro_afectado.get('monto'),
                     referencia_externa=registro_afectado.get('referencia_externa'),
-                    es_prueba=es_prueba,
                 )
         else:
             nombre_cliente = extraer_nombre_cliente_widget(registro_afectado.get('usuario', ''))
@@ -1607,7 +1612,6 @@ def ejecutar_marcar_fallido():
                     'fallido',
                     registro_afectado.get('monto'),
                     referencia_externa=registro_afectado.get('referencia_externa'),
-                    es_prueba=es_prueba,
                 )
 
     return redirect(request.referrer)
@@ -1790,14 +1794,16 @@ def saldar_deuda():
 @app.route('/eliminar_registro', methods=['POST'])
 def eliminar_registro():
     mis_permisos = session.get('permisos', [])
-    if session.get('rol') not in ['supremo', 'reportes'] and 'ver_reportes' not in mis_permisos: return redirect(url_for('login'))
-    
+    if session.get('rol') not in ['supremo', 'reportes'] and 'ver_reportes' not in mis_permisos:
+        return redirect(url_for('login'))
+
     registro_id = int(request.form.get('id'))
     vista_origen = request.form.get('vista_origen', 'historial')
-    
-    global registros
-    registro_a_borrar = next((r for r in registros if r['id'] == registro_id), None)
-    
+    prefix = request.form.get('url_prefix', '')
+
+    regs = db_registros()
+    registro_a_borrar = next((r for r in regs if r['id'] == registro_id), None)
+
     if registro_a_borrar:
         if registro_a_borrar.get('imagen'):
             imagenes = registro_a_borrar['imagen'].split(',')
@@ -1806,16 +1812,15 @@ def eliminar_registro():
                 if os.path.exists(ruta_imagen):
                     try: os.remove(ruta_imagen)
                     except: pass
-                        
-        registros = [r for r in registros if r['id'] != registro_id]
+        regs.remove(registro_a_borrar)
         guardar_datos()
         flash('🗑️ Registro eliminado permanentemente.', 'success')
     else:
         flash('Error: registro no encontrado.', 'error')
-        
+
     if vista_origen == 'papelera':
-        return redirect(url_for('vista_papelera'))
-    return redirect(url_for('vista_reportes', vista=vista_origen))
+        return redirect(f"{prefix}/papelera")
+    return redirect(f"{prefix}/reportes?vista={vista_origen}")
 
 @app.route('/usuarios')
 def lista_usuarios():
@@ -2390,14 +2395,12 @@ def disparar_webhook_fercho(registro, estado_final, host_url, evidencia_url=None
 
     threading.Thread(target=enviar_en_hilo, daemon=True).start()
 
-def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None, es_prueba=False):
+def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None):
     """Notifica al ERP del socio en un hilo aparte (fire-and-forget)."""
     if not WEBHOOK_SOCIO_URL:
         return
 
-    payload = {"cliente": cliente, "estado": estado, "monto": monto, "es_prueba": es_prueba}
-    if referencia_externa:
-        payload["referencia_externa"] = referencia_externa
+    payload = {"cliente": cliente, "estado": estado, "monto": monto, "referencia_externa": referencia_externa}
     headers = {"X-API-Key": WEBHOOK_SOCIO_API_KEY}
 
     def enviar_en_hilo():
@@ -2625,6 +2628,14 @@ def grupos_pruebas():
         return bloqueo
     flash('El módulo de grupos no está disponible en el simulador. Usa Retiros Activos o Reportes.', 'error')
     return redirect('/pruebas/admin')
+
+@pruebas_bp.route('/eliminar_registro', methods=['POST'])
+def eliminar_registro_pruebas():
+    return eliminar_registro()
+
+@pruebas_bp.route('/mover_papelera', methods=['POST'])
+def mover_papelera_pruebas():
+    return mover_papelera()
 
 @pruebas_bp.route('/marcar_retirado', methods=['POST'])
 def marcar_retirado_pruebas():

@@ -66,7 +66,8 @@
                                     <button type="submit" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-black text-xs px-4 py-2.5 rounded uppercase tracking-widest transition-colors"><i class="fas fa-undo mr-1"></i> Restaurar</button>
                                 </form>
 
-                                <form action="/eliminar_registro" method="POST" class="m-0" onsubmit="return confirm('⚠️ ESTO ES IRREVERSIBLE. ¿Eliminar para siempre?');">
+                                <form action="{{ url_prefix if url_prefix else '' }}/eliminar_registro" method="POST" class="m-0" onsubmit="return confirm('⚠️ ESTO ES IRREVERSIBLE. ¿Eliminar para siempre?');">
+                                    <input type="hidden" name="url_prefix" value="{{ url_prefix if url_prefix else '' }}">
                                     <input type="hidden" name="id" value="{{ r.id }}">
                                     <input type="hidden" name="vista_origen" value="papelera">
                                     <button type="submit" class="bg-slate-800 hover:bg-black text-white font-black text-xs px-4 py-2.5 rounded uppercase tracking-widest transition-colors"><i class="fas fa-times mr-1"></i> Eliminar Definitivo</button>

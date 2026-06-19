@@ -1022,8 +1022,8 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
         'liquidado': False
     }
 
-    if referencia_externa:
-        nuevo_registro['referencia_externa'] = referencia_externa
+    if referencia_externa is not None and str(referencia_externa).strip():
+        nuevo_registro['referencia_externa'] = str(referencia_externa).strip()
     if origen_socio:
         nuevo_registro['origen_socio'] = origen_socio
     nuevo_registro['es_prueba'] = es_prueba
@@ -1073,10 +1073,11 @@ def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
 
     if request.method == 'GET':
         cliente_externo = request.args.get('cliente', 'Desconocido')
-        referencia_externa = request.args.get('referencia_externa', '')
+        referencia_externa = request.args.get('referencia_externa', '').strip()
         modo_prueba = 'prueba' if forzar_codigo_prueba else request.args.get('modo', 'real')
         return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, referencia_externa=referencia_externa, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba)
 
+    referencia_externa = (request.form.get('referencia_externa') or request.args.get('referencia_externa') or '').strip()
     modo_prueba = 'prueba' if forzar_codigo_prueba else request.form.get('modo_prueba', 'real')
     nombre_cliente = request.form.get('cliente_externo', 'Desconocido')
     cliente_externo = nombre_cliente
@@ -1092,11 +1093,11 @@ def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
         origen = 'Creado por Widget Externo'
 
     if not horario:
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba, error='Sistema fuera de horario.'), 403
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, referencia_externa=referencia_externa, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba, error='Sistema fuera de horario.'), 403
 
     banco_seleccionado = request.form.get('banco')
     if banco_seleccionado and not bancos_activos.get(banco_seleccionado, True):
-        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
+        return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, referencia_externa=referencia_externa, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba, error=f'El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.'), 403
 
     # Se envía el origen modificado a la función principal de guardado
     return procesar_formulario_retiro(
@@ -1105,8 +1106,7 @@ def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
     )
 
 def procesar_formulario_retiro(req, usuarios, modo_widget=False, origen_historial=None, es_prueba=False, modo_prueba='real', form_action=None):
-    # 1. Capturar la referencia externa enviada por el socio en el formulario
-    referencia_externa = req.form.get('referencia_externa')
+    referencia_externa = (req.form.get('referencia_externa') or req.args.get('referencia_externa') or '').strip() or None
     if origen_historial is None:
         origen_historial = 'Creado por Cliente'
 
@@ -1148,7 +1148,8 @@ def procesar_formulario_retiro(req, usuarios, modo_widget=False, origen_historia
             token = req.form.get('token', '').strip()
             usuario_widget = req.form.get('usuario', 'Widget-Externo')
             cliente_externo = req.form.get('cliente_externo', 'Desconocido')
-            return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, modo_prueba=modo_prueba, form_action=form_action, error='Este código de retiro ya fue ingresado al sistema.'), 409
+            referencia_externa = (req.form.get('referencia_externa') or req.args.get('referencia_externa') or '').strip()
+            return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, referencia_externa=referencia_externa, modo_prueba=modo_prueba, form_action=form_action, error='Este código de retiro ya fue ingresado al sistema.'), 409
         flash('⚠️ ADVERTENCIA: Este código de retiro ya fue ingresado al sistema. No se puede duplicar.', 'error')
         return redirect(req.url)
 
@@ -1517,10 +1518,11 @@ def ejecutar_marcar_retirado(registro_id=None, banco_real=None):
     guardar_datos()
 
     if registro_afectado:
+        referencia_externa = registro_afectado.get('referencia_externa')
         if registro_afectado.get('origen_socio') == 'fercho':
             disparar_webhook_fercho(registro_afectado, 'RETIRADO', request.host_url)
         else:
-            notificar_webhook_socio_desde_registro(registro_afectado, 'completado')
+            notificar_webhook_socio_desde_registro(registro_afectado, 'completado', referencia_externa=referencia_externa)
 
     flash('¡Retiro marcado como completado!', 'success')
     return redirect(request.referrer)
@@ -1582,11 +1584,12 @@ def ejecutar_marcar_fallido(registro_id=None, motivo=None):
     guardar_datos()
 
     if registro_afectado:
+        referencia_externa = registro_afectado.get('referencia_externa')
         if registro_afectado.get('origen_socio') == 'fercho':
             estado_fercho = 'FALLIDO_REVISION' if registro_afectado.get('estado') == 'fallido_revision' else 'FALLIDO'
             disparar_webhook_fercho(registro_afectado, estado_fercho, request.host_url)
         else:
-            notificar_webhook_socio_desde_registro(registro_afectado, 'fallido')
+            notificar_webhook_socio_desde_registro(registro_afectado, 'fallido', referencia_externa=referencia_externa)
 
     return redirect(request.referrer)
 
@@ -2350,8 +2353,8 @@ def mapear_moneda_desde_banco(banco_str):
         return 'USDT'
     return 'USD'
 
-def notificar_webhook_socio_desde_registro(registro_afectado, estado):
-    ref = registro_afectado.get('referencia_externa')
+def notificar_webhook_socio_desde_registro(registro_afectado, estado, referencia_externa=None):
+    ref = referencia_externa if referencia_externa is not None else registro_afectado.get('referencia_externa')
     es_prueba = es_prueba_desde_registro(registro_afectado)
 
     # Extraer banco y mapear moneda para CxC del socio

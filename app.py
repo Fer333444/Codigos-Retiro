@@ -2337,9 +2337,24 @@ def es_prueba_desde_registro(registro_afectado):
     primera_linea_historial = registro_afectado.get('historial', [''])[0]
     return "PRUEBA" in primera_linea_historial or registro_afectado.get('es_prueba', False)
 
+def mapear_moneda_desde_banco(banco_str):
+    if banco_str in ['bcp', 'interbank', 'bbva', 'scotiabank']:
+        return 'PEN'
+    if banco_str in ['bnb', 'bisa', 'union', 'banco union']:
+        return 'BOB'
+    if 'chile' in banco_str or banco_str in ['estado', 'falabella']:
+        return 'CLP'
+    if 'binance' in banco_str or 'cripto' in banco_str:
+        return 'USDT'
+    return 'USD'
+
 def notificar_webhook_socio_desde_registro(registro_afectado, estado):
     ref = registro_afectado.get('referencia_externa')
     es_prueba = es_prueba_desde_registro(registro_afectado)
+
+    # Extraer banco y mapear moneda para CxC del socio
+    banco_str = registro_afectado.get('banco', '').lower().strip()
+    moneda_calculada = mapear_moneda_desde_banco(banco_str)
 
     if registro_afectado.get('origen_socio') == 'alex':
         cliente = extraer_nombre_cliente_alex(registro_afectado.get('usuario', '')) or registro_afectado.get('usuario', 'Widget-Externo')
@@ -2349,6 +2364,8 @@ def notificar_webhook_socio_desde_registro(registro_afectado, estado):
             monto=registro_afectado.get('monto'),
             referencia_externa=ref,
             es_prueba=es_prueba,
+            banco=banco_str,
+            moneda=moneda_calculada,
         )
         return
 
@@ -2360,6 +2377,8 @@ def notificar_webhook_socio_desde_registro(registro_afectado, estado):
             monto=registro_afectado.get('monto'),
             referencia_externa=ref,
             es_prueba=es_prueba,
+            banco=banco_str,
+            moneda=moneda_calculada,
         )
 
 def disparar_webhook_fercho(registro, estado_final, host_url, evidencia_url=None):
@@ -2398,7 +2417,7 @@ def disparar_webhook_fercho(registro, estado_final, host_url, evidencia_url=None
 
     threading.Thread(target=enviar_en_hilo, daemon=True).start()
 
-def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None, es_prueba=False):
+def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None, es_prueba=False, banco=None, moneda=None):
     """Envía la notificación automática al ERP del socio con el rastreador asignado."""
     webhook_url = os.environ.get('WEBHOOK_SOCIO_URL') or WEBHOOK_SOCIO_URL
     if not webhook_url:
@@ -2411,6 +2430,8 @@ def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None, es_p
         "monto": monto,
         "referencia_externa": referencia_externa,
         "es_prueba": es_prueba,
+        "banco": banco,
+        "moneda": moneda,
     }
     headers = {"X-API-Key": WEBHOOK_SOCIO_API_KEY}
 

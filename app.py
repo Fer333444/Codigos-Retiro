@@ -544,9 +544,45 @@ def procesar_pago_aprobado_erp(data):
 
     return actualizados, 'ok', 200
 
-@app.route('/api/webhook/erp/pago-aprobado', methods=['POST'])
-def webhook_erp_pago_aprobado():
-    """Recibe alertas del ERP cuando un cliente paga una factura retrasada/rechazada."""
+def extraer_clave_cruce_deuda_erp(data):
+    """Obtiene nombre de cliente o referencia de venta desde el payload del ERP."""
+    for key in ('client_name', 'cliente', 'client', 'nombre_cliente', 'customer_name', 'nombre'):
+        val = data.get(key)
+        if val is not None and str(val).strip():
+            return str(val).strip()
+    referencias = extraer_referencias_payload_erp(data)
+    if referencias:
+        return referencias[0]
+    return None
+
+def procesar_cruce_deuda_socio(cliente, es_entorno_prueba=False):
+    regs = registros_pruebas if es_entorno_prueba else registros
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
+    modificados = 0
+    cliente_buscado = cliente.lower().strip()
+
+    for r in regs:
+        usuario_db = r.get('usuario', '').lower().replace('🔴 [prueba] ', '').strip()
+        ref_db = str(r.get('referencia_externa', '')).strip().lower()
+        es_deuda = r.get('estado') in ['fallido', 'fallido_revision', 'expirado']
+        coincide_cliente = cliente_buscado and cliente_buscado in usuario_db
+        coincide_referencia = cliente_buscado and ref_db and cliente_buscado == ref_db
+
+        if es_deuda and (coincide_cliente or coincide_referencia):
+            r['estado'] = 'saldado'
+            r['historial'].append(f"[{hora_actual}] 💳 Deuda cruzada y cerrada automáticamente por pago en el ERP del socio.")
+            modificados += 1
+
+    if modificados > 0:
+        if es_entorno_prueba:
+            guardar_registros_pruebas()
+        else:
+            guardar_datos()
+
+    return modificados
+
+def ejecutar_webhook_erp_pago_aprobado(es_entorno_prueba=False):
+    """Recibe el webhook del ERP, cruza deudas y responde success al socio."""
     if not CODIGOS_RETIRO_WEBHOOK_API_KEY:
         return jsonify({'error': 'Webhook no configurado en el servidor'}), 503
 
@@ -560,41 +596,26 @@ def webhook_erp_pago_aprobado():
         return jsonify({'error': 'No autorizado'}), 401
 
     data = request.get_json(silent=True)
+    entorno = 'PRUEBA' if es_entorno_prueba else 'PRODUCCIÓN'
+    print(f"📥 Webhook ERP pago-aprobado [{entorno}] payload: {json.dumps(data, ensure_ascii=False)}")
+
     if not data:
         return jsonify({'error': 'JSON inválido'}), 400
 
-    actualizados, mensaje, codigo = procesar_pago_aprobado_erp(data)
-    if codigo != 200:
-        return jsonify({'error': mensaje}), codigo
+    clave_cruce = extraer_clave_cruce_deuda_erp(data)
+    if not clave_cruce:
+        return jsonify({'error': 'No se pudo extraer cliente ni referencia del payload'}), 400
 
-    print(f"✅ Webhook ERP pago aprobado: {len(actualizados)} deuda(s) procesada(s) — ref. {extraer_referencias_payload_erp(data)}")
-    return jsonify({
-        'status': 'ok',
-        'mensaje': f'{len(actualizados)} deuda(s) procesada(s)',
-        'registros_actualizados': actualizados,
-    }), 200
+    print(f"🔍 Webhook ERP: cruzando deudas con clave «{clave_cruce}»")
+    modificados = procesar_cruce_deuda_socio(clave_cruce, es_entorno_prueba=es_entorno_prueba)
+    print(f"✅ Webhook ERP pago-aprobado [{entorno}]: {modificados} deuda(s) saldada(s)")
 
-def procesar_cruce_deuda_socio(cliente, es_entorno_prueba=False):
-    regs = registros_pruebas if es_entorno_prueba else db_registros()
-    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
-    modificados = 0
+    return jsonify({'success': True, 'registros_saldados': modificados}), 200
 
-    for r in regs:
-        usuario_db = r.get('usuario', '').lower().replace('🔴 [prueba] ', '').strip()
-        cliente_buscado = cliente.lower().strip()
-
-        if cliente_buscado in usuario_db and r.get('estado') in ['fallido', 'fallido_revision', 'expirado']:
-            r['estado'] = 'saldado'
-            r['historial'].append(f"[{hora_actual}] 💳 Deuda cruzada y cerrada automáticamente por pago en el ERP del socio.")
-            modificados += 1
-
-    if modificados > 0:
-        if es_entorno_prueba:
-            guardar_registros_pruebas()
-        else:
-            guardar_datos()
-
-    return modificados
+@app.route('/api/webhook/erp/pago-aprobado', methods=['POST'])
+def webhook_erp_pago_aprobado():
+    """Recibe alertas del ERP cuando un cliente paga una factura retrasada/rechazada."""
+    return ejecutar_webhook_erp_pago_aprobado(es_entorno_prueba=False)
 
 @app.route('/api/v1/saldar_deuda_externa', methods=['POST'])
 def api_saldar_deuda():
@@ -2882,6 +2903,10 @@ def api_saldar_deuda_pruebas():
 
     modificados = procesar_cruce_deuda_socio(data['cliente'], es_entorno_prueba=True)
     return jsonify({"success": True, "registros_saldados": modificados, "mensaje": "Deudas de PRUEBA cruzadas exitosamente."})
+
+@pruebas_bp.route('/api/webhook/erp/pago-aprobado', methods=['POST'])
+def webhook_erp_pago_aprobado_pruebas():
+    return ejecutar_webhook_erp_pago_aprobado(es_entorno_prueba=True)
 
 app.register_blueprint(pruebas_bp)
 

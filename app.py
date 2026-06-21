@@ -543,16 +543,43 @@ def procesar_pago_aprobado_erp(data):
 
     return actualizados, 'ok', 200
 
+def extraer_nombre_cliente_erp(data):
+    """Extrae el nombre del cliente del payload del ERP, incluyendo objetos anidados."""
+    if not isinstance(data, dict):
+        return ''
+
+    claves_directas = ('client_name', 'cliente', 'customer_name', 'nombre_cliente', 'nombre', 'client', 'customer')
+    for key in claves_directas:
+        val = data.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+        if isinstance(val, dict):
+            for subkey in ('name', 'client_name', 'nombre', 'full_name', 'customer_name', 'cliente'):
+                subval = val.get(subkey)
+                if subval is not None and str(subval).strip():
+                    return str(subval).strip()
+
+    for nested_key in ('client', 'customer', 'cliente', 'cliente_data', 'customer_data', 'buyer', 'comprador'):
+        nested = data.get(nested_key)
+        if isinstance(nested, dict):
+            for subkey in ('name', 'client_name', 'nombre', 'full_name', 'customer_name', 'cliente'):
+                subval = nested.get(subkey)
+                if subval is not None and str(subval).strip():
+                    return str(subval).strip()
+        elif isinstance(nested, str) and nested.strip():
+            return nested.strip()
+
+    return ''
+
 def extraer_clave_cruce_deuda_erp(data):
     """Obtiene nombre de cliente o referencia de venta desde el payload del ERP."""
-    for key in ('client_name', 'cliente', 'client', 'nombre_cliente', 'customer_name', 'nombre'):
-        val = data.get(key)
-        if val is not None and str(val).strip():
-            return str(val).strip()
+    nombre = extraer_nombre_cliente_erp(data)
+    if nombre:
+        return nombre
     referencias = extraer_referencias_payload_erp(data)
     if referencias:
         return referencias[0]
-    return None
+    return ''
 
 def procesar_cruce_deuda_socio(cliente, es_entorno_prueba=False):
     regs = registros_pruebas if es_entorno_prueba else registros
@@ -580,7 +607,7 @@ def procesar_cruce_deuda_socio(cliente, es_entorno_prueba=False):
 
     return modificados
 
-def ejecutar_webhook_erp_pago_aprobado(es_entorno_prueba=False):
+def ejecutar_webhook_erp_pago_aprobado():
     """Recibe el webhook del ERP, cruza deudas y responde success al socio."""
     api_key_servidor = os.environ.get('CODIGOS_RETIRO_WEBHOOK_API_KEY', '').strip()
     if not api_key_servidor:
@@ -592,26 +619,31 @@ def ejecutar_webhook_erp_pago_aprobado(es_entorno_prueba=False):
         return jsonify({'error': 'No autorizado'}), 401
 
     data = request.get_json(silent=True)
-    entorno = 'PRUEBA' if es_entorno_prueba else 'PRODUCCIÓN'
-    print(f"📥 Webhook ERP pago-aprobado [{entorno}] payload: {json.dumps(data, ensure_ascii=False)}")
+    app.logger.info(f"Payload ERP recibido: {data}")
 
     if not data:
         return jsonify({'error': 'JSON inválido'}), 400
 
-    clave_cruce = extraer_clave_cruce_deuda_erp(data)
-    if not clave_cruce:
-        return jsonify({'error': 'No se pudo extraer cliente ni referencia del payload'}), 400
+    nombre_extraido = extraer_nombre_cliente_erp(data)
+    if not nombre_extraido:
+        nombre_extraido = extraer_clave_cruce_deuda_erp(data) or ''
 
-    print(f"🔍 Webhook ERP: cruzando deudas con clave «{clave_cruce}»")
-    modificados = procesar_cruce_deuda_socio(clave_cruce, es_entorno_prueba=es_entorno_prueba)
-    print(f"✅ Webhook ERP pago-aprobado [{entorno}]: {modificados} deuda(s) saldada(s)")
+    app.logger.info(f"Webhook ERP: clave de cruce extraída = «{nombre_extraido}»")
 
-    return jsonify({'success': True, 'registros_saldados': modificados}), 200
+    modificados_prueba = procesar_cruce_deuda_socio(nombre_extraido, es_entorno_prueba=True)
+    modificados_prod = procesar_cruce_deuda_socio(nombre_extraido, es_entorno_prueba=False)
+    total_modificados = modificados_prueba + modificados_prod
+
+    app.logger.info(
+        f"Webhook ERP pago-aprobado: prueba={modificados_prueba}, prod={modificados_prod}, total={total_modificados}"
+    )
+
+    return jsonify({'success': True, 'modificados': total_modificados}), 200
 
 @app.route('/api/webhook/erp/pago-aprobado', methods=['POST'])
 def webhook_erp_pago_aprobado():
     """Recibe alertas del ERP cuando un cliente paga una factura retrasada/rechazada."""
-    return ejecutar_webhook_erp_pago_aprobado(es_entorno_prueba=False)
+    return ejecutar_webhook_erp_pago_aprobado()
 
 @app.route('/api/v1/saldar_deuda_externa', methods=['POST'])
 def api_saldar_deuda():
@@ -2902,7 +2934,7 @@ def api_saldar_deuda_pruebas():
 
 @pruebas_bp.route('/api/webhook/erp/pago-aprobado', methods=['POST'])
 def webhook_erp_pago_aprobado_pruebas():
-    return ejecutar_webhook_erp_pago_aprobado(es_entorno_prueba=True)
+    return ejecutar_webhook_erp_pago_aprobado()
 
 app.register_blueprint(pruebas_bp)
 

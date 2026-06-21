@@ -574,6 +574,37 @@ def webhook_erp_pago_aprobado():
         'registros_actualizados': actualizados,
     }), 200
 
+def procesar_cruce_deuda_socio(cliente, es_entorno_prueba=False):
+    regs = registros_pruebas if es_entorno_prueba else db_registros()
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
+    modificados = 0
+
+    for r in regs:
+        usuario_db = r.get('usuario', '').lower().replace('🔴 [prueba] ', '').strip()
+        cliente_buscado = cliente.lower().strip()
+
+        if cliente_buscado in usuario_db and r.get('estado') in ['fallido', 'fallido_revision', 'expirado']:
+            r['estado'] = 'saldado'
+            r['historial'].append(f"[{hora_actual}] 💳 Deuda cruzada y cerrada automáticamente por pago en el ERP del socio.")
+            modificados += 1
+
+    if modificados > 0:
+        if es_entorno_prueba:
+            guardar_registros_pruebas()
+        else:
+            guardar_datos()
+
+    return modificados
+
+@app.route('/api/v1/saldar_deuda_externa', methods=['POST'])
+def api_saldar_deuda():
+    data = request.get_json()
+    if not data or 'cliente' not in data:
+        return jsonify({"error": "Faltan datos requeridos (cliente)"}), 400
+
+    modificados = procesar_cruce_deuda_socio(data['cliente'], es_entorno_prueba=False)
+    return jsonify({"success": True, "registros_saldados": modificados, "mensaje": "Deudas cruzadas exitosamente."})
+
 @app.before_request
 def mantenimiento_datos():
     cambios_realizados = False
@@ -2842,6 +2873,15 @@ def marcar_fallido_pruebas():
 @pruebas_bp.route('/notificar_visto', methods=['POST'])
 def notificar_visto_pruebas():
     return ejecutar_notificar_visto()
+
+@pruebas_bp.route('/api/v1/saldar_deuda_externa', methods=['POST'])
+def api_saldar_deuda_pruebas():
+    data = request.get_json()
+    if not data or 'cliente' not in data:
+        return jsonify({"error": "Faltan datos requeridos (cliente)"}), 400
+
+    modificados = procesar_cruce_deuda_socio(data['cliente'], es_entorno_prueba=True)
+    return jsonify({"success": True, "registros_saldados": modificados, "mensaje": "Deudas de PRUEBA cruzadas exitosamente."})
 
 app.register_blueprint(pruebas_bp)
 

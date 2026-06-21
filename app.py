@@ -27,6 +27,7 @@ VAPID_CLAIMS = {"sub": "mailto:contenido2025yt@gmail.com"}
 
 WEBHOOK_SOCIO_URL = os.environ.get('WEBHOOK_SOCIO_URL', 'https://api-socio.com/api/v1/webhooks/codigos-retiro')
 WEBHOOK_SOCIO_API_KEY = os.environ.get('WEBHOOK_SOCIO_API_KEY', 'LaClaveSecretaQueElijamos123')
+ERP_WEBHOOK_API_KEY = os.environ.get('ERP_WEBHOOK_API_KEY', WEBHOOK_SOCIO_API_KEY)
 FERCHO_WEBHOOK_URL = 'https://whatsapp-registros-diarios.onrender.com/api/v1/webhooks/retiros'
 FERCHO_WEBHOOK_KEY = os.environ.get('FERCHO_WEBHOOK_KEY', '')
 
@@ -433,6 +434,142 @@ def esta_expirado(hora_limite_str, fecha_creacion_str):
         return ahora >= fecha_objetivo
     except Exception as e:
         return False
+
+ESTADOS_DEUDA_CERRABLE_ERP = ['fallido', 'expirado', 'fallido_revision']
+
+def normalizar_referencia_venta(val):
+    if val is None:
+        return None
+    ref = str(val).strip()
+    return ref if ref else None
+
+def extraer_referencias_payload_erp(data):
+    referencias = []
+    for key in ('referencia_externa', 'sale_id', 'meta_sale_id'):
+        ref = normalizar_referencia_venta(data.get(key))
+        if ref and ref not in referencias:
+            referencias.append(ref)
+    return referencias
+
+def registro_coincide_referencia_erp(registro, referencias):
+    ref_registro = normalizar_referencia_venta(registro.get('referencia_externa'))
+    if not ref_registro:
+        return False
+    return ref_registro in referencias
+
+def format_num_deuda(val):
+    return int(val) if float(val).is_integer() else round(float(val), 2)
+
+def aplicar_pago_erp_a_deuda(deuda_record, monto_aprobado, referencia_usada):
+    """Cierra o abona una deuda marcada como No salió / expirada según el pago del ERP."""
+    hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
+    monto_deuda = float(deuda_record.get('monto', 0) or 0)
+    estado_anterior = deuda_record.get('estado')
+
+    deuda_record['recuperacion_erp'] = True
+    deuda_record['referencia_erp_pago'] = referencia_usada
+
+    if monto_aprobado is None:
+        deuda_record['estado'] = 'saldado'
+        deuda_record['historial'].append(
+            f"[{hora_actual}] ✅ Saldada por ERP — Pago alternativo aprobado (ref. {referencia_usada}). "
+            f"Estado anterior: {estado_anterior}."
+        )
+        return 'saldado_total'
+
+    if monto_aprobado >= monto_deuda:
+        deuda_record['estado'] = 'saldado'
+        deuda_record['historial'].append(
+            f"[{hora_actual}] ✅ Deuda recuperada — Pago aprobado por ERP "
+            f"(ref. {referencia_usada}, ${format_num_deuda(monto_aprobado)}). "
+            f"Estado anterior: {estado_anterior}."
+        )
+        return 'saldado_total'
+
+    restante = monto_deuda - monto_aprobado
+    deuda_record['monto'] = str(format_num_deuda(restante))
+    deuda_record['historial'].append(
+        f"[{hora_actual}] ⚠️ Abono parcial registrado por ERP "
+        f"(${format_num_deuda(monto_aprobado)}). Ref: {referencia_usada}. "
+        f"Saldo pendiente: ${format_num_deuda(restante)}."
+    )
+    return 'abono_parcial'
+
+def procesar_pago_aprobado_erp(data):
+    referencias = extraer_referencias_payload_erp(data)
+    if not referencias:
+        return None, 'Se requiere referencia_externa, sale_id o meta_sale_id', 400
+
+    es_prueba = bool(data.get('es_prueba'))
+    regs = registros_pruebas if es_prueba else registros
+
+    monto_raw = data.get('monto')
+    if monto_raw is None:
+        monto_raw = data.get('monto_aprobado', data.get('amount'))
+
+    monto_aprobado = None
+    if monto_raw is not None and str(monto_raw).strip() != '':
+        try:
+            monto_aprobado = float(monto_raw)
+            if monto_aprobado < 0:
+                return None, 'El monto aprobado no puede ser negativo', 400
+        except (ValueError, TypeError):
+            return None, 'monto inválido', 400
+
+    referencia_principal = referencias[0]
+    actualizados = []
+
+    for r in regs:
+        if r.get('estado') not in ESTADOS_DEUDA_CERRABLE_ERP:
+            continue
+        if not registro_coincide_referencia_erp(r, referencias):
+            continue
+
+        resultado = aplicar_pago_erp_a_deuda(r, monto_aprobado, referencia_principal)
+        actualizados.append({
+            'id': r['id'],
+            'usuario': r.get('usuario'),
+            'resultado': resultado,
+            'estado_nuevo': r.get('estado'),
+            'monto_restante': r.get('monto'),
+        })
+
+    if not actualizados:
+        return None, 'No se encontró deuda activa (No salió / expirada) asociada a esa referencia', 404
+
+    if es_prueba:
+        guardar_registros_pruebas()
+    else:
+        guardar_datos()
+
+    return actualizados, 'ok', 200
+
+@app.route('/api/webhooks/erp-pago-aprobado', methods=['POST'])
+def webhook_erp_pago_aprobado():
+    """Recibe alertas del ERP cuando un cliente paga una factura retrasada/rechazada."""
+    api_key = request.headers.get('X-API-Key')
+    if not api_key:
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.lower().startswith('bearer '):
+            api_key = auth_header[7:].strip()
+
+    if api_key != ERP_WEBHOOK_API_KEY:
+        return jsonify({'error': 'No autorizado'}), 401
+
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'error': 'JSON inválido'}), 400
+
+    actualizados, mensaje, codigo = procesar_pago_aprobado_erp(data)
+    if codigo != 200:
+        return jsonify({'error': mensaje}), codigo
+
+    print(f"✅ Webhook ERP pago aprobado: {len(actualizados)} deuda(s) procesada(s) — ref. {extraer_referencias_payload_erp(data)}")
+    return jsonify({
+        'status': 'ok',
+        'mensaje': f'{len(actualizados)} deuda(s) procesada(s)',
+        'registros_actualizados': actualizados,
+    }), 200
 
 @app.before_request
 def mantenimiento_datos():

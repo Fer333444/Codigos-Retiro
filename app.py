@@ -27,7 +27,7 @@ VAPID_CLAIMS = {"sub": "mailto:contenido2025yt@gmail.com"}
 
 WEBHOOK_SOCIO_URL = os.environ.get('WEBHOOK_SOCIO_URL', 'https://api-socio.com/api/v1/webhooks/codigos-retiro')
 WEBHOOK_SOCIO_API_KEY = os.environ.get('WEBHOOK_SOCIO_API_KEY', 'LaClaveSecretaQueElijamos123')
-ERP_WEBHOOK_API_KEY = os.environ.get('ERP_WEBHOOK_API_KEY', WEBHOOK_SOCIO_API_KEY)
+CODIGOS_RETIRO_WEBHOOK_API_KEY = os.environ.get('CODIGOS_RETIRO_WEBHOOK_API_KEY', '')
 FERCHO_WEBHOOK_URL = 'https://whatsapp-registros-diarios.onrender.com/api/v1/webhooks/retiros'
 FERCHO_WEBHOOK_KEY = os.environ.get('FERCHO_WEBHOOK_KEY', '')
 
@@ -544,16 +544,19 @@ def procesar_pago_aprobado_erp(data):
 
     return actualizados, 'ok', 200
 
-@app.route('/api/webhooks/erp-pago-aprobado', methods=['POST'])
+@app.route('/api/webhook/erp/pago-aprobado', methods=['POST'])
 def webhook_erp_pago_aprobado():
     """Recibe alertas del ERP cuando un cliente paga una factura retrasada/rechazada."""
+    if not CODIGOS_RETIRO_WEBHOOK_API_KEY:
+        return jsonify({'error': 'Webhook no configurado en el servidor'}), 503
+
     api_key = request.headers.get('X-API-Key')
     if not api_key:
         auth_header = request.headers.get('Authorization', '')
         if auth_header.lower().startswith('bearer '):
             api_key = auth_header[7:].strip()
 
-    if api_key != ERP_WEBHOOK_API_KEY:
+    if api_key != CODIGOS_RETIRO_WEBHOOK_API_KEY:
         return jsonify({'error': 'No autorizado'}), 401
 
     data = request.get_json(silent=True)

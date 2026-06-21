@@ -299,6 +299,8 @@
                         {% for r in activos %}
                         
                         {% set border_color = 'border-slate-200' %}
+                        {% set clave_cliente_activo = r.usuario|clave_cliente %}
+                        {% set tiene_deuda_cliente = r.get('alerta_deuda_firme') or (clave_cliente_activo in claves_deuda_firme) %}
                         {% if r.estado == 'expirado' %}
                             {% set border_color = 'border-rose-500' %}
                         {% elif r.get('asignacion_estado') == 'asignado' %} {% set border_color = 'border-emerald-500' %}
@@ -315,6 +317,12 @@
                             
                             <div class="bg-white rounded-xl border-2 {{ border_color }} shadow-md overflow-hidden flex flex-col lg:flex-row relative transition-all duration-300 hover:shadow-lg tarjeta-retiro tarjeta-contenido" data-id="{{ r.id }}">
                                 
+                                {% if tiene_deuda_cliente %}
+                                <div class="absolute top-0 left-0 bg-rose-600 text-white font-black px-3 py-1 rounded-br-xl text-[10px] uppercase shadow-md z-10 tracking-widest flex items-center gap-1">
+                                    <i class="fas fa-exclamation-circle"></i> Deuda firme
+                                </div>
+                                {% endif %}
+
                                 <button type="button" class="btn-abrir-papelera absolute top-3 right-3 text-slate-400 hover:text-rose-600 bg-white/90 backdrop-blur-sm border border-slate-200 hover:border-rose-200 rounded-lg p-2.5 transition-colors z-20 shadow-sm cursor-pointer" data-id="{{ r.id }}" data-monto="{{ r.monto }}" data-usuario="{{ r.usuario }}" title="Eliminar (Mover a papelera)">
                                     <i class="fas fa-trash-alt pointer-events-none"></i>
                                 </button>
@@ -340,7 +348,10 @@
                                             
                                             <div class="flex flex-col">
                                                 <span class="text-sm font-black {{ color_banco }} uppercase tracking-widest break-words">{{ nombre_banco }}</span>
-                                                <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{{ r.usuario }}</span>
+                                                <span class="text-xs font-bold {% if tiene_deuda_cliente %}text-rose-600{% else %}text-slate-500{% endif %} uppercase tracking-widest flex items-center gap-1 flex-wrap">
+                                                    {% if tiene_deuda_cliente %}<i class="fas fa-exclamation-circle text-rose-500" title="Cliente con deuda firme previa"></i>{% endif %}
+                                                    {{ r.usuario }}
+                                                </span>
                                             </div>
                                         </div>
 

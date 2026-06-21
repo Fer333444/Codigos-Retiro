@@ -11,7 +11,7 @@ import copy
 import httpx
 import requests
 from pywebpush import webpush, WebPushException
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory, Blueprint, has_request_context
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory, Blueprint, has_request_context, Response
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 
@@ -63,6 +63,60 @@ def es_entorno_staging():
 def inject_entorno():
     # Retorna True si la URL actual empieza con /pruebas
     return dict(entorno_staging=es_entorno_staging())
+
+@app.template_filter('clave_cliente')
+def filtro_clave_cliente(usuario):
+    return normalizar_clave_cliente(usuario)
+
+def normalizar_clave_cliente(texto):
+    """Extrae el nombre del cliente desde distintos formatos de usuario en registros."""
+    t = (texto or '').lower().strip()
+    if '🔴 [prueba]' in t:
+        t = t.replace('🔴 [prueba] ', '').replace('🔴 [prueba]', '').strip()
+        if ' - ' in t:
+            t = t.split(' - ', 1)[1].strip()
+    if t.startswith('widget - '):
+        t = t[9:].strip()
+    if t.startswith('fercho - '):
+        t = t[9:].strip()
+    return t
+
+def obtener_claves_clientes_con_deuda_firme(regs):
+    """Clientes con deuda firme activa (fallido o expirado). Solo informativo."""
+    claves = set()
+    for r in regs:
+        if r.get('estado') in ('fallido', 'expirado'):
+            clave = normalizar_clave_cliente(r.get('usuario', ''))
+            if clave:
+                claves.add(clave)
+    return claves
+
+def cliente_tiene_deuda_firme(nombre_o_usuario, regs):
+    clave = normalizar_clave_cliente(nombre_o_usuario)
+    if not clave:
+        return False
+    return clave in obtener_claves_clientes_con_deuda_firme(regs)
+
+def render_widget_postmessage_exito(monto, str_imagenes, transaccion_id=None, referencia_externa=None):
+    """Respuesta iframe: siempre notifica al ERP padre tras guardar exitosamente."""
+    url_comprobante = None
+    if str_imagenes:
+        primera_imagen = str(str_imagenes).split(',')[0].strip()
+        if primera_imagen:
+            url_comprobante = request.host_url.rstrip('/') + url_for('ver_imagen', filename=primera_imagen)
+
+    payload = {
+        'tipo': 'RETIRO_COMPLETADO',
+        'monto': monto,
+        'url': url_comprobante,
+    }
+    if transaccion_id:
+        payload['transaccion_id'] = transaccion_id
+    if referencia_externa:
+        payload['referencia_externa'] = referencia_externa
+
+    script = f'<script>window.parent.postMessage({json.dumps(payload, ensure_ascii=False)}, "*");</script>'
+    return Response(script, mimetype='text/html')
 
 # ==========================================
 # 📸 RUTA MÁGICA PARA LEER LAS FOTOS DEL DISCO
@@ -1209,6 +1263,11 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
     if es_prueba:
         historial_inicial.insert(0, f"[{hora_actual}] 🧪 CÓDIGO DE PRUEBA — No es dinero real (Staging ERP)")
 
+    if cliente_tiene_deuda_firme(usuarios_juntos, regs):
+        historial_inicial.append(
+            f"[{hora_actual}] ⚠️ Cliente con deuda firme previa — el código se procesa con normalidad."
+        )
+
     if sistema_config['auto_asignar']:
         cobradores = [u for u, info in db_usuarios().items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
         if cobradores:
@@ -1249,6 +1308,7 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
     nuevo_registro['es_prueba'] = es_prueba
     if es_prueba:
         nuevo_registro['codigo_prueba'] = True
+    nuevo_registro['alerta_deuda_firme'] = cliente_tiene_deuda_firme(usuarios_juntos, regs)
     if es_entorno_staging():
         nuevo_registro['entorno_staging'] = True
 
@@ -1374,8 +1434,21 @@ def procesar_formulario_retiro(req, usuarios, modo_widget=False, origen_historia
         return redirect(req.url)
 
     if modo_widget:
-        monto_js = json.dumps(monto_total_str)
-        return f'<script>window.parent.postMessage({{tipo: "RETIRO_COMPLETADO", monto: {monto_js}}}, "*");</script>'
+        if not transaccion_id:
+            horario = sistema_config.get('horario_activo', True)
+            bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
+            token = req.form.get('token', '').strip()
+            usuario_widget = req.form.get('usuario', 'Widget-Externo')
+            cliente_externo = req.form.get('cliente_externo', 'Desconocido')
+            referencia_externa = (req.form.get('referencia_externa') or req.args.get('referencia_externa') or '').strip()
+            return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, referencia_externa=referencia_externa, modo_prueba=modo_prueba, form_action=form_action, error='No se pudo guardar el código. Intenta de nuevo.'), 500
+
+        return render_widget_postmessage_exito(
+            monto_total_str,
+            str_imagenes,
+            transaccion_id=transaccion_id,
+            referencia_externa=referencia_externa,
+        )
 
     is_split = len(usuarios) > 1
     usuarios_para_recibo = ""
@@ -1471,6 +1544,7 @@ def vista_admin(url_prefix=''):
     
     regs = db_registros()
     activos = [r for r in regs if r['estado'] == 'activo']
+    claves_deuda_firme = obtener_claves_clientes_con_deuda_firme(regs)
     users = db_usuarios()
     
     cobradores_raw = [u for u, info in users.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
@@ -1537,6 +1611,7 @@ def vista_admin(url_prefix=''):
                            rol=session.get('rol'),
                            auto_asignar=sistema_config['auto_asignar'],
                            usuarios_db=users,
+                           claves_deuda_firme=claves_deuda_firme,
                            url_prefix=url_prefix,
                            entorno_staging=bool(url_prefix))
 
@@ -1598,7 +1673,8 @@ def ejecutar_asignar(url_prefix=''):
     for r in regs:
         if r['id'] == registro_id:
             viejo_asignado = r.get('asignado_a')
-            
+            # La deuda firme del cliente es solo alerta visual — nunca bloquea la asignación.
+
             # --- NUEVO BLOQUE PARA DESASIGNAR ---
             if trabajador == '__SIN_ASIGNAR__':
                 r['asignado_a'] = None

@@ -588,14 +588,23 @@
             formData.append('trabajador', nuevoCobrador);
             
             try {
-                await fetch('{{ '/pruebas' if entorno_staging else '' }}/asignar', {
+                const res = await fetch('{{ '/pruebas' if entorno_staging else '' }}/asignar', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
                     body: formData.toString()
                 });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || data.success === false) {
+                    throw new Error(data.mensaje || 'No se pudo asignar el código');
+                }
             } catch (e) {
                 console.error("Error reasignando código con ID:", id, e);
-                mostrarToast("❌ Error al reasignar.");
+                mostrarToast("❌ " + (e.message || "Error al reasignar."));
                 btnElement.innerHTML = textOriginal;
                 btnElement.disabled = false;
                 return;
@@ -696,6 +705,7 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Enviando...';
             btn.disabled = true;
 
+            let huboError = false;
             for (let chk of checkboxes) {
                 const id = chk.value;
                 const formData = new URLSearchParams();
@@ -703,15 +713,30 @@
                 formData.append('trabajador', cobradorParaAsignar);
                 
                 try {
-                    await fetch('{{ '/pruebas' if entorno_staging else '' }}/asignar', {
+                    const res = await fetch('{{ '/pruebas' if entorno_staging else '' }}/asignar', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        },
                         body: formData.toString()
                     });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || data.success === false) {
+                        throw new Error(data.mensaje || 'No se pudo asignar el código');
+                    }
                 } catch (e) {
+                    huboError = true;
                     console.error("Error asignando código con ID:", id, e);
+                    mostrarToast("❌ " + (e.message || "Error al asignar código " + id));
                 }
             }
+
+            btn.disabled = false;
+            btn.innerHTML = 'Confirmar <i class="fas fa-paper-plane text-blue-500"></i>';
+            if (huboError) return;
             
             var mainScroll = document.getElementById('mainScroll');
             if(mainScroll) sessionStorage.setItem('scrollpos_admin', mainScroll.scrollTop);

@@ -1645,6 +1645,23 @@ def toggle_auto():
 def asignar_trabajo():
     return ejecutar_asignar(url_prefix='')
 
+def _respuesta_asignar(ok, mensaje, url_prefix='', codigo=200):
+    """Respuesta compatible con fetch (JSON) y con formularios clásicos (redirect)."""
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in (request.headers.get('Accept') or ''):
+        return jsonify({'success': ok, 'mensaje': mensaje}), codigo
+    if ok:
+        flash(mensaje, 'success' if ok else 'error')
+    else:
+        flash(mensaje, 'error')
+    url_retorno = request.referrer or (f'{url_prefix}/admin' if url_prefix else url_for('admin'))
+    return redirect(url_retorno)
+
+def _id_registro_coincide(registro, registro_id):
+    try:
+        return int(registro.get('id', 0)) == int(registro_id)
+    except (TypeError, ValueError):
+        return False
+
 def ejecutar_asignar(url_prefix=''):
     bloqueo = asegurar_sesion_simulador() if url_prefix else asegurar_sesion_produccion()
     if bloqueo:
@@ -1652,62 +1669,62 @@ def ejecutar_asignar(url_prefix=''):
 
     mis_permisos = session.get('permisos', [])
     login_route = f'{url_prefix}/login' if url_prefix else url_for('login')
-    
-    if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_retiros' not in mis_permisos and 'procesar_retiros' not in mis_permisos: 
+
+    if session.get('rol') not in ['supremo', 'recaudador'] and 'ver_retiros' not in mis_permisos and 'procesar_retiros' not in mis_permisos:
         return redirect(login_route)
-        
-    url_retorno = request.referrer or (f'{url_prefix}/admin' if url_prefix else url_for('admin'))
-    
+
     try:
         registro_id = int(request.form.get('id', 0))
     except (TypeError, ValueError):
-        return redirect(url_retorno)
-        
-    trabajador = request.form.get('trabajador')
+        return _respuesta_asignar(False, 'ID de registro inválido', url_prefix, 400)
+
+    trabajador = (request.form.get('trabajador') or '').strip()
     if not trabajador:
-        return redirect(url_retorno)
-        
+        return _respuesta_asignar(False, 'Debe indicar un cobrador', url_prefix, 400)
+
     hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
-    regs = db_registros()
-    
+    regs = registros_pruebas if url_prefix else registros
+
+    registro_afectado = None
     for r in regs:
-        if r['id'] == registro_id:
-            viejo_asignado = r.get('asignado_a')
-            # La deuda firme del cliente es solo alerta visual — nunca bloquea la asignación.
+        if not _id_registro_coincide(r, registro_id):
+            continue
 
-            # --- NUEVO BLOQUE PARA DESASIGNAR ---
-            if trabajador == '__SIN_ASIGNAR__':
-                r['asignado_a'] = None
-                r['asignacion_estado'] = 'no_asignado'
-                r['visto_por_cobrador'] = False
-                r['historial'].append(f"[{hora_actual}] 🔄 Movido a 'Sin Asignar' por {session['usuario'].capitalize()}")
-                break
-            # ------------------------------------
+        registro_afectado = r
+        viejo_asignado = r.get('asignado_a')
 
-            if viejo_asignado == trabajador:
-                flash(f'El código ya estaba asignado a {trabajador.capitalize()}.', 'info')
-                return redirect(url_retorno)
-                
-            if viejo_asignado and viejo_asignado != trabajador:
-                r['asignado_a'] = trabajador
-                r['asignacion_estado'] = 'reasignado' 
-                r['historial'].append(f"[{hora_actual}] 🔄 Reasignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
-            else:
-                r['asignado_a'] = trabajador
-                r['asignacion_estado'] = 'asignado' 
-                r['historial'].append(f"[{hora_actual}] 👤 Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
-            
-            if not es_entorno_staging():
-                disparar_alerta_push(trabajador, "¡Nuevo Retiro Asignado! 🏃‍♂️", "Tienes un nuevo código de retiro listo en tu bandeja.")
+        if trabajador == '__SIN_ASIGNAR__':
+            r['asignado_a'] = None
+            r['asignacion_estado'] = 'no_asignado'
+            r['visto_por_cobrador'] = False
+            r['historial'].append(f"[{hora_actual}] 🔄 Movido a 'Sin Asignar' por {session['usuario'].capitalize()}")
             break
-            
+
+        if viejo_asignado == trabajador:
+            return _respuesta_asignar(True, f'El código ya estaba asignado a {trabajador.capitalize()}.', url_prefix)
+
+        if viejo_asignado and viejo_asignado != trabajador:
+            r['asignado_a'] = trabajador
+            r['asignacion_estado'] = 'reasignado'
+            r['historial'].append(f"[{hora_actual}] 🔄 Reasignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
+        else:
+            r['asignado_a'] = trabajador
+            r['asignacion_estado'] = 'asignado'
+            r['historial'].append(f"[{hora_actual}] 👤 Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
+
+        if not es_entorno_staging() and not url_prefix:
+            disparar_alerta_push(trabajador, "¡Nuevo Retiro Asignado! 🏃‍♂️", "Tienes un nuevo código de retiro listo en tu bandeja.")
+        break
+
+    if not registro_afectado:
+        return _respuesta_asignar(False, f'No se encontró el registro #{registro_id}', url_prefix, 404)
+
     guardar_datos()
+
     if trabajador == '__SIN_ASIGNAR__':
-        flash('El código ha sido desasignado exitosamente.', 'success')
-    else:
-        flash(f'Asignado a {trabajador.capitalize()} correctamente.', 'success')
-    
-    return redirect(url_retorno)
+        return _respuesta_asignar(True, 'El código ha sido desasignado exitosamente.', url_prefix)
+
+    return _respuesta_asignar(True, f'Asignado a {trabajador.capitalize()} correctamente.', url_prefix)
 # ==========================================
 # RUTAS DE PAPELERA DE RECICLAJE
 # ==========================================

@@ -27,8 +27,8 @@ VAPID_CLAIMS = {"sub": "mailto:contenido2025yt@gmail.com"}
 
 WEBHOOK_SOCIO_URL = os.environ.get('WEBHOOK_SOCIO_URL', 'https://api-socio.com/api/v1/webhooks/codigos-retiro')
 WEBHOOK_SOCIO_API_KEY = os.environ.get('WEBHOOK_SOCIO_API_KEY', 'LaClaveSecretaQueElijamos123')
-FERCHO_WEBHOOK_URL = 'https://whatsapp-registros-diarios.onrender.com/api/v1/webhooks/retiros'
-FERCHO_WEBHOOK_KEY = os.environ.get('FERCHO_WEBHOOK_KEY', '')
+SOCIO_URL_FERCHO = os.environ.get('SOCIO_URL_FERCHO', '')
+FERCHO_WEBHOOK_URL = SOCIO_URL_FERCHO or 'https://whatsapp-registros-diarios.onrender.com/api/v1/webhooks/retiros'
 
 app = Flask(__name__)
 app.secret_key = "flujo_secreto_123"
@@ -2736,26 +2736,43 @@ def disparar_webhook_fercho(registro, estado_final, host_url, evidencia_url=None
             primera_imagen = registro['imagen_fallo'].split(',')[0].strip()
             payload['evidencia'] = host_url.rstrip('/') + url_for('ver_imagen', filename=primera_imagen)
 
-    headers = {}
-    if FERCHO_WEBHOOK_KEY:
-        headers['X-WEBHOOK-KEY'] = FERCHO_WEBHOOK_KEY
+    headers = _headers_para_webhook_socio(FERCHO_WEBHOOK_URL)
 
     payload_copia = dict(payload)
     headers_copia = dict(headers)
+    url_copia = FERCHO_WEBHOOK_URL
 
     def enviar_en_hilo():
         try:
-            with httpx.Client(timeout=10.0) as client:
-                response = client.post(FERCHO_WEBHOOK_URL, json=payload_copia, headers=headers_copia)
-                print(f"✅ Webhook Fercho ({estado_final}) → {external_id}: HTTP {response.status_code}")
+            response = requests.post(url_copia, json=payload_copia, headers=headers_copia, timeout=10)
+            print(f"✅ Webhook Fercho ({estado_final}) → {external_id}: HTTP {response.status_code}")
         except Exception as ex:
             print(f"❌ Error webhook Fercho ({estado_final}) → {external_id}:", repr(ex))
 
     threading.Thread(target=enviar_en_hilo, daemon=True).start()
 
-def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None, es_prueba=False, banco=None, moneda=None):
+def _normalizar_url_webhook(url):
+    return (url or '').strip().rstrip('/')
+
+def _es_url_webhook_fercho(webhook_url):
+    url_norm = _normalizar_url_webhook(webhook_url)
+    fercho_url = _normalizar_url_webhook(os.environ.get('SOCIO_URL_FERCHO', ''))
+    if fercho_url and url_norm == fercho_url:
+        return True
+    return url_norm == _normalizar_url_webhook(FERCHO_WEBHOOK_URL)
+
+def _headers_para_webhook_socio(webhook_url):
+    if _es_url_webhook_fercho(webhook_url):
+        return {
+            'Content-Type': 'application/json',
+            'X-WEBHOOK-KEY': os.environ.get('RETIROS_WEBHOOK_KEY', ''),
+        }
+    return {'X-API-Key': WEBHOOK_SOCIO_API_KEY}
+
+def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None, es_prueba=False, banco=None, moneda=None, webhook_url=None):
     """Envía la notificación automática al ERP del socio con el rastreador asignado."""
-    webhook_url = os.environ.get('WEBHOOK_SOCIO_URL') or WEBHOOK_SOCIO_URL
+    webhook_url = webhook_url or os.environ.get('WEBHOOK_SOCIO_URL') or WEBHOOK_SOCIO_URL
+    webhook_url = webhook_url.strip()
     if not webhook_url:
         print("⚠️ WEBHOOK_SOCIO_URL no configurada en las variables de entorno.")
         return False
@@ -2772,7 +2789,7 @@ def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None, es_p
         "banco": banco,
         "moneda": moneda,
     }
-    headers = {"X-API-Key": WEBHOOK_SOCIO_API_KEY}
+    headers = _headers_para_webhook_socio(webhook_url)
 
     def enviar_en_hilo():
         try:

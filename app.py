@@ -716,22 +716,20 @@ def mantenimiento_datos():
     regs = db_registros()
 
     # --- 🛠️ AUTO-REPARADOR RETROACTIVO DE DEUDAS ---
-    deudas_vistas = set()
-    # Iteramos desde el código más viejo al más nuevo usando el ID
+    # Solo el 2.º código problemático (u otro distinto) pasa a fallido_revision.
     for r in sorted(regs, key=lambda x: x.get('id', 0)):
-        estado_actual = r.get('estado')
         usuario = r.get('usuario')
-
-        if estado_actual == 'fallido':
-            # Si ya habíamos visto una deuda más vieja de este usuario, lo pasamos a revisión
-            if usuario in deudas_vistas:
+        rid = r.get('id')
+        if r.get('estado') == 'fallido' and usuario:
+            tiene_otra_deuda = any(
+                other for other in regs
+                if other.get('usuario') == usuario
+                and other.get('id') != rid
+                and other.get('estado') in ['fallido', 'expirado', 'fallido_revision']
+            )
+            if tiene_otra_deuda:
                 r['estado'] = 'fallido_revision'
                 cambios_realizados = True
-
-        # Si el estado cuenta como deuda, anotamos a este usuario para los códigos que le sigan
-        if r.get('estado') in ['fallido', 'expirado', 'fallido_revision']:
-            if usuario:
-                deudas_vistas.add(usuario)
     # ------------------------------------------------
 
     # --- 🛠️ AUTO-REPARADOR DE IDs DUPLICADOS ---
@@ -1881,7 +1879,12 @@ def ejecutar_marcar_fallido(registro_id=None, motivo=None):
             if str_imagenes_fallo:
                 r['imagen_fallo'] = str_imagenes_fallo
 
-            tiene_deuda_previa = any(reg for reg in regs if reg['usuario'] == usuario_afectado and reg['estado'] in ['fallido', 'expirado'])
+            tiene_deuda_previa = any(
+                reg for reg in regs
+                if reg['usuario'] == usuario_afectado
+                and reg['id'] != registro_id
+                and reg['estado'] in ['fallido', 'expirado', 'fallido_revision']
+            )
 
             if tiene_deuda_previa:
                 r['estado'] = 'fallido_revision'

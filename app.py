@@ -1889,10 +1889,12 @@ def ejecutar_marcar_fallido(registro_id=None, motivo=None):
 
             if tiene_deuda_previa:
                 r['estado'] = 'fallido_revision'
+                r['motivo_fallo'] = motivo
                 r['historial'].append(f"[{hora_actual}] ⚠️ Marcado como NO SALIÓ por {session['usuario'].capitalize()}. Motivo: {motivo}")
                 flash(f'El retiro de {usuario_afectado} se envió a REVISIÓN porque el cliente ya tiene deudas previas.', 'error')
             else:
                 r['estado'] = 'fallido'
+                r['motivo_fallo'] = motivo
                 r['historial'].append(f"[{hora_actual}] ❌ Marcado como NO SALIÓ (Deuda) por {session['usuario'].capitalize()}. Motivo: {motivo}")
                 flash(f'⚠️ Retiro de {usuario_afectado} marcado como FALLIDO (Deuda).', 'error')
             registro_afectado = r
@@ -2724,16 +2726,31 @@ def disparar_webhook_fercho(registro, estado_final, host_url, evidencia_url=None
         print('⚠️ Webhook Fercho omitido: registro sin referencia_externa')
         return
 
+    # Extraer banco y mapear moneda
+    banco_str = str(registro.get('banco', '')).lower().strip()
+    moneda_calculada = mapear_moneda_desde_banco(banco_str)
+
+    # Estandarizar estado para el JSON
+    estado_json = 'fallido' if 'FALLIDO' in estado_final else 'completado'
+
+    # Payload enriquecido "Nivel Dios"
     payload = {
-        'external_id': external_id,
-        'estado_final': estado_final,
+        'external_id': external_id, # Retrocompatibilidad
+        'estado_final': estado_final, # Retrocompatibilidad
+        'referencia_externa': external_id,
+        'estado': estado_json,
+        'moneda': moneda_calculada,
+        'motivo': registro.get('motivo_fallo', 'Motivo no especificado'),
+        'retirador': registro.get('asignado_a', 'No asignado').capitalize()
     }
 
+    # Agregar link absoluto a la foto de evidencia si existe
     if estado_final in ('FALLIDO', 'FALLIDO_REVISION'):
         if evidencia_url:
             payload['evidencia'] = evidencia_url
         elif registro.get('imagen_fallo'):
             primera_imagen = registro['imagen_fallo'].split(',')[0].strip()
+            # Se genera la URL absoluta usando el host_url del request
             payload['evidencia'] = host_url.rstrip('/') + url_for('ver_imagen', filename=primera_imagen)
 
     headers = _headers_para_webhook_socio(FERCHO_WEBHOOK_URL)
@@ -2749,6 +2766,7 @@ def disparar_webhook_fercho(registro, estado_final, host_url, evidencia_url=None
         except Exception as ex:
             print(f"❌ Error webhook Fercho ({estado_final}) → {external_id}:", repr(ex))
 
+    import threading
     threading.Thread(target=enviar_en_hilo, daemon=True).start()
 
 def _normalizar_url_webhook(url):

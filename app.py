@@ -1352,11 +1352,12 @@ def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
     if request.method == 'GET':
         cliente_externo = request.args.get('cliente', 'Desconocido')
         referencia_externa = request.args.get('referencia_externa', '').strip()
-        modo_prueba = 'prueba' if forzar_codigo_prueba else request.args.get('modo', 'real')
+        # Producción (/widget_retiro): siempre modo real. Staging fuerza prueba vía forzar_codigo_prueba.
+        modo_prueba = 'prueba' if forzar_codigo_prueba else 'real'
         return render_template('widget_retiro.html', usuario=usuario_widget, token=token, horario_activo=horario, bancos_activos=bancos_activos, cliente_externo=cliente_externo, referencia_externa=referencia_externa, modo_prueba=modo_prueba, form_action=form_action, es_codigo_prueba=forzar_codigo_prueba)
 
     referencia_externa = (request.form.get('referencia_externa') or request.args.get('referencia_externa') or '').strip()
-    modo_prueba = 'prueba' if forzar_codigo_prueba else request.form.get('modo_prueba', 'real')
+    modo_prueba = 'prueba' if forzar_codigo_prueba else 'real'
     nombre_cliente = request.form.get('cliente_externo', 'Desconocido')
     cliente_externo = nombre_cliente
 

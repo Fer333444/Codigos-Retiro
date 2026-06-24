@@ -3050,6 +3050,10 @@ def api_saldar_deuda_pruebas():
 def webhook_erp_pago_aprobado_pruebas():
     return ejecutar_webhook_erp_pago_aprobado()
 
+@pruebas_bp.route('/api/v1/recibir_ticket_socio', methods=['POST'])
+def recibir_ticket_socio_pruebas():
+    return recibir_ticket_socio()
+
 app.register_blueprint(pruebas_bp)
 
 if __name__ == '__main__':

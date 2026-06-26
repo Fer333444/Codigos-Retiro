@@ -1641,9 +1641,11 @@ def vista_login(url_prefix=''):
             session['rol'] = users[username]['rol']
             session['permisos'] = users[username].get('permisos', [])
             session['entorno'] = entorno_solicitado
+            guardar_log_seguridad('INFO', 'Inicio de Sesión', f'🔐 El usuario {username.capitalize()} inició sesión exitosamente.', request, f"Rol: {session['rol']}")
             if url_prefix:
                 return redirect(ruta_por_rol_simulador(session['rol'], username))
             return redirect(ruta_por_rol(session['rol'], username))
+        guardar_log_seguridad('MEDIO', 'Fallo de Login', f'⚠️ Intento fallido de login para el usuario: {username}', request)
         flash('Usuario o contraseña incorrectos', 'error')
 
     form_action = f'{url_prefix}/login' if url_prefix else url_for('login')

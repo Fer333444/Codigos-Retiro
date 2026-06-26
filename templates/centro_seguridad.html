@@ -2,49 +2,85 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SOC | Auditoría en Tiempo Real</title>
     <style>
-        :root { --bg-dark: #0f172a; --panel-bg: #1e293b; --text-main: #f8fafc; --text-muted: #94a3b8; --border: #334155; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-dark); color: var(--text-main); margin: 0; padding: 20px; }
-        .dashboard-header { display: flex; justify-content: space-between; align-items: center; background: var(--panel-bg); padding: 20px; border-radius: 10px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.3); margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
-        .title-area h2 { margin: 0; font-size: 22px; display: flex; align-items: center; gap: 12px; }
-        .live-pulse { width: 12px; height: 12px; background-color: #10b981; border-radius: 50%; box-shadow: 0 0 10px #10b981; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(0.95); opacity: 0.8; } }
-        .controls { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
-        .search-box { padding: 8px 15px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-dark); color: white; outline: none; }
-        .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; text-decoration: none; font-size: 13px; transition: 0.2s; }
-        .btn-blue { background: #3b82f6; color: white; } .btn-blue:hover { background: #2563eb; }
-        .btn-red { background: #ef4444; color: white; } .btn-red:hover { background: #dc2626; }
+        :root { --bg-dark: #0b1120; --panel-bg: #1e293b; --text-main: #f8fafc; --text-muted: #94a3b8; --border: #334155; --accent: #3b82f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-dark); color: var(--text-main); margin: 0; padding: 15px; }
 
-        .table-container { background: var(--panel-bg); border-radius: 10px; border: 1px solid var(--border); overflow-x: auto; height: 75vh; }
+        .dashboard-header { background: var(--panel-bg); padding: 15px 20px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 15px; display: flex; flex-direction: column; gap: 15px; }
+        .title-row { display: flex; justify-content: space-between; align-items: center; }
+        .title-area h2 { margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 10px; }
+        .live-pulse { width: 10px; height: 10px; background-color: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.8; } 50% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.8; } }
+
+        .controls-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .search-box, .filter-select { padding: 8px 12px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg-dark); color: white; font-size: 13px; outline: none; flex: 1; min-width: 140px; }
+        .btn { padding: 8px 15px; border-radius: 5px; border: none; cursor: pointer; font-weight: 600; font-size: 13px; text-decoration: none; transition: 0.2s; white-space: nowrap; }
+        .btn-blue { background: var(--accent); color: white; } .btn-blue:hover { background: #2563eb; }
+        .btn-red { background: transparent; color: #ef4444; border: 1px solid #ef4444; } .btn-red:hover { background: #ef4444; color: white; }
+
+        .table-container { background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border); overflow-y: auto; height: calc(100vh - 160px); }
         table { width: 100%; border-collapse: collapse; text-align: left; }
-        thead th { background: #0f172a; padding: 15px; font-size: 13px; text-transform: uppercase; color: var(--text-muted); position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--border); }
-        tbody td { padding: 12px 15px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: top; }
-        tbody tr:hover { background: rgba(255,255,255,0.02); }
+        thead th { background: #0f172a; padding: 12px 15px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--border); }
+        tbody td { padding: 12px 15px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; }
+        tbody tr:hover { background: rgba(255,255,255,0.03); }
 
-        .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
-        .bg-grave { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
-        .bg-medio { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid #f59e0b; }
-        .bg-bajo { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid #10b981; }
-        .bg-info { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid #3b82f6; }
+        .badge { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; display: inline-block; }
+        .bg-grave { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid #ef4444; }
+        .bg-medio { background: rgba(245, 158, 11, 0.15); color: #fcd34d; border: 1px solid #f59e0b; }
+        .bg-bajo { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid #10b981; }
+        .bg-info { background: rgba(59, 130, 246, 0.15); color: #93c5fd; border: 1px solid #3b82f6; }
 
-        .ip-text { font-family: monospace; color: #cbd5e1; background: #334155; padding: 2px 6px; border-radius: 4px; }
-        .details-box { margin-top: 8px; font-family: monospace; font-size: 12px; color: #94a3b8; background: var(--bg-dark); padding: 8px; border-radius: 4px; border-left: 2px solid #3b82f6; word-break: break-all; }
+        .ip-text { font-family: 'Courier New', Courier, monospace; color: #94a3b8; font-size: 12px; display: block; margin-top: 4px; }
+        .event-title { color: #e2e8f0; font-weight: 600; display: block; margin-bottom: 4px; }
+        .details-box { margin-top: 6px; font-family: monospace; font-size: 11px; color: #64748b; word-break: break-all; }
+        .date-col { color: #cbd5e1; font-size: 12px; white-space: nowrap; }
+
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .dashboard-header { padding: 12px; }
+            .controls-row { flex-direction: column; align-items: stretch; }
+            .search-box, .filter-select { min-width: 0; width: 100%; }
+            .btn { text-align: center; width: 100%; }
+            .table-container { height: calc(100vh - 220px); border: none; background: transparent; overflow: visible; }
+
+            table, thead, tbody, th, td, tr { display: block; }
+            thead tr { position: absolute; top: -9999px; left: -9999px; }
+
+            tbody tr { background: var(--panel-bg); margin-bottom: 10px; border-radius: 8px; border: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+            tbody td { border: none; padding: 0; font-size: 13px; }
+
+            .mobile-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 4px; }
+            .mobile-body { display: flex; flex-direction: column; gap: 4px; }
+        }
     </style>
 </head>
 <body>
 
     <div class="dashboard-header">
-        <div class="title-area">
-            <div class="live-pulse" id="status-dot"></div>
-            <h2>SOC | Auditoría Global en Tiempo Real</h2>
+        <div class="title-row">
+            <div class="title-area">
+                <div class="live-pulse" id="status-dot"></div>
+                <h2>SOC | Auditoría</h2>
+            </div>
+            <a href="/" class="btn btn-blue">⬅ Inicio</a>
         </div>
-        <div class="controls">
-            <input type="text" id="searchInput" class="search-box" placeholder="🔍 Buscar IP, Usuario, Evento..." onkeyup="filtrarTabla()">
+        <div class="controls-row">
+            <input type="text" id="searchInput" class="search-box" placeholder="🔍 Buscar IP o Usuario..." onkeyup="filtrarTabla()">
+
+            <select id="levelFilter" class="filter-select" onchange="filtrarTabla()">
+                <option value="">🔘 Todos los Niveles</option>
+                <option value="GRAVE">🔴 Grave (Hackeos)</option>
+                <option value="MEDIO">🟡 Medio (Errores/Fallos)</option>
+                <option value="INFO">🔵 Info (Operaciones)</option>
+                <option value="BAJO">🟢 Bajo (Visitas)</option>
+            </select>
+
             <input type="date" id="dateInput" class="search-box" onchange="filtrarTabla()">
-            <a href="/" class="btn btn-blue">⬅ Panel Principal</a>
-            <form action="/limpiar_logs_seguridad" method="POST" style="margin:0;" onsubmit="return confirm('⚠️ ¿Borrar el historial de auditoría?');">
-                <button type="submit" class="btn btn-red">Purga de Datos</button>
+
+            <form action="/limpiar_logs_seguridad" method="POST" style="margin:0;" onsubmit="return confirm('⚠️ ¿Purga total de datos?');">
+                <button type="submit" class="btn btn-red">Purga</button>
             </form>
         </div>
     </div>
@@ -55,19 +91,22 @@
                 <tr>
                     <th width="15%">Fecha/Hora</th>
                     <th width="10%">Nivel</th>
-                    <th width="15%">IP Origen</th>
-                    <th width="20%">Evento</th>
-                    <th width="40%">Descripción y Payload</th>
+                    <th width="25%">Evento & IP</th>
+                    <th width="50%">Descripción y Detalles</th>
                 </tr>
             </thead>
             <tbody id="logs-body">
-                <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Cargando flujo de datos...</td></tr>
+                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Cargando flujo de datos...</td></tr>
             </tbody>
         </table>
     </div>
 
     <script>
         let isPaused = false;
+
+        function isMobileView() {
+            return window.innerWidth <= 768;
+        }
 
         function escapeHtml(text) {
             if (!text) return '';
@@ -83,15 +122,16 @@
                 const logs = await response.json();
                 renderTable(logs);
             } catch (error) {
-                console.error("Error conectando al SOC:", error);
                 document.getElementById('status-dot').style.backgroundColor = '#ef4444';
             }
         }
 
         function renderTable(logs) {
             const tbody = document.getElementById('logs-body');
+            const isMobile = isMobileView();
+
             if (logs.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #94a3b8;">Sistemas en línea. Esperando eventos...</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b; padding: 20px;">Sistemas en línea. Esperando eventos...</td></tr>`;
                 return;
             }
 
@@ -102,24 +142,44 @@
                 else if (log.nivel === 'MEDIO') badgeClass = 'bg-medio';
                 else if (log.nivel === 'INFO') badgeClass = 'bg-info';
 
-                const searchText = `${log.ip || ''} ${log.tipo || ''} ${log.mensaje || ''} ${log.detalles || ''}`.toLowerCase();
                 const fechaCorta = (log.fecha || '').substring(0, 10);
+                const searchText = `${log.ip || ''} ${log.tipo || ''} ${log.mensaje || ''} ${log.detalles || ''}`.toLowerCase();
                 const detalles = log.detalles && log.detalles !== 'Sin payload adicional'
                     ? `<div class="details-box">${escapeHtml(log.detalles)}</div>`
                     : '';
 
-                html += `
-                <tr class="log-row" data-fecha="${escapeHtml(fechaCorta)}" data-text="${escapeHtml(searchText)}">
-                    <td style="color: #cbd5e1;">${escapeHtml(log.fecha)}</td>
-                    <td><span class="badge ${badgeClass}">${escapeHtml(log.nivel)}</span></td>
-                    <td><span class="ip-text">${escapeHtml(log.ip)}</span></td>
-                    <td style="color: #e2e8f0; font-weight: 500;">${escapeHtml(log.tipo)}</td>
-                    <td>
-                        <span style="color: #f8fafc;">${escapeHtml(log.mensaje)}</span><br>
-                        <small style="color: #64748b;">${escapeHtml(log.url)}</small>
-                        ${detalles}
-                    </td>
-                </tr>`;
+                if (isMobile) {
+                    html += `
+                    <tr class="log-row" data-fecha="${escapeHtml(fechaCorta)}" data-nivel="${escapeHtml(log.nivel)}" data-text="${escapeHtml(searchText)}">
+                        <td colspan="4">
+                            <div class="mobile-header">
+                                <span class="badge ${badgeClass}">${escapeHtml(log.nivel)}</span>
+                                <span class="date-col">${escapeHtml(log.fecha)}</span>
+                            </div>
+                            <div class="mobile-body">
+                                <span class="event-title">${escapeHtml(log.tipo)}</span>
+                                <span style="color: #f8fafc;">${escapeHtml(log.mensaje)}</span>
+                                <span class="ip-text">IP: ${escapeHtml(log.ip)}</span>
+                                ${detalles}
+                            </div>
+                        </td>
+                    </tr>`;
+                } else {
+                    html += `
+                    <tr class="log-row" data-fecha="${escapeHtml(fechaCorta)}" data-nivel="${escapeHtml(log.nivel)}" data-text="${escapeHtml(searchText)}">
+                        <td class="date-col">${escapeHtml(log.fecha)}</td>
+                        <td><span class="badge ${badgeClass}">${escapeHtml(log.nivel)}</span></td>
+                        <td>
+                            <span class="event-title">${escapeHtml(log.tipo)}</span>
+                            <span class="ip-text">${escapeHtml(log.ip)}</span>
+                        </td>
+                        <td>
+                            <span style="color: #f8fafc;">${escapeHtml(log.mensaje)}</span>
+                            <br><small style="color: #64748b;">${escapeHtml(log.url)}</small>
+                            ${detalles}
+                        </td>
+                    </tr>`;
+                }
             });
             tbody.innerHTML = html;
             filtrarTabla();
@@ -128,8 +188,9 @@
         function filtrarTabla() {
             const searchText = document.getElementById('searchInput').value.toLowerCase();
             const searchDateRaw = document.getElementById('dateInput').value;
+            const filterLevel = document.getElementById('levelFilter').value;
 
-            if (searchText || searchDateRaw) {
+            if (searchText || searchDateRaw || filterLevel) {
                 isPaused = true;
                 document.getElementById('status-dot').style.backgroundColor = '#f59e0b';
                 document.getElementById('status-dot').style.animation = 'none';
@@ -149,17 +210,23 @@
             rows.forEach(row => {
                 const textMatch = row.getAttribute('data-text').includes(searchText);
                 const dateMatch = searchDate === "" || row.getAttribute('data-fecha') === searchDate;
+                const levelMatch = filterLevel === "" || row.getAttribute('data-nivel') === filterLevel;
 
-                if (textMatch && dateMatch) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
+                row.style.display = (textMatch && dateMatch && levelMatch) ? '' : 'none';
             });
         }
 
         fetchLogs();
         setInterval(fetchLogs, 3000);
+
+        let lastMobileState = isMobileView();
+        window.addEventListener('resize', () => {
+            const currentMobile = isMobileView();
+            if (currentMobile !== lastMobileState) {
+                lastMobileState = currentMobile;
+                fetchLogs();
+            }
+        });
     </script>
 </body>
 </html>

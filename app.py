@@ -1,5 +1,6 @@
 import os
 import random
+import re
 import string
 import csv
 import io
@@ -7,6 +8,7 @@ import json
 import base64
 import time
 import threading
+import traceback
 import copy
 import httpx
 import requests
@@ -44,12 +46,51 @@ if os.path.exists('/var/data'):
     STAGING_USERS_FILE = '/var/data/usuarios_pruebas.json'
     STAGING_COBRADORES_FILE = '/var/data/cobradores_pruebas.json'
     UPLOAD_FOLDER = '/var/data/uploads'
+    SECURITY_LOGS_FILE = '/var/data/logs_seguridad.json'
 else:
     DATA_FILE = 'base_datos_local.json'
     STAGING_DATA_FILE = 'registros_pruebas.json'
     STAGING_USERS_FILE = 'usuarios_pruebas.json'
     STAGING_COBRADORES_FILE = 'cobradores_pruebas.json'
     UPLOAD_FOLDER = 'static/uploads'
+    SECURITY_LOGS_FILE = 'logs_seguridad.json'
+
+logs_seguridad = []
+
+def cargar_logs_seguridad():
+    global logs_seguridad
+    if os.path.exists(SECURITY_LOGS_FILE):
+        try:
+            with open(SECURITY_LOGS_FILE, 'r', encoding='utf-8') as f:
+                logs_seguridad = json.load(f)
+        except: pass
+
+def guardar_log_seguridad(nivel, tipo, mensaje, request_obj=None, traceback_info=""):
+    global logs_seguridad
+    ip = request_obj.headers.get('X-Forwarded-For', request_obj.remote_addr) if request_obj else 'Interno'
+    url = request_obj.url if request_obj else 'Sistema'
+
+    nuevo_log = {
+        'id': int(time.time() * 1000) + random.randint(1,999),
+        'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M:%S"),
+        'nivel': nivel, # 'GRAVE', 'MEDIO', 'BAJO'
+        'tipo': tipo,
+        'mensaje': str(mensaje),
+        'url': str(url),
+        'ip': str(ip),
+        'detalles': str(traceback_info)
+    }
+    logs_seguridad.insert(0, nuevo_log)
+    # Mantener solo los últimos 300 logs para no saturar memoria
+    if len(logs_seguridad) > 300:
+        logs_seguridad.pop()
+
+    try:
+        with open(SECURITY_LOGS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(logs_seguridad, f, ensure_ascii=False, indent=4)
+    except: pass
+
+cargar_logs_seguridad()
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True) # Construye la bóveda de fotos si no existe
@@ -475,6 +516,39 @@ def recibir_ticket_socio():
 def hora_ecuador():
     return datetime.utcnow() - timedelta(hours=5)
 
+# Patrones de ataque comunes
+PAYLOADS_PELIGROSOS = re.compile(r'(?i)(<script|%3Cscript|UNION.+SELECT|SELECT.+FROM|DROP\s+TABLE|wp-admin|\.env|\.git|\.\./\.\.)')
+
+@app.before_request
+def escudo_seguridad():
+    # Ignorar rutas estáticas
+    if request.path.startswith('/static/'): return
+
+    # 1. Escanear URL
+    if PAYLOADS_PELIGROSOS.search(request.path) or PAYLOADS_PELIGROSOS.search(request.query_string.decode('utf-8', 'ignore')):
+        guardar_log_seguridad('GRAVE', 'Intento de Hackeo (URL)', 'Se detectó un payload malicioso en la URL.', request)
+        return "Acceso denegado por políticas de seguridad.", 403
+
+    # 2. Escanear Formularios (POST)
+    if request.method == 'POST' and request.form:
+        for key, value in request.form.items():
+            if PAYLOADS_PELIGROSOS.search(str(value)):
+                guardar_log_seguridad('GRAVE', 'Intento de Hackeo (Formulario)', f'Payload malicioso en el campo: {key}', request)
+                return "Acceso denegado. Contenido no permitido.", 403
+
+@app.errorhandler(500)
+def error_interno(e):
+    error_trace = traceback.format_exc()
+    guardar_log_seguridad('MEDIO', 'Error del Sistema (500)', str(e), request, error_trace)
+    return "Ocurrió un error interno. El administrador ha sido notificado.", 500
+
+@app.errorhandler(404)
+def pagina_no_encontrada(e):
+    # No registrar si es un bot buscando basura típica de wordpress
+    if 'wp-' not in request.path and '.php' not in request.path:
+        guardar_log_seguridad('BAJO', 'Página no encontrada (404)', f'Ruta solicitada: {request.path}', request)
+    return "Página no encontrada", 404
+
 def esta_expirado(hora_limite_str, fecha_creacion_str):
     if not hora_limite_str: return False
     try:
@@ -834,6 +908,21 @@ def ruta_por_rol_simulador(rol, usuario):
     if rol == 'cobrador':
         return f'{prefijo}/trabajador/{usuario}'
     return f'{prefijo}/admin'
+
+@app.route('/centro_seguridad')
+def centro_seguridad():
+    if session.get('rol') != 'supremo':
+        return redirect(url_for('index'))
+    return render_template('centro_seguridad.html', logs=logs_seguridad, mi_usuario=session.get('usuario'), rol=session.get('rol'))
+
+@app.route('/limpiar_logs_seguridad', methods=['POST'])
+def limpiar_logs_seguridad():
+    if session.get('rol') != 'supremo': return redirect(url_for('index'))
+    global logs_seguridad
+    logs_seguridad.clear()
+    guardar_log_seguridad('BAJO', 'Sistema', 'Logs limpiados por el administrador.', request)
+    flash('✅ Registros de seguridad limpiados.', 'success')
+    return redirect(url_for('centro_seguridad'))
 
 @app.route('/')
 def index():

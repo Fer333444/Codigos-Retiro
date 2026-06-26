@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Centro de Seguridad | ERP</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: #1e293b; color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; }
+        .btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; color: white; text-decoration: none; }
+        .btn-danger { background: #ef4444; } .btn-back { background: #3b82f6; }
+        .table-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; font-size: 14px; }
+        th { background: #f8fafc; color: #333; }
+        .badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; }
+        .badge-grave { background: #ef4444; } /* Rojo */
+        .badge-medio { background: #f59e0b; } /* Amarillo */
+        .badge-bajo { background: #10b981; } /* Verde */
+        details { background: #f1f5f9; padding: 10px; border-radius: 5px; margin-top: 5px; }
+        summary { cursor: pointer; font-weight: bold; color: #475569; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>🛡️ Centro de Seguridad y Auditoría</h2>
+        <div>
+            <a href="/" class="btn btn-back">⬅ Volver al Inicio</a>
+            <form action="/limpiar_logs_seguridad" method="POST" style="display:inline;" onsubmit="return confirm('¿Borrar todos los registros?');">
+                <button type="submit" class="btn btn-danger">🗑️ Limpiar Logs</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Gravedad</th>
+                    <th>IP Origen</th>
+                    <th>Tipo de Evento</th>
+                    <th>Mensaje / URL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.fecha }}</td>
+                    <td>
+                        <span class="badge 
+                            {% if log.nivel == 'GRAVE' %}badge-grave
+                            {% elif log.nivel == 'MEDIO' %}badge-medio
+                            {% else %}badge-bajo{% endif %}">
+                            {{ log.nivel }}
+                        </span>
+                    </td>
+                    <td><code>{{ log.ip }}</code></td>
+                    <td><strong>{{ log.tipo }}</strong></td>
+                    <td>
+                        {{ log.mensaje }}<br>
+                        <small style="color: gray;">{{ log.url }}</small>
+                        {% if log.detalles %}
+                        <details>
+                            <summary>Ver Detalles / Código de Error</summary>
+                            <pre style="font-size:11px; overflow-x:auto;">{{ log.detalles }}</pre>
+                        </details>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align:center;">No hay registros de seguridad. Todo está tranquilo. 🟢</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

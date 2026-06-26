@@ -2,143 +2,164 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta id="meta-refresh" http-equiv="refresh" content="10">
-    <title>Centro de Seguridad y Auditoría | ERP</title>
+    <title>SOC | Auditoría en Tiempo Real</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; background: #1e293b; color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
-        .btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; color: white; text-decoration: none; font-size: 14px; }
-        .btn-danger { background: #ef4444; } .btn-back { background: #3b82f6; }
-        .table-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; font-size: 13px; }
-        th { background: #f8fafc; color: #333; position: sticky; top: 0; }
-        .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; color: white; }
-        .badge-grave { background: #ef4444; } /* Rojo - Hackeos */
-        .badge-medio { background: #f59e0b; } /* Amarillo - Errores 500 */
-        .badge-bajo { background: #10b981; } /* Verde - 404s */
-        .badge-info { background: #3b82f6; } /* Azul - Operaciones */
-        details { background: #f1f5f9; padding: 10px; border-radius: 5px; margin-top: 5px; border-left: 3px solid #cbd5e1; }
-        summary { cursor: pointer; font-weight: bold; color: #475569; font-size: 12px; }
-        .live-indicator { font-size: 12px; color: #ef4444; font-weight: bold; animation: blink 1.5s infinite; border: 1px solid #ef4444; padding: 2px 6px; border-radius: 4px; background: rgba(239, 68, 68, 0.1); }
-        .live-paused { color: #f59e0b; border-color: #f59e0b; background: rgba(245, 158, 11, 0.1); animation: none; }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-        .filtros { display: flex; align-items: center; gap: 10px; background: white; padding: 10px 15px; border-radius: 6px; color: black; }
-        input[type="date"] { padding: 6px; border: 1px solid #ccc; border-radius: 4px; }
+        :root { --bg-dark: #0f172a; --panel-bg: #1e293b; --text-main: #f8fafc; --text-muted: #94a3b8; --border: #334155; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-dark); color: var(--text-main); margin: 0; padding: 20px; }
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; background: var(--panel-bg); padding: 20px; border-radius: 10px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.3); margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .title-area h2 { margin: 0; font-size: 22px; display: flex; align-items: center; gap: 12px; }
+        .live-pulse { width: 12px; height: 12px; background-color: #10b981; border-radius: 50%; box-shadow: 0 0 10px #10b981; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(0.95); opacity: 0.8; } }
+        .controls { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+        .search-box { padding: 8px 15px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-dark); color: white; outline: none; }
+        .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; text-decoration: none; font-size: 13px; transition: 0.2s; }
+        .btn-blue { background: #3b82f6; color: white; } .btn-blue:hover { background: #2563eb; }
+        .btn-red { background: #ef4444; color: white; } .btn-red:hover { background: #dc2626; }
+
+        .table-container { background: var(--panel-bg); border-radius: 10px; border: 1px solid var(--border); overflow-x: auto; height: 75vh; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        thead th { background: #0f172a; padding: 15px; font-size: 13px; text-transform: uppercase; color: var(--text-muted); position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--border); }
+        tbody td { padding: 12px 15px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: top; }
+        tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+        .bg-grave { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
+        .bg-medio { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid #f59e0b; }
+        .bg-bajo { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid #10b981; }
+        .bg-info { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid #3b82f6; }
+
+        .ip-text { font-family: monospace; color: #cbd5e1; background: #334155; padding: 2px 6px; border-radius: 4px; }
+        .details-box { margin-top: 8px; font-family: monospace; font-size: 12px; color: #94a3b8; background: var(--bg-dark); padding: 8px; border-radius: 4px; border-left: 2px solid #3b82f6; word-break: break-all; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h2 style="margin:0; display:flex; align-items:center; gap:10px;">
-            🛡️ Auditoría Maestra 
-            <span id="live-badge" class="live-indicator">🔴 LIVE (10s)</span>
-        </h2>
-        <div class="filtros">
-            <label for="filtroFecha"><b>🔍 Filtrar por fecha:</b></label>
-            <input type="date" id="filtroFecha" onchange="filtrarLogs()">
-            <button onclick="limpiarFiltro()" class="btn" style="background:#64748b; padding:6px 10px;">Quitar Filtro</button>
+
+    <div class="dashboard-header">
+        <div class="title-area">
+            <div class="live-pulse" id="status-dot"></div>
+            <h2>SOC | Auditoría Global en Tiempo Real</h2>
         </div>
-        <div>
-            <a href="/" class="btn btn-back">⬅ Volver al Inicio</a>
-            <form action="/limpiar_logs_seguridad" method="POST" style="display:inline;" onsubmit="return confirm('⚠️ ¿Borrar ABSOLUTAMENTE TODOS los registros de auditoría?');">
-                <button type="submit" class="btn btn-danger">🗑️ Limpiar Logs</button>
+        <div class="controls">
+            <input type="text" id="searchInput" class="search-box" placeholder="🔍 Buscar IP, Usuario, Evento..." onkeyup="filtrarTabla()">
+            <input type="date" id="dateInput" class="search-box" onchange="filtrarTabla()">
+            <a href="/" class="btn btn-blue">⬅ Panel Principal</a>
+            <form action="/limpiar_logs_seguridad" method="POST" style="margin:0;" onsubmit="return confirm('⚠️ ¿Borrar el historial de auditoría?');">
+                <button type="submit" class="btn btn-red">Purga de Datos</button>
             </form>
         </div>
     </div>
 
     <div class="table-container">
-        <table id="tablaLogs">
+        <table>
             <thead>
                 <tr>
-                    <th>Fecha y Hora</th>
-                    <th>Nivel</th>
-                    <th>Usuario / IP</th>
-                    <th>Acción / Evento</th>
-                    <th>Descripción / Detalles</th>
+                    <th width="15%">Fecha/Hora</th>
+                    <th width="10%">Nivel</th>
+                    <th width="15%">IP Origen</th>
+                    <th width="20%">Evento</th>
+                    <th width="40%">Descripción y Payload</th>
                 </tr>
             </thead>
-            <tbody>
-                {% for log in logs %}
-                <tr class="log-row" data-fecha="{{ log.fecha[:10] }}">
-                    <td style="white-space: nowrap;"><strong>{{ log.fecha }}</strong></td>
-                    <td>
-                        <span class="badge 
-                            {% if log.nivel == 'GRAVE' %}badge-grave
-                            {% elif log.nivel == 'MEDIO' %}badge-medio
-                            {% elif log.nivel == 'INFO' %}badge-info
-                            {% else %}badge-bajo{% endif %}">
-                            {{ log.nivel }}
-                        </span>
-                    </td>
-                    <td>
-                        {% if log.nivel == 'INFO' %}
-                            <span style="color:#3b82f6; font-weight:bold;">👤 {{ log.mensaje.split(' ')[2] if log.mensaje.startswith('El usuario') else 'Sistema' }}</span>
-                        {% else %}
-                            <code>{{ log.ip }}</code>
-                        {% endif %}
-                    </td>
-                    <td><strong>{{ log.tipo }}</strong></td>
-                    <td>
-                        {{ log.mensaje }}<br>
-                        <small style="color: gray;">Ruta: {{ log.url }}</small>
-                        {% if log.detalles and log.detalles != 'Sin payload adicional' %}
-                        <details>
-                            <summary>Ver Detalles Técnicos</summary>
-                            <pre style="font-size:11px; white-space: pre-wrap; word-wrap: break-word;">{{ log.detalles }}</pre>
-                        </details>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="5" style="text-align:center;">No hay registros. El sistema acaba de iniciar. 🟢</td></tr>
-                {% endfor %}
+            <tbody id="logs-body">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Cargando flujo de datos...</td></tr>
             </tbody>
         </table>
     </div>
 
     <script>
-        function filtrarLogs() {
-            let inputFecha = document.getElementById("filtroFecha").value; // Formato YYYY-MM-DD
-            let filas = document.querySelectorAll(".log-row");
-            let badge = document.getElementById("live-badge");
-            let metaRefresh = document.getElementById("meta-refresh");
+        let isPaused = false;
 
-            if (inputFecha) {
-                // Si el usuario está buscando, PAUSAMOS el auto-refresh para no molestar su lectura
-                if (metaRefresh) metaRefresh.remove();
-                badge.className = "live-indicator live-paused";
-                badge.innerText = "⏸️ PAUSADO (Filtro)";
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
-                // Convertir YYYY-MM-DD a DD/MM/YYYY para comparar con la tabla
-                let partes = inputFecha.split('-');
-                let fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`;
-
-                filas.forEach(fila => {
-                    if (fila.getAttribute("data-fecha") === fechaFormateada) {
-                        fila.style.display = "";
-                    } else {
-                        fila.style.display = "none";
-                    }
-                });
+        async function fetchLogs() {
+            if (isPaused) return;
+            try {
+                const response = await fetch('/api/obtener_logs_seguridad');
+                const logs = await response.json();
+                renderTable(logs);
+            } catch (error) {
+                console.error("Error conectando al SOC:", error);
+                document.getElementById('status-dot').style.backgroundColor = '#ef4444';
             }
         }
 
-        function limpiarFiltro() {
-            document.getElementById("filtroFecha").value = "";
-            document.querySelectorAll(".log-row").forEach(fila => fila.style.display = "");
-
-            // Reactivar el Live Refresh
-            if (!document.getElementById("meta-refresh")) {
-                let meta = document.createElement('meta');
-                meta.id = "meta-refresh";
-                meta.httpEquiv = "refresh";
-                meta.content = "10";
-                document.head.appendChild(meta);
+        function renderTable(logs) {
+            const tbody = document.getElementById('logs-body');
+            if (logs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #94a3b8;">Sistemas en línea. Esperando eventos...</td></tr>`;
+                return;
             }
-            let badge = document.getElementById("live-badge");
-            badge.className = "live-indicator";
-            badge.innerText = "🔴 LIVE (10s)";
+
+            let html = '';
+            logs.forEach(log => {
+                let badgeClass = 'bg-bajo';
+                if (log.nivel === 'GRAVE') badgeClass = 'bg-grave';
+                else if (log.nivel === 'MEDIO') badgeClass = 'bg-medio';
+                else if (log.nivel === 'INFO') badgeClass = 'bg-info';
+
+                const searchText = `${log.ip || ''} ${log.tipo || ''} ${log.mensaje || ''} ${log.detalles || ''}`.toLowerCase();
+                const fechaCorta = (log.fecha || '').substring(0, 10);
+                const detalles = log.detalles && log.detalles !== 'Sin payload adicional'
+                    ? `<div class="details-box">${escapeHtml(log.detalles)}</div>`
+                    : '';
+
+                html += `
+                <tr class="log-row" data-fecha="${escapeHtml(fechaCorta)}" data-text="${escapeHtml(searchText)}">
+                    <td style="color: #cbd5e1;">${escapeHtml(log.fecha)}</td>
+                    <td><span class="badge ${badgeClass}">${escapeHtml(log.nivel)}</span></td>
+                    <td><span class="ip-text">${escapeHtml(log.ip)}</span></td>
+                    <td style="color: #e2e8f0; font-weight: 500;">${escapeHtml(log.tipo)}</td>
+                    <td>
+                        <span style="color: #f8fafc;">${escapeHtml(log.mensaje)}</span><br>
+                        <small style="color: #64748b;">${escapeHtml(log.url)}</small>
+                        ${detalles}
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+            filtrarTabla();
         }
+
+        function filtrarTabla() {
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+            const searchDateRaw = document.getElementById('dateInput').value;
+
+            if (searchText || searchDateRaw) {
+                isPaused = true;
+                document.getElementById('status-dot').style.backgroundColor = '#f59e0b';
+                document.getElementById('status-dot').style.animation = 'none';
+            } else {
+                isPaused = false;
+                document.getElementById('status-dot').style.backgroundColor = '#10b981';
+                document.getElementById('status-dot').style.animation = 'pulse 1.5s infinite';
+            }
+
+            let searchDate = "";
+            if (searchDateRaw) {
+                let p = searchDateRaw.split('-');
+                searchDate = `${p[2]}/${p[1]}/${p[0]}`;
+            }
+
+            const rows = document.querySelectorAll('.log-row');
+            rows.forEach(row => {
+                const textMatch = row.getAttribute('data-text').includes(searchText);
+                const dateMatch = searchDate === "" || row.getAttribute('data-fecha') === searchDate;
+
+                if (textMatch && dateMatch) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        fetchLogs();
+        setInterval(fetchLogs, 3000);
     </script>
 </body>
 </html>

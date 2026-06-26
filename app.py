@@ -536,32 +536,60 @@ def escudo_seguridad():
                 guardar_log_seguridad('GRAVE', 'Intento de Hackeo (Formulario)', f'Payload malicioso en el campo: {key}', request)
                 return "Acceso denegado. Contenido no permitido.", 403
 
+@app.route('/api/obtener_logs_seguridad')
+def api_obtener_logs():
+    if session.get('rol') != 'supremo': return jsonify([])
+    return jsonify(logs_seguridad)
+
+@app.route('/api/rastreador_clics', methods=['POST'])
+def rastreador_clics():
+    # Recibe los clics silenciosos del frontend
+    if not request.is_json: return jsonify({'status': 'ok'})
+    data = request.get_json()
+    usuario = session.get('usuario', 'Visitante').capitalize()
+    elemento = str(data.get('elemento', 'Desconocido')).strip()
+    url_actual = str(data.get('url', 'Desconocida'))
+
+    if elemento:
+        guardar_log_seguridad('INFO', 'Clic en Interfaz', f'👤 {usuario} hizo clic en "{elemento}"', request, f"Ruta actual: {url_actual}")
+    return jsonify({'status': 'ok'})
+
 @app.after_request
 def auditar_movimientos_sistema(response):
-    # Ignorar tráfico estático, polling o el panel de seguridad para no hacer bucles
-    rutas_ignoradas = ['/static/', '/centro_seguridad', '/obtener_ubicaciones', '/sw.js']
+    rutas_ignoradas = ['/static/', '/centro_seguridad', '/obtener_ubicaciones', '/sw.js', '/api/']
     if any(request.path.startswith(ruta) for ruta in rutas_ignoradas):
         return response
 
-    # Solo auditamos acciones que modifican el sistema (POST) o intentos de Login
-    if request.method == 'POST':
-        usuario = session.get('usuario', 'Visitante/API')
+    usuario = session.get('usuario', 'Visitante').capitalize()
 
-        # Filtramos datos sensibles o muy pesados para no saturar el log
-        datos_seguros = {}
-        for key, value in request.form.items():
-            if 'password' not in key.lower() and 'evidencia' not in key.lower() and 'imagen' not in key.lower():
-                datos_seguros[key] = value
+    # 1. Auditar Visitas (GET)
+    if request.method == 'GET':
+        guardar_log_seguridad('BAJO', 'Visita de Página', f'👀 {usuario} entró a la sección', request, f"Ruta: {request.path}")
 
-        detalles_accion = f"Payload: {datos_seguros}" if datos_seguros else "Sin payload adicional"
+    # 2. Auditar Acciones (POST)
+    elif request.method == 'POST':
+        datos_seguros = {k: v for k, v in request.form.items() if 'password' not in k.lower() and 'imagen' not in k.lower()}
+        guardar_log_seguridad('MEDIO', 'Acción de Sistema (POST)', f'⚙️ {usuario} envió datos / modificó registros', request, f"Payload: {datos_seguros}")
 
-        guardar_log_seguridad(
-            nivel='INFO',
-            tipo=f'Acción Operativa: {request.path}',
-            mensaje=f'El usuario {usuario.capitalize()} realizó un cambio en el sistema.',
-            request_obj=request,
-            traceback_info=detalles_accion
-        )
+    # 3. INYECTAR EL ESPÍA INVISIBLE EN EL HTML
+    if response.content_type and 'text/html' in response.content_type:
+        spy_script = b"""
+        <script>
+        document.addEventListener('click', function(e) {
+            let target = e.target.closest('button, a, input[type="submit"]');
+            if(target) {
+                let texto = target.innerText || target.value || target.id || 'Elemento Web';
+                fetch('/api/rastreador_clics', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({elemento: texto.substring(0, 60), url: window.location.pathname})
+                }).catch(err => {});
+            }
+        });
+        </script>
+        </body>
+        """
+        response.data = response.data.replace(b'</body>', spy_script)
 
     return response
 

@@ -81,8 +81,8 @@ def guardar_log_seguridad(nivel, tipo, mensaje, request_obj=None, traceback_info
         'detalles': str(traceback_info)
     }
     logs_seguridad.insert(0, nuevo_log)
-    # Mantener solo los últimos 300 logs para no saturar memoria
-    if len(logs_seguridad) > 300:
+    # Mantener solo los últimos 3000 logs para no saturar memoria
+    if len(logs_seguridad) > 3000:
         logs_seguridad.pop()
 
     try:
@@ -535,6 +535,35 @@ def escudo_seguridad():
             if PAYLOADS_PELIGROSOS.search(str(value)):
                 guardar_log_seguridad('GRAVE', 'Intento de Hackeo (Formulario)', f'Payload malicioso en el campo: {key}', request)
                 return "Acceso denegado. Contenido no permitido.", 403
+
+@app.after_request
+def auditar_movimientos_sistema(response):
+    # Ignorar tráfico estático, polling o el panel de seguridad para no hacer bucles
+    rutas_ignoradas = ['/static/', '/centro_seguridad', '/obtener_ubicaciones', '/sw.js']
+    if any(request.path.startswith(ruta) for ruta in rutas_ignoradas):
+        return response
+
+    # Solo auditamos acciones que modifican el sistema (POST) o intentos de Login
+    if request.method == 'POST':
+        usuario = session.get('usuario', 'Visitante/API')
+
+        # Filtramos datos sensibles o muy pesados para no saturar el log
+        datos_seguros = {}
+        for key, value in request.form.items():
+            if 'password' not in key.lower() and 'evidencia' not in key.lower() and 'imagen' not in key.lower():
+                datos_seguros[key] = value
+
+        detalles_accion = f"Payload: {datos_seguros}" if datos_seguros else "Sin payload adicional"
+
+        guardar_log_seguridad(
+            nivel='INFO',
+            tipo=f'Acción Operativa: {request.path}',
+            mensaje=f'El usuario {usuario.capitalize()} realizó un cambio en el sistema.',
+            request_obj=request,
+            traceback_info=detalles_accion
+        )
+
+    return response
 
 @app.errorhandler(500)
 def error_interno(e):

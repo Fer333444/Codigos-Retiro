@@ -2,76 +2,143 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Centro de Seguridad | ERP</title>
+    <meta id="meta-refresh" http-equiv="refresh" content="10">
+    <title>Centro de Seguridad y Auditoría | ERP</title>
     <style>
         body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; background: #1e293b; color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; }
-        .btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; color: white; text-decoration: none; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: #1e293b; color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; color: white; text-decoration: none; font-size: 14px; }
         .btn-danger { background: #ef4444; } .btn-back { background: #3b82f6; }
         .table-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; font-size: 14px; }
-        th { background: #f8fafc; color: #333; }
-        .badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; }
-        .badge-grave { background: #ef4444; } /* Rojo */
-        .badge-medio { background: #f59e0b; } /* Amarillo */
-        .badge-bajo { background: #10b981; } /* Verde */
-        details { background: #f1f5f9; padding: 10px; border-radius: 5px; margin-top: 5px; }
-        summary { cursor: pointer; font-weight: bold; color: #475569; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; font-size: 13px; }
+        th { background: #f8fafc; color: #333; position: sticky; top: 0; }
+        .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; color: white; }
+        .badge-grave { background: #ef4444; } /* Rojo - Hackeos */
+        .badge-medio { background: #f59e0b; } /* Amarillo - Errores 500 */
+        .badge-bajo { background: #10b981; } /* Verde - 404s */
+        .badge-info { background: #3b82f6; } /* Azul - Operaciones */
+        details { background: #f1f5f9; padding: 10px; border-radius: 5px; margin-top: 5px; border-left: 3px solid #cbd5e1; }
+        summary { cursor: pointer; font-weight: bold; color: #475569; font-size: 12px; }
+        .live-indicator { font-size: 12px; color: #ef4444; font-weight: bold; animation: blink 1.5s infinite; border: 1px solid #ef4444; padding: 2px 6px; border-radius: 4px; background: rgba(239, 68, 68, 0.1); }
+        .live-paused { color: #f59e0b; border-color: #f59e0b; background: rgba(245, 158, 11, 0.1); animation: none; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        .filtros { display: flex; align-items: center; gap: 10px; background: white; padding: 10px 15px; border-radius: 6px; color: black; }
+        input[type="date"] { padding: 6px; border: 1px solid #ccc; border-radius: 4px; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h2>🛡️ Centro de Seguridad y Auditoría</h2>
+        <h2 style="margin:0; display:flex; align-items:center; gap:10px;">
+            🛡️ Auditoría Maestra 
+            <span id="live-badge" class="live-indicator">🔴 LIVE (10s)</span>
+        </h2>
+        <div class="filtros">
+            <label for="filtroFecha"><b>🔍 Filtrar por fecha:</b></label>
+            <input type="date" id="filtroFecha" onchange="filtrarLogs()">
+            <button onclick="limpiarFiltro()" class="btn" style="background:#64748b; padding:6px 10px;">Quitar Filtro</button>
+        </div>
         <div>
             <a href="/" class="btn btn-back">⬅ Volver al Inicio</a>
-            <form action="/limpiar_logs_seguridad" method="POST" style="display:inline;" onsubmit="return confirm('¿Borrar todos los registros?');">
+            <form action="/limpiar_logs_seguridad" method="POST" style="display:inline;" onsubmit="return confirm('⚠️ ¿Borrar ABSOLUTAMENTE TODOS los registros de auditoría?');">
                 <button type="submit" class="btn btn-danger">🗑️ Limpiar Logs</button>
             </form>
         </div>
     </div>
 
     <div class="table-container">
-        <table>
+        <table id="tablaLogs">
             <thead>
                 <tr>
-                    <th>Fecha</th>
-                    <th>Gravedad</th>
-                    <th>IP Origen</th>
-                    <th>Tipo de Evento</th>
-                    <th>Mensaje / URL</th>
+                    <th>Fecha y Hora</th>
+                    <th>Nivel</th>
+                    <th>Usuario / IP</th>
+                    <th>Acción / Evento</th>
+                    <th>Descripción / Detalles</th>
                 </tr>
             </thead>
             <tbody>
                 {% for log in logs %}
-                <tr>
-                    <td>{{ log.fecha }}</td>
+                <tr class="log-row" data-fecha="{{ log.fecha[:10] }}">
+                    <td style="white-space: nowrap;"><strong>{{ log.fecha }}</strong></td>
                     <td>
                         <span class="badge 
                             {% if log.nivel == 'GRAVE' %}badge-grave
                             {% elif log.nivel == 'MEDIO' %}badge-medio
+                            {% elif log.nivel == 'INFO' %}badge-info
                             {% else %}badge-bajo{% endif %}">
                             {{ log.nivel }}
                         </span>
                     </td>
-                    <td><code>{{ log.ip }}</code></td>
+                    <td>
+                        {% if log.nivel == 'INFO' %}
+                            <span style="color:#3b82f6; font-weight:bold;">👤 {{ log.mensaje.split(' ')[2] if log.mensaje.startswith('El usuario') else 'Sistema' }}</span>
+                        {% else %}
+                            <code>{{ log.ip }}</code>
+                        {% endif %}
+                    </td>
                     <td><strong>{{ log.tipo }}</strong></td>
                     <td>
                         {{ log.mensaje }}<br>
-                        <small style="color: gray;">{{ log.url }}</small>
-                        {% if log.detalles %}
+                        <small style="color: gray;">Ruta: {{ log.url }}</small>
+                        {% if log.detalles and log.detalles != 'Sin payload adicional' %}
                         <details>
-                            <summary>Ver Detalles / Código de Error</summary>
-                            <pre style="font-size:11px; overflow-x:auto;">{{ log.detalles }}</pre>
+                            <summary>Ver Detalles Técnicos</summary>
+                            <pre style="font-size:11px; white-space: pre-wrap; word-wrap: break-word;">{{ log.detalles }}</pre>
                         </details>
                         {% endif %}
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="5" style="text-align:center;">No hay registros de seguridad. Todo está tranquilo. 🟢</td></tr>
+                <tr><td colspan="5" style="text-align:center;">No hay registros. El sistema acaba de iniciar. 🟢</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
+    <script>
+        function filtrarLogs() {
+            let inputFecha = document.getElementById("filtroFecha").value; // Formato YYYY-MM-DD
+            let filas = document.querySelectorAll(".log-row");
+            let badge = document.getElementById("live-badge");
+            let metaRefresh = document.getElementById("meta-refresh");
+
+            if (inputFecha) {
+                // Si el usuario está buscando, PAUSAMOS el auto-refresh para no molestar su lectura
+                if (metaRefresh) metaRefresh.remove();
+                badge.className = "live-indicator live-paused";
+                badge.innerText = "⏸️ PAUSADO (Filtro)";
+
+                // Convertir YYYY-MM-DD a DD/MM/YYYY para comparar con la tabla
+                let partes = inputFecha.split('-');
+                let fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+
+                filas.forEach(fila => {
+                    if (fila.getAttribute("data-fecha") === fechaFormateada) {
+                        fila.style.display = "";
+                    } else {
+                        fila.style.display = "none";
+                    }
+                });
+            }
+        }
+
+        function limpiarFiltro() {
+            document.getElementById("filtroFecha").value = "";
+            document.querySelectorAll(".log-row").forEach(fila => fila.style.display = "");
+
+            // Reactivar el Live Refresh
+            if (!document.getElementById("meta-refresh")) {
+                let meta = document.createElement('meta');
+                meta.id = "meta-refresh";
+                meta.httpEquiv = "refresh";
+                meta.content = "10";
+                document.head.appendChild(meta);
+            }
+            let badge = document.getElementById("live-badge");
+            badge.className = "live-indicator";
+            badge.innerText = "🔴 LIVE (10s)";
+        }
+    </script>
 </body>
 </html>

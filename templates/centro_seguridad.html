@@ -36,6 +36,8 @@
         .event-title { color: #e2e8f0; font-weight: 600; display: block; margin-bottom: 4px; }
         .details-box { margin-top: 6px; font-family: monospace; font-size: 11px; color: #64748b; word-break: break-all; }
         .date-col { color: #cbd5e1; font-size: 12px; white-space: nowrap; }
+        .mensaje-principal { color: #f8fafc; font-size: 14px; font-weight: 500; display: block; margin-bottom: 6px; }
+        .ruta-text { background: rgba(59, 130, 246, 0.1); color: #93c5fd; padding: 3px 6px; border-radius: 4px; font-family: monospace; font-size: 11px; display: inline-block; margin-bottom: 6px; }
 
         @media (max-width: 768px) {
             body { padding: 10px; }
@@ -67,9 +69,9 @@
             <a href="/" class="btn btn-blue">⬅ Inicio</a>
         </div>
         <div class="controls-row">
-            <input type="text" id="searchInput" class="search-box" placeholder="🔍 Buscar IP o Usuario..." onkeyup="filtrarTabla()">
+            <input type="text" id="searchInput" class="search-box" placeholder="🔍 Buscar IP o Usuario...">
 
-            <select id="levelFilter" class="filter-select" onchange="filtrarTabla()">
+            <select id="levelFilter" class="filter-select">
                 <option value="">🔘 Todos los Niveles</option>
                 <option value="GRAVE">🔴 Grave (Hackeos)</option>
                 <option value="MEDIO">🟡 Medio (Errores/Fallos)</option>
@@ -115,10 +117,13 @@
             return div.innerHTML;
         }
 
-        async function fetchLogs() {
-            if (isPaused) return;
+        async function fetchLogs(fecha = '') {
+            if (isPaused && !fecha) return;
             try {
-                const response = await fetch('/api/obtener_logs_seguridad');
+                let url = '/api/obtener_logs_seguridad';
+                if (fecha) url += `?fecha=${fecha}`;
+
+                const response = await fetch(url);
                 const logs = await response.json();
                 renderTable(logs);
             } catch (error) {
@@ -158,7 +163,8 @@
                             </div>
                             <div class="mobile-body">
                                 <span class="event-title">${escapeHtml(log.tipo)}</span>
-                                <span style="color: #f8fafc;">${escapeHtml(log.mensaje)}</span>
+                                <span class="mensaje-principal">${escapeHtml(log.mensaje)}</span>
+                                <span class="ruta-text">📍 ${escapeHtml(log.url)}</span>
                                 <span class="ip-text">IP: ${escapeHtml(log.ip)}</span>
                                 ${detalles}
                             </div>
@@ -174,47 +180,52 @@
                             <span class="ip-text">${escapeHtml(log.ip)}</span>
                         </td>
                         <td>
-                            <span style="color: #f8fafc;">${escapeHtml(log.mensaje)}</span>
-                            <br><small style="color: #64748b;">${escapeHtml(log.url)}</small>
+                            <span class="mensaje-principal">${escapeHtml(log.mensaje)}</span>
+                            <span class="ruta-text">📍 ${escapeHtml(log.url)}</span>
                             ${detalles}
                         </td>
                     </tr>`;
                 }
             });
             tbody.innerHTML = html;
-            filtrarTabla();
+            aplicarFiltrosCliente();
+        }
+
+        function aplicarFiltrosCliente() {
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+            const filterLevel = document.getElementById('levelFilter').value;
+            const rows = document.querySelectorAll('.log-row');
+            rows.forEach(row => {
+                const textMatch = row.getAttribute('data-text').includes(searchText);
+                const levelMatch = filterLevel === "" || row.getAttribute('data-nivel') === filterLevel;
+                row.style.display = (textMatch && levelMatch) ? '' : 'none';
+            });
         }
 
         function filtrarTabla() {
-            const searchText = document.getElementById('searchInput').value.toLowerCase();
             const searchDateRaw = document.getElementById('dateInput').value;
-            const filterLevel = document.getElementById('levelFilter').value;
 
-            if (searchText || searchDateRaw || filterLevel) {
+            if (searchDateRaw) {
                 isPaused = true;
                 document.getElementById('status-dot').style.backgroundColor = '#f59e0b';
                 document.getElementById('status-dot').style.animation = 'none';
+                fetchLogs(searchDateRaw);
             } else {
                 isPaused = false;
                 document.getElementById('status-dot').style.backgroundColor = '#10b981';
                 document.getElementById('status-dot').style.animation = 'pulse 1.5s infinite';
+                fetchLogs();
             }
-
-            let searchDate = "";
-            if (searchDateRaw) {
-                let p = searchDateRaw.split('-');
-                searchDate = `${p[2]}/${p[1]}/${p[0]}`;
-            }
-
-            const rows = document.querySelectorAll('.log-row');
-            rows.forEach(row => {
-                const textMatch = row.getAttribute('data-text').includes(searchText);
-                const dateMatch = searchDate === "" || row.getAttribute('data-fecha') === searchDate;
-                const levelMatch = filterLevel === "" || row.getAttribute('data-nivel') === filterLevel;
-
-                row.style.display = (textMatch && dateMatch && levelMatch) ? '' : 'none';
-            });
         }
+
+        document.getElementById('searchInput').addEventListener('keyup', aplicarFiltrosCliente);
+        document.getElementById('levelFilter').addEventListener('change', function() {
+            if (!document.getElementById('dateInput').value) {
+                aplicarFiltrosCliente();
+            } else {
+                fetchLogs(document.getElementById('dateInput').value);
+            }
+        });
 
         fetchLogs();
         setInterval(fetchLogs, 3000);

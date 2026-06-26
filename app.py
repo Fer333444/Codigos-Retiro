@@ -9,6 +9,7 @@ import base64
 import time
 import threading
 import traceback
+import shutil
 import copy
 import httpx
 import requests
@@ -46,51 +47,12 @@ if os.path.exists('/var/data'):
     STAGING_USERS_FILE = '/var/data/usuarios_pruebas.json'
     STAGING_COBRADORES_FILE = '/var/data/cobradores_pruebas.json'
     UPLOAD_FOLDER = '/var/data/uploads'
-    SECURITY_LOGS_FILE = '/var/data/logs_seguridad.json'
 else:
     DATA_FILE = 'base_datos_local.json'
     STAGING_DATA_FILE = 'registros_pruebas.json'
     STAGING_USERS_FILE = 'usuarios_pruebas.json'
     STAGING_COBRADORES_FILE = 'cobradores_pruebas.json'
     UPLOAD_FOLDER = 'static/uploads'
-    SECURITY_LOGS_FILE = 'logs_seguridad.json'
-
-logs_seguridad = []
-
-def cargar_logs_seguridad():
-    global logs_seguridad
-    if os.path.exists(SECURITY_LOGS_FILE):
-        try:
-            with open(SECURITY_LOGS_FILE, 'r', encoding='utf-8') as f:
-                logs_seguridad = json.load(f)
-        except: pass
-
-def guardar_log_seguridad(nivel, tipo, mensaje, request_obj=None, traceback_info=""):
-    global logs_seguridad
-    ip = request_obj.headers.get('X-Forwarded-For', request_obj.remote_addr) if request_obj else 'Interno'
-    url = request_obj.url if request_obj else 'Sistema'
-
-    nuevo_log = {
-        'id': int(time.time() * 1000) + random.randint(1,999),
-        'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M:%S"),
-        'nivel': nivel, # 'GRAVE', 'MEDIO', 'BAJO'
-        'tipo': tipo,
-        'mensaje': str(mensaje),
-        'url': str(url),
-        'ip': str(ip),
-        'detalles': str(traceback_info)
-    }
-    logs_seguridad.insert(0, nuevo_log)
-    # Mantener solo los últimos 3000 logs para no saturar memoria
-    if len(logs_seguridad) > 3000:
-        logs_seguridad.pop()
-
-    try:
-        with open(SECURITY_LOGS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(logs_seguridad, f, ensure_ascii=False, indent=4)
-    except: pass
-
-cargar_logs_seguridad()
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True) # Construye la bóveda de fotos si no existe
@@ -516,13 +478,119 @@ def recibir_ticket_socio():
 def hora_ecuador():
     return datetime.utcnow() - timedelta(hours=5)
 
+# --- DEFENSA ACTIVA Y RESPALDOS ---
+bloqueos_ip = {}  # { '192.168.1.1': {'fallos': 3, 'bloqueado_hasta': None} }
+
+def realizar_respaldo_diario():
+    carpeta_respaldos = '/var/data/respaldos' if os.path.exists('/var/data') else 'respaldos'
+    os.makedirs(carpeta_respaldos, exist_ok=True)
+    hoy = hora_ecuador().strftime('%Y-%m-%d')
+    archivo_destino = os.path.join(carpeta_respaldos, f"backup_DB_{hoy}.json")
+
+    if not os.path.exists(archivo_destino) and os.path.exists(DATA_FILE):
+        try:
+            shutil.copy2(DATA_FILE, archivo_destino)
+            guardar_log_seguridad('INFO', 'Sistema', f'💾 Respaldo automático de base de datos creado: backup_DB_{hoy}.json')
+        except Exception as e:
+            guardar_log_seguridad('MEDIO', 'Error de Respaldo', f'No se pudo crear el respaldo: {str(e)}')
+
+def limpiar_ip(request_obj):
+    if not request_obj:
+        return 'Interno'
+    ip_raw = request_obj.headers.get('X-Forwarded-For', request_obj.remote_addr)
+    return ip_raw.split(',')[0].strip()
+
+def traducir_accion(path, form_data):
+    """Traduce un payload crudo de POST a lenguaje humano."""
+    if not form_data:
+        return "Sin detalles"
+
+    try:
+        if '/asignar' in path:
+            return f"Asignó el código de retiro al cobrador: {form_data.get('trabajador', 'Desconocido').capitalize()}"
+        elif '/marcar_retirado' in path:
+            return "Marcó un código como RETIRADO exitosamente."
+        elif '/marcar_fallido' in path:
+            return f"Marcó un código como FALLIDO. Motivo: {form_data.get('motivo', 'No especificado')}"
+        elif '/marcar_recibido' in path:
+            return f"Recibió liquidación de {form_data.get('cobrador', 'alguien')} por ${form_data.get('monto_recibido', '0')} vía {form_data.get('metodo_pago', 'Efectivo')}"
+        elif '/login' in path:
+            return f"Intento de acceso con el usuario: {form_data.get('username', '')}"
+        elif '/crear_link' in path:
+            return f"Creó un nuevo enlace de cobro para: {form_data.get('usuario_cliente', '')}"
+        else:
+            detalles = ", ".join([f"{k}: {v}" for k, v in form_data.items() if 'password' not in k.lower() and 'imagen' not in k.lower()])
+            return f"Datos enviados: {detalles}"
+    except Exception:
+        return "Acción registrada."
+
+def obtener_archivo_log(fecha_str=None):
+    carpeta_logs = '/var/data/auditoria' if os.path.exists('/var/data') else 'auditoria'
+    os.makedirs(carpeta_logs, exist_ok=True)
+    if not fecha_str:
+        fecha_str = hora_ecuador().strftime('%Y-%m-%d')
+    return os.path.join(carpeta_logs, f"seguridad_{fecha_str}.json")
+
+def guardar_log_seguridad(nivel, tipo, mensaje, request_obj=None, traceback_info=""):
+    archivo = obtener_archivo_log()
+    ip_real = limpiar_ip(request_obj)
+    url_limpia = request_obj.path if request_obj else 'Sistema'
+
+    nuevo_log = {
+        'id': int(time.time() * 1000) + random.randint(1, 999),
+        'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M:%S"),
+        'nivel': nivel,
+        'tipo': tipo,
+        'mensaje': str(mensaje),
+        'url': url_limpia,
+        'ip': ip_real,
+        'detalles': str(traceback_info)
+    }
+
+    logs_hoy = []
+    if os.path.exists(archivo):
+        try:
+            with open(archivo, 'r', encoding='utf-8') as f:
+                logs_hoy = json.load(f)
+        except Exception:
+            pass
+
+    logs_hoy.insert(0, nuevo_log)
+    if len(logs_hoy) > 3000:
+        logs_hoy.pop()
+
+    try:
+        with open(archivo, 'w', encoding='utf-8') as f:
+            json.dump(logs_hoy, f, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
+
+def cargar_logs_hoy():
+    archivo = obtener_archivo_log()
+    if os.path.exists(archivo):
+        try:
+            with open(archivo, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
 # Patrones de ataque comunes
 PAYLOADS_PELIGROSOS = re.compile(r'(?i)(<script|%3Cscript|UNION.+SELECT|SELECT.+FROM|DROP\s+TABLE|wp-admin|\.env|\.git|\.\./\.\.)')
 
 @app.before_request
 def escudo_seguridad():
     # Ignorar rutas estáticas
-    if request.path.startswith('/static/'): return
+    if request.path.startswith('/static/'):
+        return
+
+    ip_cliente = limpiar_ip(request)
+    if ip_cliente in bloqueos_ip:
+        info = bloqueos_ip[ip_cliente]
+        if info['bloqueado_hasta'] and time.time() < info['bloqueado_hasta']:
+            return "IP Bloqueada temporalmente por intentos fallidos de seguridad.", 403
+        elif info['bloqueado_hasta'] and time.time() >= info['bloqueado_hasta']:
+            del bloqueos_ip[ip_cliente]
 
     # 1. Escanear URL
     if PAYLOADS_PELIGROSOS.search(request.path) or PAYLOADS_PELIGROSOS.search(request.query_string.decode('utf-8', 'ignore')):
@@ -538,17 +606,27 @@ def escudo_seguridad():
 
 @app.route('/api/obtener_logs_seguridad')
 def api_obtener_logs():
-    if session.get('rol') != 'supremo': return jsonify([])
-    return jsonify(logs_seguridad)
+    if session.get('rol') != 'supremo':
+        return jsonify([])
+    fecha_req = request.args.get('fecha')
+    archivo = obtener_archivo_log(fecha_req)
+    if os.path.exists(archivo):
+        try:
+            with open(archivo, 'r', encoding='utf-8') as f:
+                return jsonify(json.load(f))
+        except Exception:
+            return jsonify([])
+    return jsonify([])
 
 @app.route('/api/rastreador_clics', methods=['POST'])
 def rastreador_clics():
     # Recibe los clics silenciosos del frontend
-    if not request.is_json: return jsonify({'status': 'ok'})
+    if not request.is_json:
+        return jsonify({'status': 'ok'})
     data = request.get_json()
     usuario = session.get('usuario', 'Visitante').capitalize()
     elemento = str(data.get('elemento', 'Desconocido')).strip()
-    url_actual = str(data.get('url', 'Desconocida'))
+    url_actual = str(data.get('url', 'Desconocida')).split('?')[0].split('#')[0]
 
     if elemento:
         guardar_log_seguridad('INFO', 'Clic en Interfaz', f'👤 {usuario} hizo clic en "{elemento}"', request, f"Ruta actual: {url_actual}")
@@ -566,10 +644,13 @@ def auditar_movimientos_sistema(response):
     if request.method == 'GET':
         guardar_log_seguridad('BAJO', 'Visita de Página', f'👀 {usuario} entró a la sección', request, f"Ruta: {request.path}")
 
-    # 2. Auditar Acciones (POST)
-    elif request.method == 'POST':
+    # 2. Auditar Acciones (POST) — login se audita en vista_login
+    elif request.method == 'POST' and '/login' not in request.path:
         datos_seguros = {k: v for k, v in request.form.items() if 'password' not in k.lower() and 'imagen' not in k.lower()}
-        guardar_log_seguridad('MEDIO', 'Acción de Sistema (POST)', f'⚙️ {usuario} envió datos / modificó registros', request, f"Payload: {datos_seguros}")
+        rol_usuario = session.get('rol', 'Desconocido').upper()
+        accion_traducida = traducir_accion(request.path, datos_seguros)
+
+        guardar_log_seguridad('INFO', 'Acción Operativa', f'[{rol_usuario}] {usuario} -> {accion_traducida}', request, f"Ruta: {request.path}")
 
     # 3. INYECTAR EL ESPÍA INVISIBLE EN EL HTML
     if response.content_type and 'text/html' in response.content_type:
@@ -841,6 +922,7 @@ def api_saldar_deuda():
 
 @app.before_request
 def mantenimiento_datos():
+    realizar_respaldo_diario()
     cambios_realizados = False
     hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
     tiempo_ahora = time.time()
@@ -970,14 +1052,19 @@ def ruta_por_rol_simulador(rol, usuario):
 def centro_seguridad():
     if session.get('rol') != 'supremo':
         return redirect(url_for('index'))
-    return render_template('centro_seguridad.html', logs=logs_seguridad, mi_usuario=session.get('usuario'), rol=session.get('rol'))
+    return render_template('centro_seguridad.html', mi_usuario=session.get('usuario'), rol=session.get('rol'))
 
 @app.route('/limpiar_logs_seguridad', methods=['POST'])
 def limpiar_logs_seguridad():
-    if session.get('rol') != 'supremo': return redirect(url_for('index'))
-    global logs_seguridad
-    logs_seguridad.clear()
-    guardar_log_seguridad('BAJO', 'Sistema', 'Logs limpiados por el administrador.', request)
+    if session.get('rol') != 'supremo':
+        return redirect(url_for('index'))
+    archivo = obtener_archivo_log()
+    try:
+        with open(archivo, 'w', encoding='utf-8') as f:
+            json.dump([], f, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
+    guardar_log_seguridad('BAJO', 'Sistema', 'Logs del día limpiados por el administrador.', request)
     flash('✅ Registros de seguridad limpiados.', 'success')
     return redirect(url_for('centro_seguridad'))
 
@@ -1641,11 +1728,27 @@ def vista_login(url_prefix=''):
             session['rol'] = users[username]['rol']
             session['permisos'] = users[username].get('permisos', [])
             session['entorno'] = entorno_solicitado
+            ip_cliente = limpiar_ip(request)
+            if ip_cliente in bloqueos_ip:
+                del bloqueos_ip[ip_cliente]
             guardar_log_seguridad('INFO', 'Inicio de Sesión', f'🔐 El usuario {username.capitalize()} inició sesión exitosamente.', request, f"Rol: {session['rol']}")
             if url_prefix:
                 return redirect(ruta_por_rol_simulador(session['rol'], username))
             return redirect(ruta_por_rol(session['rol'], username))
-        guardar_log_seguridad('MEDIO', 'Fallo de Login', f'⚠️ Intento fallido de login para el usuario: {username}', request)
+
+        ip_cliente = limpiar_ip(request)
+        if ip_cliente not in bloqueos_ip:
+            bloqueos_ip[ip_cliente] = {'fallos': 0, 'bloqueado_hasta': None}
+        bloqueos_ip[ip_cliente]['fallos'] += 1
+
+        login_route = f'{url_prefix}/login' if url_prefix else url_for('login')
+        if bloqueos_ip[ip_cliente]['fallos'] >= 5:
+            bloqueos_ip[ip_cliente]['bloqueado_hasta'] = time.time() + (24 * 3600)
+            guardar_log_seguridad('GRAVE', 'Bloqueo WAF', f'🛑 IP {ip_cliente} BLOQUEADA por 24h (Múltiples fallos de login).', request)
+            flash('Demasiados intentos. Tu IP ha sido bloqueada.', 'error')
+            return redirect(login_route)
+
+        guardar_log_seguridad('MEDIO', 'Fallo de Login', f'⚠️ Intento fallido de login ({bloqueos_ip[ip_cliente]["fallos"]}/5) para: {username}', request)
         flash('Usuario o contraseña incorrectos', 'error')
 
     form_action = f'{url_prefix}/login' if url_prefix else url_for('login')

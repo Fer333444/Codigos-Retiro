@@ -518,9 +518,16 @@ def traducir_accion(path, form_data):
             return f"Intento de acceso con el usuario: {form_data.get('username', '')}"
         elif '/crear_link' in path:
             return f"Creó un nuevo enlace de cobro para: {form_data.get('usuario_cliente', '')}"
+        elif '/retiro' in path or '/widget_retiro' in path:
+            # Traducción limpia para cuando un cliente envía un código
+            monto = form_data.get('monto', '0.00')
+            banco = form_data.get('banco', 'desconocido').capitalize()
+            # Intentar obtener el nombre del cliente de diferentes posibles campos del form
+            cliente = form_data.get('usuario') or form_data.get('usuarios_magis') or form_data.get('cliente_externo') or 'Desconocido'
+            return f"El cliente envió un nuevo código de retiro de ${monto} ({banco}) para la cuenta: {cliente}"
         else:
             detalles = ", ".join([f"{k}: {v}" for k, v in form_data.items() if 'password' not in k.lower() and 'imagen' not in k.lower()])
-            return f"Datos enviados: {detalles}"
+            return f"Datos de formulario enviados: {detalles}"
     except Exception:
         return "Acción registrada."
 
@@ -651,7 +658,7 @@ def rastreador_clics():
 
 @app.after_request
 def auditar_movimientos_sistema(response):
-    rutas_ignoradas = ['/static/', '/centro_seguridad', '/obtener_ubicaciones', '/sw.js', '/api/', '/ver_imagen/']
+    rutas_ignoradas = ['/static/', '/centro_seguridad', '/obtener_ubicaciones', '/sw.js', '/api/', '/ver_imagen/', '/favicon.ico']
     if any(request.path.startswith(ruta) for ruta in rutas_ignoradas):
         return response
 
@@ -700,7 +707,7 @@ def error_interno(e):
 @app.errorhandler(404)
 def pagina_no_encontrada(e):
     # No registrar si es un bot buscando basura típica de wordpress
-    if 'wp-' not in request.path and '.php' not in request.path:
+    if 'wp-' not in request.path and '.php' not in request.path and 'favicon.ico' not in request.path:
         guardar_log_seguridad('BAJO', 'Página no encontrada (404)', f'Ruta solicitada: {request.path}', request)
     return "Página no encontrada", 404
 

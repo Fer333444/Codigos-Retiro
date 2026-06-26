@@ -39,6 +39,12 @@
         .mensaje-principal { color: #f8fafc; font-size: 14px; font-weight: 500; display: block; margin-bottom: 6px; }
         .ruta-text { background: rgba(59, 130, 246, 0.1); color: #93c5fd; padding: 3px 6px; border-radius: 4px; font-family: monospace; font-size: 11px; display: inline-block; margin-bottom: 6px; }
 
+        .pagination-bar { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 12px; padding: 12px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; flex-wrap: wrap; }
+        .pagination-bar span { color: var(--text-muted); font-size: 13px; }
+        .btn-page { background: #334155; color: white; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; font-weight: 600; font-size: 13px; }
+        .btn-page:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-page:not(:disabled):hover { background: var(--accent); }
+
         @media (max-width: 768px) {
             body { padding: 10px; }
             .dashboard-header { padding: 12px; }
@@ -69,7 +75,7 @@
             <a href="/" class="btn btn-blue">⬅ Inicio</a>
         </div>
         <div class="controls-row">
-            <input type="text" id="searchInput" class="search-box" placeholder="🔍 Buscar IP o Usuario..." onkeyup="filtrarTabla()">
+            <input type="text" id="buscador_soc" class="search-box" placeholder="🔍 Buscar IP o Usuario...">
 
             <select id="levelFilter" class="filter-select" onchange="filtrarTabla()">
                 <option value="">🔘 Todos los Niveles</option>
@@ -101,52 +107,108 @@
                     <th width="50%">Descripción y Detalles</th>
                 </tr>
             </thead>
-            <tbody id="logs-body">
+            <tbody id="tabla_logs">
                 <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Cargando flujo de datos...</td></tr>
             </tbody>
         </table>
     </div>
 
+    <div id="paginacion-soc" class="pagination-bar">
+        <button type="button" id="btnPaginaAnterior" class="btn-page" onclick="cambiarPagina(-1)">&lt; Anterior</button>
+        <span id="textoPaginacion">Página 1 de 1</span>
+        <button type="button" id="btnPaginaSiguiente" class="btn-page" onclick="cambiarPagina(1)">Siguiente &gt;</button>
+    </div>
+
     <script>
         let isPaused = false;
         let lastFetchedDate = '';
+        let paginaActual = 1;
+        const logsPorPagina = 30;
+        let logsFiltrados = [];
+        let logsTodos = [];
         const isMobile = window.innerWidth <= 768;
 
         async function fetchLogs(fecha = '') {
-            if(isPaused && !fecha) return;
-            if(fecha === lastFetchedDate && isPaused) return;
+            if (isPaused && !fecha) return;
+            if (fecha === lastFetchedDate && isPaused) return;
             try {
                 let url = '/api/obtener_logs_seguridad';
-                if(fecha) url += `?fecha=${fecha}`;
+                if (fecha) url += `?fecha=${fecha}`;
 
                 const response = await fetch(url);
-                const logs = await response.json();
-                renderTable(logs);
+                logsTodos = await response.json();
                 lastFetchedDate = fecha;
+                if (!fecha) paginaActual = 1;
+                aplicarFiltrosYRenderizar();
             } catch (error) {
                 document.getElementById('status-dot').style.backgroundColor = '#ef4444';
             }
         }
 
-        function renderTable(logs) {
-            const tbody = document.getElementById('logs-body');
-            if (logs.length === 0) {
+        function obtenerCriteriosFiltro() {
+            const buscador = document.getElementById('buscador_soc');
+            const searchText = buscador ? buscador.value.trim().toLowerCase() : '';
+            const searchDateRaw = document.getElementById('dateInput').value;
+            const searchTimeRaw = document.getElementById('timeInput').value;
+            const filterLevel = document.getElementById('levelFilter').value;
+
+            let searchDate = '';
+            if (searchDateRaw) {
+                const p = searchDateRaw.split('-');
+                searchDate = `${p[2]}/${p[1]}/${p[0]}`;
+            }
+
+            return { searchText, searchDate, searchTimeRaw, filterLevel, searchDateRaw };
+        }
+
+        function calcularLogsFiltrados() {
+            const { searchText, searchDate, searchTimeRaw, filterLevel } = obtenerCriteriosFiltro();
+
+            return logsTodos.filter(log => {
+                const fullText = `${log.ip || ''} ${log.tipo || ''} ${log.mensaje || ''} ${log.detalles || ''} ${log.url || ''}`.toLowerCase();
+                const fullDate = log.fecha || '';
+                const textMatch = searchText === '' || fullText.includes(searchText);
+                const levelMatch = filterLevel === '' || log.nivel === filterLevel;
+                const dateMatch = searchDate === '' || fullDate.startsWith(searchDate);
+                const timeMatch = searchTimeRaw === '' || fullDate.includes(' ' + searchTimeRaw);
+                return textMatch && levelMatch && dateMatch && timeMatch;
+            });
+        }
+
+        function actualizarControlesPaginacion(totalPaginas) {
+            const texto = document.getElementById('textoPaginacion');
+            const btnAnt = document.getElementById('btnPaginaAnterior');
+            const btnSig = document.getElementById('btnPaginaSiguiente');
+
+            if (texto) texto.textContent = `Página ${paginaActual} de ${totalPaginas}`;
+            if (btnAnt) btnAnt.disabled = paginaActual <= 1;
+            if (btnSig) btnSig.disabled = paginaActual >= totalPaginas;
+        }
+
+        function renderTable(logsPagina) {
+            const tbody = document.getElementById('tabla_logs');
+
+            if (logsFiltrados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b; padding: 20px;">No hay eventos que coincidan con los filtros.</td></tr>`;
+                actualizarControlesPaginacion(1);
+                return;
+            }
+
+            if (logsPagina.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b; padding: 20px;">Sistemas en línea. Esperando eventos...</td></tr>`;
                 return;
             }
 
             let html = '';
-            logs.forEach(log => {
+            logsPagina.forEach(log => {
                 let badgeClass = 'bg-bajo';
                 if (log.nivel === 'GRAVE') badgeClass = 'bg-grave';
                 else if (log.nivel === 'MEDIO') badgeClass = 'bg-medio';
                 else if (log.nivel === 'INFO') badgeClass = 'bg-info';
 
-                const dataText = `${log.ip} ${log.tipo} ${log.mensaje} ${log.detalles || ''}`.toLowerCase();
-
                 if (isMobile) {
                     html += `
-                    <tr class="log-row" data-fulldate="${log.fecha}" data-nivel="${log.nivel}" data-text="${dataText}">
+                    <tr class="log-row" data-fulldate="${log.fecha}" data-nivel="${log.nivel}">
                         <td colspan="4">
                             <div class="mobile-header">
                                 <span class="badge ${badgeClass}">${log.nivel}</span>
@@ -162,7 +224,7 @@
                     </tr>`;
                 } else {
                     html += `
-                    <tr class="log-row" data-fulldate="${log.fecha}" data-nivel="${log.nivel}" data-text="${dataText}">
+                    <tr class="log-row" data-fulldate="${log.fecha}" data-nivel="${log.nivel}">
                         <td class="date-col">${log.fecha}</td>
                         <td><span class="badge ${badgeClass}">${log.nivel}</span></td>
                         <td>
@@ -178,16 +240,36 @@
                 }
             });
             tbody.innerHTML = html;
-            filtrarTabla(true);
         }
 
-        function filtrarTabla(preventFetch = false) {
-            const searchText = document.getElementById('searchInput').value.toLowerCase();
-            const searchDateRaw = document.getElementById('dateInput').value;
-            const searchTimeRaw = document.getElementById('timeInput').value;
-            const filterLevel = document.getElementById('levelFilter').value;
+        function aplicarFiltrosYRenderizar() {
+            logsFiltrados = calcularLogsFiltrados();
+            const totalPaginas = Math.max(1, Math.ceil(logsFiltrados.length / logsPorPagina));
 
-            if(searchText || searchDateRaw || filterLevel || searchTimeRaw) {
+            if (paginaActual > totalPaginas) paginaActual = totalPaginas;
+            if (paginaActual < 1) paginaActual = 1;
+
+            const inicio = (paginaActual - 1) * logsPorPagina;
+            const logsPagina = logsFiltrados.slice(inicio, inicio + logsPorPagina);
+
+            renderTable(logsPagina);
+            actualizarControlesPaginacion(totalPaginas);
+        }
+
+        function cambiarPagina(delta) {
+            const totalPaginas = Math.max(1, Math.ceil(logsFiltrados.length / logsPorPagina));
+            const nuevaPagina = paginaActual + delta;
+
+            if (nuevaPagina < 1 || nuevaPagina > totalPaginas) return;
+
+            paginaActual = nuevaPagina;
+            aplicarFiltrosYRenderizar();
+        }
+
+        function filtrarTabla(preventFetch = false, resetPagina = true) {
+            const { searchText, searchDateRaw, searchTimeRaw, filterLevel } = obtenerCriteriosFiltro();
+
+            if (searchText || searchDateRaw || filterLevel || searchTimeRaw) {
                 isPaused = true;
                 document.getElementById('status-dot').style.backgroundColor = '#f59e0b';
                 document.getElementById('status-dot').style.animation = 'none';
@@ -197,41 +279,31 @@
                 document.getElementById('status-dot').style.animation = 'pulse 1.5s infinite';
             }
 
-            let searchDate = "";
-            if (searchDateRaw) {
-                let p = searchDateRaw.split('-');
-                searchDate = `${p[2]}/${p[1]}/${p[0]}`;
-            }
-
-            const rows = document.querySelectorAll('.log-row');
-            rows.forEach(row => {
-                const fullDate = row.getAttribute('data-fulldate');
-
-                const textMatch = row.getAttribute('data-text').includes(searchText);
-                const levelMatch = filterLevel === "" || row.getAttribute('data-nivel') === filterLevel;
-                const dateMatch = searchDate === "" || fullDate.startsWith(searchDate);
-                const timeMatch = searchTimeRaw === "" || fullDate.includes(" " + searchTimeRaw);
-
-                if (textMatch && dateMatch && levelMatch && timeMatch) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
+            if (resetPagina) paginaActual = 1;
 
             if (searchDateRaw && searchDateRaw !== new Date().toISOString().split('T')[0] && !preventFetch) {
                 fetchLogs(searchDateRaw);
+                return;
             }
+
+            aplicarFiltrosYRenderizar();
         }
 
         function limpiarFiltros() {
-            document.getElementById('searchInput').value = "";
-            document.getElementById('levelFilter').value = "";
-            document.getElementById('dateInput').value = "";
-            document.getElementById('timeInput').value = "";
+            document.getElementById('buscador_soc').value = '';
+            document.getElementById('levelFilter').value = '';
+            document.getElementById('dateInput').value = '';
+            document.getElementById('timeInput').value = '';
             lastFetchedDate = '';
-            filtrarTabla();
+            paginaActual = 1;
+            filtrarTabla(false, true);
             fetchLogs();
+        }
+
+        const buscadorSoc = document.getElementById('buscador_soc');
+        if (buscadorSoc) {
+            buscadorSoc.addEventListener('input', () => filtrarTabla(true, true));
+            buscadorSoc.addEventListener('keyup', () => filtrarTabla(true, true));
         }
 
         fetchLogs();

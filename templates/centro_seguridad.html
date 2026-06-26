@@ -69,9 +69,9 @@
             <a href="/" class="btn btn-blue">⬅ Inicio</a>
         </div>
         <div class="controls-row">
-            <input type="text" id="searchInput" class="search-box" placeholder="🔍 Buscar IP o Usuario...">
+            <input type="text" id="searchInput" class="search-box" placeholder="🔍 Buscar IP o Usuario..." onkeyup="filtrarTabla()">
 
-            <select id="levelFilter" class="filter-select">
+            <select id="levelFilter" class="filter-select" onchange="filtrarTabla()">
                 <option value="">🔘 Todos los Niveles</option>
                 <option value="GRAVE">🔴 Grave (Hackeos)</option>
                 <option value="MEDIO">🟡 Medio (Errores/Fallos)</option>
@@ -79,7 +79,11 @@
                 <option value="BAJO">🟢 Bajo (Visitas)</option>
             </select>
 
-            <input type="date" id="dateInput" class="search-box" onchange="filtrarTabla()">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <input type="date" id="dateInput" class="search-box" style="color-scheme: dark; cursor: pointer;" onchange="filtrarTabla()" title="Seleccionar Fecha">
+                <input type="time" id="timeInput" class="search-box" style="color-scheme: dark; cursor: pointer; max-width: 120px;" onchange="filtrarTabla()" title="Seleccionar Hora">
+                <button type="button" onclick="limpiarFiltros()" class="btn" style="background: #475569; color: white;" title="Limpiar Filtros">✖ Quitar</button>
+            </div>
 
             <form action="/limpiar_logs_seguridad" method="POST" style="margin:0;" onsubmit="return confirm('⚠️ ¿Purga total de datos?');">
                 <button type="submit" class="btn btn-red">Purga</button>
@@ -105,27 +109,20 @@
 
     <script>
         let isPaused = false;
-
-        function isMobileView() {
-            return window.innerWidth <= 768;
-        }
-
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+        let lastFetchedDate = '';
+        const isMobile = window.innerWidth <= 768;
 
         async function fetchLogs(fecha = '') {
-            if (isPaused && !fecha) return;
+            if(isPaused && !fecha) return;
+            if(fecha === lastFetchedDate && isPaused) return;
             try {
                 let url = '/api/obtener_logs_seguridad';
-                if (fecha) url += `?fecha=${fecha}`;
+                if(fecha) url += `?fecha=${fecha}`;
 
                 const response = await fetch(url);
                 const logs = await response.json();
                 renderTable(logs);
+                lastFetchedDate = fecha;
             } catch (error) {
                 document.getElementById('status-dot').style.backgroundColor = '#ef4444';
             }
@@ -133,8 +130,6 @@
 
         function renderTable(logs) {
             const tbody = document.getElementById('logs-body');
-            const isMobile = isMobileView();
-
             if (logs.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b; padding: 20px;">Sistemas en línea. Esperando eventos...</td></tr>`;
                 return;
@@ -147,95 +142,103 @@
                 else if (log.nivel === 'MEDIO') badgeClass = 'bg-medio';
                 else if (log.nivel === 'INFO') badgeClass = 'bg-info';
 
-                const fechaCorta = (log.fecha || '').substring(0, 10);
-                const searchText = `${log.ip || ''} ${log.tipo || ''} ${log.mensaje || ''} ${log.detalles || ''}`.toLowerCase();
-                const detalles = log.detalles && log.detalles !== 'Sin payload adicional'
-                    ? `<div class="details-box">${escapeHtml(log.detalles)}</div>`
-                    : '';
+                const dataText = `${log.ip} ${log.tipo} ${log.mensaje} ${log.detalles || ''}`.toLowerCase();
 
                 if (isMobile) {
                     html += `
-                    <tr class="log-row" data-fecha="${escapeHtml(fechaCorta)}" data-nivel="${escapeHtml(log.nivel)}" data-text="${escapeHtml(searchText)}">
+                    <tr class="log-row" data-fulldate="${log.fecha}" data-nivel="${log.nivel}" data-text="${dataText}">
                         <td colspan="4">
                             <div class="mobile-header">
-                                <span class="badge ${badgeClass}">${escapeHtml(log.nivel)}</span>
-                                <span class="date-col">${escapeHtml(log.fecha)}</span>
+                                <span class="badge ${badgeClass}">${log.nivel}</span>
+                                <span class="date-col">${log.fecha}</span>
                             </div>
                             <div class="mobile-body">
-                                <span class="event-title">${escapeHtml(log.tipo)}</span>
-                                <span class="mensaje-principal">${escapeHtml(log.mensaje)}</span>
-                                <span class="ruta-text">📍 ${escapeHtml(log.url)}</span>
-                                <span class="ip-text">IP: ${escapeHtml(log.ip)}</span>
-                                ${detalles}
+                                <span class="event-title">${log.tipo}</span>
+                                <span style="color: #f8fafc;">${log.mensaje}</span>
+                                <span class="ip-text">IP: ${log.ip}</span>
+                                ${log.detalles && log.detalles !== 'Sin payload adicional' ? `<div class="details-box">${log.detalles}</div>` : ''}
                             </div>
                         </td>
                     </tr>`;
                 } else {
                     html += `
-                    <tr class="log-row" data-fecha="${escapeHtml(fechaCorta)}" data-nivel="${escapeHtml(log.nivel)}" data-text="${escapeHtml(searchText)}">
-                        <td class="date-col">${escapeHtml(log.fecha)}</td>
-                        <td><span class="badge ${badgeClass}">${escapeHtml(log.nivel)}</span></td>
+                    <tr class="log-row" data-fulldate="${log.fecha}" data-nivel="${log.nivel}" data-text="${dataText}">
+                        <td class="date-col">${log.fecha}</td>
+                        <td><span class="badge ${badgeClass}">${log.nivel}</span></td>
                         <td>
-                            <span class="event-title">${escapeHtml(log.tipo)}</span>
-                            <span class="ip-text">${escapeHtml(log.ip)}</span>
+                            <span class="event-title">${log.tipo}</span>
+                            <span class="ip-text">${log.ip}</span>
                         </td>
                         <td>
-                            <span class="mensaje-principal">${escapeHtml(log.mensaje)}</span>
-                            <span class="ruta-text">📍 ${escapeHtml(log.url)}</span>
-                            ${detalles}
+                            <span style="color: #f8fafc; font-size: 14px; font-weight: 500; display: block; margin-bottom: 6px;">${log.mensaje}</span>
+                            <span style="background: rgba(59, 130, 246, 0.1); color: #93c5fd; padding: 3px 6px; border-radius: 4px; font-family: monospace; font-size: 11px; display: inline-block; margin-bottom: 6px;">📍 ${log.url}</span>
+                            ${log.detalles && log.detalles !== 'Sin payload adicional' ? `<div class="details-box">${log.detalles}</div>` : ''}
                         </td>
                     </tr>`;
                 }
             });
             tbody.innerHTML = html;
-            aplicarFiltrosCliente();
+            filtrarTabla(true);
         }
 
-        function aplicarFiltrosCliente() {
+        function filtrarTabla(preventFetch = false) {
             const searchText = document.getElementById('searchInput').value.toLowerCase();
-            const filterLevel = document.getElementById('levelFilter').value;
-            const rows = document.querySelectorAll('.log-row');
-            rows.forEach(row => {
-                const textMatch = row.getAttribute('data-text').includes(searchText);
-                const levelMatch = filterLevel === "" || row.getAttribute('data-nivel') === filterLevel;
-                row.style.display = (textMatch && levelMatch) ? '' : 'none';
-            });
-        }
-
-        function filtrarTabla() {
             const searchDateRaw = document.getElementById('dateInput').value;
+            const searchTimeRaw = document.getElementById('timeInput').value;
+            const filterLevel = document.getElementById('levelFilter').value;
 
-            if (searchDateRaw) {
+            if(searchText || searchDateRaw || filterLevel || searchTimeRaw) {
                 isPaused = true;
                 document.getElementById('status-dot').style.backgroundColor = '#f59e0b';
                 document.getElementById('status-dot').style.animation = 'none';
-                fetchLogs(searchDateRaw);
             } else {
                 isPaused = false;
                 document.getElementById('status-dot').style.backgroundColor = '#10b981';
                 document.getElementById('status-dot').style.animation = 'pulse 1.5s infinite';
-                fetchLogs();
+            }
+
+            let searchDate = "";
+            if (searchDateRaw) {
+                let p = searchDateRaw.split('-');
+                searchDate = `${p[2]}/${p[1]}/${p[0]}`;
+            }
+
+            const rows = document.querySelectorAll('.log-row');
+            rows.forEach(row => {
+                const fullDate = row.getAttribute('data-fulldate');
+
+                const textMatch = row.getAttribute('data-text').includes(searchText);
+                const levelMatch = filterLevel === "" || row.getAttribute('data-nivel') === filterLevel;
+                const dateMatch = searchDate === "" || fullDate.startsWith(searchDate);
+                const timeMatch = searchTimeRaw === "" || fullDate.includes(" " + searchTimeRaw);
+
+                if (textMatch && dateMatch && levelMatch && timeMatch) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (searchDateRaw && searchDateRaw !== new Date().toISOString().split('T')[0] && !preventFetch) {
+                fetchLogs(searchDateRaw);
             }
         }
 
-        document.getElementById('searchInput').addEventListener('keyup', aplicarFiltrosCliente);
-        document.getElementById('levelFilter').addEventListener('change', function() {
-            if (!document.getElementById('dateInput').value) {
-                aplicarFiltrosCliente();
-            } else {
-                fetchLogs(document.getElementById('dateInput').value);
-            }
-        });
+        function limpiarFiltros() {
+            document.getElementById('searchInput').value = "";
+            document.getElementById('levelFilter').value = "";
+            document.getElementById('dateInput').value = "";
+            document.getElementById('timeInput').value = "";
+            lastFetchedDate = '';
+            filtrarTabla();
+            fetchLogs();
+        }
 
         fetchLogs();
         setInterval(fetchLogs, 3000);
-
-        let lastMobileState = isMobileView();
         window.addEventListener('resize', () => {
-            const currentMobile = isMobileView();
-            if (currentMobile !== lastMobileState) {
-                lastMobileState = currentMobile;
-                fetchLogs();
+            if ((window.innerWidth <= 768 && !isMobile) || (window.innerWidth > 768 && isMobile)) {
+                location.reload();
             }
         });
     </script>

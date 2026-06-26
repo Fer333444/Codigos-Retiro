@@ -354,7 +354,13 @@
         function actualizarCamposBanco(bancoValue) {
             const textoTiempoCobro = document.getElementById('textoTiempoCobro');
             if (textoTiempoCobro) {
-                textoTiempoCobro.textContent = bancoValue === 'guayaquil' ? '12 Horas' : '2h 30m';
+                if (bancoValue === 'guayaquil') {
+                    textoTiempoCobro.textContent = '12 Horas';
+                } else if (bancoValue === 'pichincha' || bancoValue === 'produbanco') {
+                    textoTiempoCobro.textContent = '3 Horas';
+                } else {
+                    textoTiempoCobro.textContent = '2h 30m';
+                }
             }
 
             boxDinamica.classList.remove('hidden');

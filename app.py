@@ -1459,17 +1459,36 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
         es_prueba = True
 
     tiempo_creacion = time.time()
-    horas_expiracion = 12 if banco == 'guayaquil' else 2.5
+
+    # 1. Nuevos tiempos de expiración
+    if banco == 'guayaquil':
+        horas_expiracion = 12
+    elif banco in ['pichincha', 'produbanco']:
+        horas_expiracion = 3
+    else:
+        horas_expiracion = 2.5
+
     tiempo_expiracion = tiempo_creacion + (horas_expiracion * 3600)
 
     codigos_unidos = f"{codigo_recibido}{clave_retiro}{clave_envio}{codigo_seguridad}".strip()
 
     if codigos_unidos:
-        hash_input = f"{monto_total_str}-{codigos_unidos}".encode('utf-8')
+        # 2. Token Único para diferenciar códigos reciclados por el banco
+        token_diferenciador = int(tiempo_creacion)
+        hash_input = f"{monto_total_str}-{codigos_unidos}-{token_diferenciador}".encode('utf-8')
         transaccion_id = f"TRX-{hashlib.md5(hash_input).hexdigest()[:8].upper()}"
+
+        # 3. Prevención de "Doble Clic" accidental (Solo bloquea si el MISMO código exacto se envió hace menos de 10 minutos)
         for r in regs:
-            if r.get('transaccion_id') == transaccion_id and r.get('estado') in ['activo', 'retirado']:
-                return None, 'duplicado'
+            if r.get('banco') == banco and r.get('monto') == monto_total_str:
+                if r.get('detalles', {}).get('codigo_pichincha') == codigo_recibido and \
+                   r.get('detalles', {}).get('guayaquil_retiro') == clave_retiro and \
+                   r.get('detalles', {}).get('guayaquil_envio') == clave_envio and \
+                   r.get('detalles', {}).get('seguridad') == codigo_seguridad:
+
+                    diferencia_segundos = tiempo_creacion - r.get('timestamp_creacion', 0)
+                    if diferencia_segundos < 600:  # 600 segundos = 10 minutos
+                        return None, 'duplicado'
     else:
         transaccion_id = f"TRX-{int(tiempo_creacion)}"
 
@@ -3162,8 +3181,9 @@ def recuperar_expirado():
                 r['asignacion_estado'] = 'no_asignado'
                 r['visto_por_cobrador'] = False
                 
-                # Le damos 2.5 horas extra de vida desde este momento
-                r['expira_timestamp'] = time.time() + (2.5 * 3600)
+                # Le damos el tiempo extra correspondiente a su banco
+                horas_extra = 3 if r.get('banco') in ['pichincha', 'produbanco'] else (12 if r.get('banco') == 'guayaquil' else 2.5)
+                r['expira_timestamp'] = time.time() + (horas_extra * 3600)
                 
                 r['historial'].append(f"[{hora_actual}] ♻️ Recuperado a Retiros Activos por {session['usuario'].capitalize()}.")
                 break

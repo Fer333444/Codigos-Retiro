@@ -125,29 +125,34 @@
         let paginaActual = 1;
         const logsPorPagina = 30;
         let logsFiltrados = [];
-        let logsTodos = [];
+        let todosLosLogs = [];
         const isMobile = window.innerWidth <= 768;
 
-        async function fetchLogs(fecha = '') {
-            if (isPaused && !fecha) return;
-            if (fecha === lastFetchedDate && isPaused) return;
-            try {
-                let url = '/api/obtener_logs_seguridad';
-                if (fecha) url += `?fecha=${fecha}`;
+        const inputBusqueda = document.getElementById('buscador_soc');
+        const tbodyLogs = document.getElementById('tabla_logs');
 
-                const response = await fetch(url);
-                logsTodos = await response.json();
-                lastFetchedDate = fecha;
-                if (!fecha) paginaActual = 1;
-                aplicarFiltrosYRenderizar();
-            } catch (error) {
-                document.getElementById('status-dot').style.backgroundColor = '#ef4444';
+        function textoBusquedaLog(log) {
+            return [
+                log.mensaje,
+                log.ip,
+                log.detalles,
+                log.tipo,
+                log.url,
+                log.nivel,
+                log.fecha
+            ].filter(Boolean).join(' ').toLowerCase();
+        }
+
+        function filtrarPorBusqueda(termino) {
+            const t = (termino || '').trim().toLowerCase();
+            if (!t) {
+                return [...todosLosLogs];
             }
+            return todosLosLogs.filter(log => textoBusquedaLog(log).includes(t));
         }
 
         function obtenerCriteriosFiltro() {
-            const buscador = document.getElementById('buscador_soc');
-            const searchText = buscador ? buscador.value.trim().toLowerCase() : '';
+            const searchText = inputBusqueda ? inputBusqueda.value.trim().toLowerCase() : '';
             const searchDateRaw = document.getElementById('dateInput').value;
             const searchTimeRaw = document.getElementById('timeInput').value;
             const filterLevel = document.getElementById('levelFilter').value;
@@ -163,16 +168,32 @@
 
         function calcularLogsFiltrados() {
             const { searchText, searchDate, searchTimeRaw, filterLevel } = obtenerCriteriosFiltro();
+            const base = filtrarPorBusqueda(searchText);
 
-            return logsTodos.filter(log => {
-                const fullText = `${log.ip || ''} ${log.tipo || ''} ${log.mensaje || ''} ${log.detalles || ''} ${log.url || ''}`.toLowerCase();
+            return base.filter(log => {
                 const fullDate = log.fecha || '';
-                const textMatch = searchText === '' || fullText.includes(searchText);
                 const levelMatch = filterLevel === '' || log.nivel === filterLevel;
                 const dateMatch = searchDate === '' || fullDate.startsWith(searchDate);
                 const timeMatch = searchTimeRaw === '' || fullDate.includes(' ' + searchTimeRaw);
-                return textMatch && levelMatch && dateMatch && timeMatch;
+                return levelMatch && dateMatch && timeMatch;
             });
+        }
+
+        function actualizarEstadoLive() {
+            const { searchText, searchDateRaw, searchTimeRaw, filterLevel } = obtenerCriteriosFiltro();
+            const hayFiltros = !!(searchText || searchDateRaw || filterLevel || searchTimeRaw);
+            const dot = document.getElementById('status-dot');
+
+            isPaused = hayFiltros;
+            if (!dot) return;
+
+            if (hayFiltros) {
+                dot.style.backgroundColor = '#f59e0b';
+                dot.style.animation = 'none';
+            } else {
+                dot.style.backgroundColor = '#10b981';
+                dot.style.animation = 'pulse 1.5s infinite';
+            }
         }
 
         function actualizarControlesPaginacion(totalPaginas) {
@@ -185,17 +206,26 @@
             if (btnSig) btnSig.disabled = paginaActual >= totalPaginas;
         }
 
-        function renderTable(logsPagina) {
-            const tbody = document.getElementById('tabla_logs');
+        function escapeHtml(text) {
+            if (text == null) return '';
+            const div = document.createElement('div');
+            div.textContent = String(text);
+            return div.innerHTML;
+        }
+
+        function renderizarTabla() {
+            if (!tbodyLogs) return;
+
+            const totalPaginas = Math.max(1, Math.ceil(logsFiltrados.length / logsPorPagina));
+            if (paginaActual > totalPaginas) paginaActual = totalPaginas;
+            if (paginaActual < 1) paginaActual = 1;
+
+            const inicio = (paginaActual - 1) * logsPorPagina;
+            const logsPagina = logsFiltrados.slice(inicio, inicio + logsPorPagina);
 
             if (logsFiltrados.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b; padding: 20px;">No hay eventos que coincidan con los filtros.</td></tr>`;
+                tbodyLogs.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #64748b; padding: 20px;">No hay eventos que coincidan con los filtros.</td></tr>';
                 actualizarControlesPaginacion(1);
-                return;
-            }
-
-            if (logsPagina.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b; padding: 20px;">Sistemas en línea. Esperando eventos...</td></tr>`;
                 return;
             }
 
@@ -206,82 +236,90 @@
                 else if (log.nivel === 'MEDIO') badgeClass = 'bg-medio';
                 else if (log.nivel === 'INFO') badgeClass = 'bg-info';
 
+                const detalles = log.detalles && log.detalles !== 'Sin payload adicional'
+                    ? `<div class="details-box">${escapeHtml(log.detalles)}</div>`
+                    : '';
+
                 if (isMobile) {
                     html += `
-                    <tr class="log-row" data-fulldate="${log.fecha}" data-nivel="${log.nivel}">
+                    <tr class="log-row">
                         <td colspan="4">
                             <div class="mobile-header">
-                                <span class="badge ${badgeClass}">${log.nivel}</span>
-                                <span class="date-col">${log.fecha}</span>
+                                <span class="badge ${badgeClass}">${escapeHtml(log.nivel)}</span>
+                                <span class="date-col">${escapeHtml(log.fecha)}</span>
                             </div>
                             <div class="mobile-body">
-                                <span class="event-title">${log.tipo}</span>
-                                <span style="color: #f8fafc;">${log.mensaje}</span>
-                                <span class="ip-text">IP: ${log.ip}</span>
-                                ${log.detalles && log.detalles !== 'Sin payload adicional' ? `<div class="details-box">${log.detalles}</div>` : ''}
+                                <span class="event-title">${escapeHtml(log.tipo)}</span>
+                                <span class="mensaje-principal">${escapeHtml(log.mensaje)}</span>
+                                <span class="ip-text">IP: ${escapeHtml(log.ip)}</span>
+                                ${detalles}
                             </div>
                         </td>
                     </tr>`;
                 } else {
                     html += `
-                    <tr class="log-row" data-fulldate="${log.fecha}" data-nivel="${log.nivel}">
-                        <td class="date-col">${log.fecha}</td>
-                        <td><span class="badge ${badgeClass}">${log.nivel}</span></td>
+                    <tr class="log-row">
+                        <td class="date-col">${escapeHtml(log.fecha)}</td>
+                        <td><span class="badge ${badgeClass}">${escapeHtml(log.nivel)}</span></td>
                         <td>
-                            <span class="event-title">${log.tipo}</span>
-                            <span class="ip-text">${log.ip}</span>
+                            <span class="event-title">${escapeHtml(log.tipo)}</span>
+                            <span class="ip-text">${escapeHtml(log.ip)}</span>
                         </td>
                         <td>
-                            <span style="color: #f8fafc; font-size: 14px; font-weight: 500; display: block; margin-bottom: 6px;">${log.mensaje}</span>
-                            <span style="background: rgba(59, 130, 246, 0.1); color: #93c5fd; padding: 3px 6px; border-radius: 4px; font-family: monospace; font-size: 11px; display: inline-block; margin-bottom: 6px;">📍 ${log.url}</span>
-                            ${log.detalles && log.detalles !== 'Sin payload adicional' ? `<div class="details-box">${log.detalles}</div>` : ''}
+                            <span class="mensaje-principal">${escapeHtml(log.mensaje)}</span>
+                            <span class="ruta-text">📍 ${escapeHtml(log.url)}</span>
+                            ${detalles}
                         </td>
                     </tr>`;
                 }
             });
-            tbody.innerHTML = html;
+
+            tbodyLogs.innerHTML = html;
+            actualizarControlesPaginacion(totalPaginas);
         }
 
         function aplicarFiltrosYRenderizar() {
             logsFiltrados = calcularLogsFiltrados();
-            const totalPaginas = Math.max(1, Math.ceil(logsFiltrados.length / logsPorPagina));
+            renderizarTabla();
+        }
 
-            if (paginaActual > totalPaginas) paginaActual = totalPaginas;
-            if (paginaActual < 1) paginaActual = 1;
+        async function fetchLogs(fecha = '') {
+            try {
+                let url = '/api/obtener_logs_seguridad';
+                if (fecha) url += `?fecha=${fecha}`;
 
-            const inicio = (paginaActual - 1) * logsPorPagina;
-            const logsPagina = logsFiltrados.slice(inicio, inicio + logsPorPagina);
+                const response = await fetch(url);
+                todosLosLogs = await response.json();
+                lastFetchedDate = fecha;
 
-            renderTable(logsPagina);
-            actualizarControlesPaginacion(totalPaginas);
+                if (!isPaused) {
+                    paginaActual = 1;
+                }
+                aplicarFiltrosYRenderizar();
+            } catch (error) {
+                document.getElementById('status-dot').style.backgroundColor = '#ef4444';
+            }
         }
 
         function cambiarPagina(delta) {
             const totalPaginas = Math.max(1, Math.ceil(logsFiltrados.length / logsPorPagina));
             const nuevaPagina = paginaActual + delta;
-
             if (nuevaPagina < 1 || nuevaPagina > totalPaginas) return;
-
             paginaActual = nuevaPagina;
-            aplicarFiltrosYRenderizar();
+            renderizarTabla();
         }
 
         function filtrarTabla(preventFetch = false, resetPagina = true) {
-            const { searchText, searchDateRaw, searchTimeRaw, filterLevel } = obtenerCriteriosFiltro();
+            actualizarEstadoLive();
 
-            if (searchText || searchDateRaw || filterLevel || searchTimeRaw) {
-                isPaused = true;
-                document.getElementById('status-dot').style.backgroundColor = '#f59e0b';
-                document.getElementById('status-dot').style.animation = 'none';
-            } else {
-                isPaused = false;
-                document.getElementById('status-dot').style.backgroundColor = '#10b981';
-                document.getElementById('status-dot').style.animation = 'pulse 1.5s infinite';
+            if (resetPagina) {
+                paginaActual = 1;
             }
 
-            if (resetPagina) paginaActual = 1;
+            const { searchDateRaw } = obtenerCriteriosFiltro();
+            const hoy = new Date().toISOString().split('T')[0];
 
-            if (searchDateRaw && searchDateRaw !== new Date().toISOString().split('T')[0] && !preventFetch) {
+            if (searchDateRaw && searchDateRaw !== hoy && !preventFetch) {
                 fetchLogs(searchDateRaw);
                 return;
             }
@@ -290,24 +328,32 @@
         }
 
         function limpiarFiltros() {
-            document.getElementById('buscador_soc').value = '';
+            if (inputBusqueda) inputBusqueda.value = '';
             document.getElementById('levelFilter').value = '';
             document.getElementById('dateInput').value = '';
             document.getElementById('timeInput').value = '';
             lastFetchedDate = '';
             paginaActual = 1;
-            filtrarTabla(false, true);
+            actualizarEstadoLive();
             fetchLogs();
         }
 
-        const buscadorSoc = document.getElementById('buscador_soc');
-        if (buscadorSoc) {
-            buscadorSoc.addEventListener('input', () => filtrarTabla(true, true));
-            buscadorSoc.addEventListener('keyup', () => filtrarTabla(true, true));
+        if (inputBusqueda) {
+            inputBusqueda.addEventListener('input', function(e) {
+                paginaActual = 1;
+                actualizarEstadoLive();
+                logsFiltrados = calcularLogsFiltrados();
+                renderizarTabla();
+            });
         }
 
         fetchLogs();
-        setInterval(fetchLogs, 3000);
+        setInterval(() => {
+            if (!isPaused) {
+                fetchLogs(lastFetchedDate);
+            }
+        }, 3000);
+
         window.addEventListener('resize', () => {
             if ((window.innerWidth <= 768 && !isMobile) || (window.innerWidth > 768 && isMobile)) {
                 location.reload();

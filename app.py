@@ -608,15 +608,32 @@ def escudo_seguridad():
 def api_obtener_logs():
     if session.get('rol') != 'supremo':
         return jsonify([])
+
     fecha_req = request.args.get('fecha')
-    archivo = obtener_archivo_log(fecha_req)
-    if os.path.exists(archivo):
-        try:
-            with open(archivo, 'r', encoding='utf-8') as f:
-                return jsonify(json.load(f))
-        except Exception:
-            return jsonify([])
-    return jsonify([])
+    carpeta_logs = '/var/data/auditoria' if os.path.exists('/var/data') else 'auditoria'
+
+    if fecha_req:
+        archivo = obtener_archivo_log(fecha_req)
+        if os.path.exists(archivo):
+            try:
+                with open(archivo, 'r', encoding='utf-8') as f:
+                    return jsonify(json.load(f))
+            except Exception:
+                return jsonify([])
+        return jsonify([])
+
+    todos_los_logs = []
+    if os.path.exists(carpeta_logs):
+        archivos = sorted([f for f in os.listdir(carpeta_logs) if f.startswith('seguridad_') and f.endswith('.json')], reverse=True)
+
+        for arch in archivos[:7]:
+            try:
+                with open(os.path.join(carpeta_logs, arch), 'r', encoding='utf-8') as f:
+                    todos_los_logs.extend(json.load(f))
+            except Exception:
+                pass
+
+    return jsonify(todos_los_logs)
 
 @app.route('/api/rastreador_clics', methods=['POST'])
 def rastreador_clics():
@@ -634,7 +651,7 @@ def rastreador_clics():
 
 @app.after_request
 def auditar_movimientos_sistema(response):
-    rutas_ignoradas = ['/static/', '/centro_seguridad', '/obtener_ubicaciones', '/sw.js', '/api/']
+    rutas_ignoradas = ['/static/', '/centro_seguridad', '/obtener_ubicaciones', '/sw.js', '/api/', '/ver_imagen/']
     if any(request.path.startswith(ruta) for ruta in rutas_ignoradas):
         return response
 

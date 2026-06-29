@@ -17,6 +17,8 @@ from pywebpush import webpush, WebPushException
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory, Blueprint, has_request_context, Response
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
+from sqlalchemy import create_engine, Column, String, BigInteger, Boolean, JSON, Text, Float
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 # --- CONFIGURACIÓN DE INTELIGENCIA ARTIFICIAL ---
 from openai import OpenAI
@@ -27,6 +29,17 @@ openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
 DATABASE_URL = os.environ.get("DATABASE_URL")
+if DATABASE_URL:
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    engine = create_engine(DATABASE_URL, echo=False)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base = declarative_base()
+else:
+    engine = None
+    SessionLocal = None
+    Base = declarative_base()
+
 VAPID_CLAIMS = {"sub": "mailto:contenido2025yt@gmail.com"}
 
 WEBHOOK_SOCIO_URL = os.environ.get('WEBHOOK_SOCIO_URL', 'https://api-socio.com/api/v1/webhooks/codigos-retiro')
@@ -143,47 +156,276 @@ ubicaciones_cobradores = {}
 historial_pagos = []
 suscripciones_push = {}
 
+
+class DBUsuario(Base):
+    __tablename__ = 'usuarios'
+
+    username = Column(String(100), primary_key=True)
+    password = Column(String(255), nullable=False, default='')
+    rol = Column(String(50), nullable=False, default='cobrador')
+    nombre = Column(String(150), nullable=True)
+    apellido = Column(String(150), nullable=True)
+    email = Column(String(255), nullable=True)
+    estado = Column(String(50), nullable=True, default='Activo')
+    disponible = Column(Boolean, nullable=False, default=True)
+    permisos = Column(JSON, nullable=True, default=list)
+
+
+class DBRegistro(Base):
+    __tablename__ = 'registros'
+
+    id = Column(BigInteger, primary_key=True)
+    transaccion_id = Column(String(100), nullable=True)
+    fecha = Column(String(30), nullable=True)
+    banco = Column(String(80), nullable=True)
+    celular = Column(String(50), nullable=True)
+    cedula = Column(String(30), nullable=True)
+    monto = Column(String(30), nullable=True)
+    usuario = Column(String(255), nullable=True)
+    hora_limite = Column(String(30), nullable=True)
+    expira_timestamp = Column(Float, nullable=True)
+    timestamp_creacion = Column(Float, nullable=True)
+    detalles = Column(JSON, nullable=True)
+    imagen = Column(Text, nullable=True)
+    imagen_fallo = Column(Text, nullable=True)
+    motivo_fallo = Column(Text, nullable=True)
+    banco_real_retiro = Column(String(80), nullable=True)
+    minutos_demora = Column(Float, nullable=True, default=0.0)
+    asignado_a = Column(String(100), nullable=True)
+    asignacion_estado = Column(String(50), nullable=True)
+    estado = Column(String(50), nullable=True)
+    historial = Column(JSON, nullable=True, default=list)
+    liquidado = Column(Boolean, nullable=False, default=False)
+    referencia_externa = Column(String(255), nullable=True)
+    origen_socio = Column(String(50), nullable=True)
+    es_prueba = Column(Boolean, nullable=True, default=False)
+    codigo_prueba = Column(Boolean, nullable=True, default=False)
+    alerta_deuda_firme = Column(Boolean, nullable=True, default=False)
+    entorno_staging = Column(Boolean, nullable=True, default=False)
+    notificado_deuda_1dia = Column(Boolean, nullable=True, default=False)
+
+
+class DBEnlace(Base):
+    __tablename__ = 'enlaces'
+
+    token = Column(String(120), primary_key=True)
+    usuario = Column(String(100), nullable=True)
+    fecha = Column(String(30), nullable=True)
+    grupo = Column(String(120), nullable=True, default='General')
+
+
+class DBMiscelaneo(Base):
+    __tablename__ = 'miscelaneo'
+
+    clave = Column(String(100), primary_key=True)
+    valor = Column(JSON, nullable=True)
+
+
+if engine is not None:
+    Base.metadata.create_all(engine)
+
+
+def _registro_modelo_a_dict(r):
+    """Convierte un DBRegistro ORM al dict que esperan las vistas y rutas."""
+    d = {
+        'id': r.id,
+        'transaccion_id': r.transaccion_id,
+        'fecha': r.fecha,
+        'banco': r.banco,
+        'celular': r.celular,
+        'cedula': r.cedula,
+        'monto': r.monto,
+        'usuario': r.usuario,
+        'hora_limite': r.hora_limite,
+        'expira_timestamp': r.expira_timestamp,
+        'timestamp_creacion': r.timestamp_creacion,
+        'detalles': r.detalles or {},
+        'imagen': r.imagen,
+        'asignado_a': r.asignado_a,
+        'asignacion_estado': r.asignacion_estado,
+        'estado': r.estado,
+        'historial': r.historial or [],
+        'liquidado': r.liquidado or False,
+        'banco_real_retiro': r.banco_real_retiro,
+        'minutos_demora': r.minutos_demora if r.minutos_demora is not None else 0.0,
+        'motivo_fallo': r.motivo_fallo,
+        'imagen_fallo': r.imagen_fallo,
+    }
+    if r.referencia_externa:
+        d['referencia_externa'] = r.referencia_externa
+    if r.origen_socio:
+        d['origen_socio'] = r.origen_socio
+    if r.es_prueba:
+        d['es_prueba'] = r.es_prueba
+    if r.codigo_prueba:
+        d['codigo_prueba'] = r.codigo_prueba
+    if r.alerta_deuda_firme:
+        d['alerta_deuda_firme'] = r.alerta_deuda_firme
+    if r.entorno_staging:
+        d['entorno_staging'] = r.entorno_staging
+    if r.notificado_deuda_1dia:
+        d['notificado_deuda_1dia'] = r.notificado_deuda_1dia
+    return d
+
+
 def guardar_datos():
     if es_entorno_staging():
         guardar_registros_pruebas()
         guardar_usuarios_pruebas()
         guardar_cobradores_pruebas()
         return
-    data_a_guardar = {
-        'registros': registros,
-        'sistema_config': sistema_config,
-        'enlaces_db': enlaces_db,
-        'grupos_creados': grupos_creados,
-        'usuarios_db': usuarios_db,
-        'historial_pagos': historial_pagos,
-        'suscripciones_push': suscripciones_push # <-- AQUÍ GUARDAMOS LOS PERMISOS PUSH
-    }
+
+    if not SessionLocal:
+        data_a_guardar = {
+            'registros': registros,
+            'sistema_config': sistema_config,
+            'enlaces_db': enlaces_db,
+            'grupos_creados': grupos_creados,
+            'usuarios_db': usuarios_db,
+            'historial_pagos': historial_pagos,
+            'suscripciones_push': suscripciones_push,
+        }
+        try:
+            with open(DATA_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data_a_guardar, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            print("Error crítico al guardar en disco:", e)
+        return
+
+    session = SessionLocal()
     try:
-        with open(DATA_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data_a_guardar, f, ensure_ascii=False, indent=4)
+        session.query(DBUsuario).delete()
+        for username, info in usuarios_db.items():
+            session.add(DBUsuario(
+                username=username,
+                password=info.get('password'),
+                rol=info.get('rol'),
+                nombre=info.get('nombre'),
+                apellido=info.get('apellido'),
+                email=info.get('email'),
+                estado=info.get('estado'),
+                disponible=info.get('disponible', True),
+                permisos=info.get('permisos', []),
+            ))
+
+        session.query(DBEnlace).delete()
+        for token, info in enlaces_db.items():
+            session.add(DBEnlace(
+                token=token,
+                usuario=info.get('usuario'),
+                fecha=info.get('fecha'),
+                grupo=info.get('grupo', 'General'),
+            ))
+
+        session.query(DBRegistro).delete()
+        for r in registros:
+            session.add(DBRegistro(
+                id=r['id'],
+                transaccion_id=r.get('transaccion_id'),
+                fecha=r.get('fecha'),
+                banco=r.get('banco'),
+                celular=r.get('celular'),
+                cedula=r.get('cedula'),
+                monto=r.get('monto'),
+                usuario=r.get('usuario'),
+                hora_limite=r.get('hora_limite'),
+                expira_timestamp=r.get('expira_timestamp'),
+                timestamp_creacion=r.get('timestamp_creacion'),
+                detalles=r.get('detalles'),
+                imagen=r.get('imagen'),
+                asignado_a=r.get('asignado_a'),
+                asignacion_estado=r.get('asignacion_estado'),
+                estado=r.get('estado'),
+                historial=r.get('historial'),
+                liquidado=r.get('liquidado', False),
+                banco_real_retiro=r.get('banco_real_retiro'),
+                minutos_demora=r.get('minutos_demora', 0.0),
+                motivo_fallo=r.get('motivo_fallo'),
+                imagen_fallo=r.get('imagen_fallo'),
+                referencia_externa=r.get('referencia_externa'),
+                origen_socio=r.get('origen_socio'),
+                es_prueba=bool(r.get('es_prueba', False)),
+                codigo_prueba=bool(r.get('codigo_prueba', False)),
+                alerta_deuda_firme=bool(r.get('alerta_deuda_firme', False)),
+                entorno_staging=bool(r.get('entorno_staging', False)),
+                notificado_deuda_1dia=bool(r.get('notificado_deuda_1dia', False)),
+            ))
+
+        session.query(DBMiscelaneo).delete()
+        session.add(DBMiscelaneo(clave='sistema_config', valor=sistema_config))
+        session.add(DBMiscelaneo(clave='grupos_creados', valor=grupos_creados))
+        session.add(DBMiscelaneo(clave='historial_pagos', valor=historial_pagos))
+        session.add(DBMiscelaneo(clave='suscripciones_push', valor=suscripciones_push))
+
+        session.commit()
     except Exception as e:
-        print("Error crítico al guardar en disco:", e)
+        session.rollback()
+        print("Error crítico al guardar en PostgreSQL:", e)
+    finally:
+        session.close()
 
 def cargar_datos():
     global registros, sistema_config, enlaces_db, grupos_creados, usuarios_db, historial_pagos, suscripciones_push
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                registros = data.get('registros', [])
-                sistema_config = data.get('sistema_config', {'auto_asignar': False})
-                enlaces_db = data.get('enlaces_db', {})
-                grupos_creados = data.get('grupos_creados', [])
-                
-                usuarios_cargados = data.get('usuarios_db', {})
-                if usuarios_cargados:
-                    usuarios_db = usuarios_cargados
-                    
-                historial_pagos = data.get('historial_pagos', [])
-                suscripciones_push = data.get('suscripciones_push', {}) # <-- AQUÍ CARGAMOS LOS PERMISOS PUSH
-            print("✅ Base de datos cargada exitosamente desde el Disco.")
-        except Exception as e:
-            print("Error crítico al cargar desde el disco:", e)
+    if not SessionLocal:
+        print("⚠️ No hay base de datos configurada. Cargando modo local JSON...")
+        if os.path.exists(DATA_FILE):
+            try:
+                with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    registros = data.get('registros', [])
+                    sistema_config = data.get('sistema_config', {'auto_asignar': False})
+                    enlaces_db = data.get('enlaces_db', {})
+                    grupos_creados = data.get('grupos_creados', [])
+                    usuarios_cargados = data.get('usuarios_db', {})
+                    if usuarios_cargados:
+                        usuarios_db = usuarios_cargados
+                    historial_pagos = data.get('historial_pagos', [])
+                    suscripciones_push = data.get('suscripciones_push', {})
+                print("✅ Base de datos cargada exitosamente desde el Disco.")
+            except Exception as e:
+                print("Error crítico al cargar desde el disco:", e)
+        return
+
+    session = SessionLocal()
+    try:
+        usuarios_db = {
+            u.username: {
+                'password': u.password,
+                'rol': u.rol,
+                'permisos': u.permisos or [],
+                'nombre': u.nombre,
+                'apellido': u.apellido,
+                'email': u.email,
+                'estado': u.estado,
+                'disponible': u.disponible,
+            }
+            for u in session.query(DBUsuario).all()
+        }
+
+        enlaces_db = {
+            e.token: {
+                'usuario': e.usuario,
+                'fecha': e.fecha,
+                'grupo': e.grupo or 'General',
+            }
+            for e in session.query(DBEnlace).all()
+        }
+
+        registros = [
+            _registro_modelo_a_dict(r)
+            for r in session.query(DBRegistro).order_by(DBRegistro.id.desc()).all()
+        ]
+
+        misc = {m.clave: m.valor for m in session.query(DBMiscelaneo).all()}
+        sistema_config = misc.get('sistema_config', {'auto_asignar': False})
+        grupos_creados = misc.get('grupos_creados', [])
+        historial_pagos = misc.get('historial_pagos', [])
+        suscripciones_push = misc.get('suscripciones_push', {})
+        print("✅ Base de datos POSTGRESQL cargada exitosamente en la App.")
+    except Exception as e:
+        print("Error crítico al cargar desde PostgreSQL:", e)
+    finally:
+        session.close()
 
 def cargar_registros_pruebas():
     global registros_pruebas

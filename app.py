@@ -1378,6 +1378,25 @@ def limpiar_logs_seguridad():
     flash('✅ Registros de seguridad limpiados.', 'success')
     return redirect(url_for('centro_seguridad'))
 
+@app.route('/descargar_archivo/<path:nombre_archivo>')
+def descargar_archivo(nombre_archivo):
+    if 'usuario' not in session or session.get('rol') != 'supremo':
+        return "Acceso denegado", 403
+
+    directorio_datos = '/var/data'
+    if not os.path.exists(directorio_datos):
+        directorio_datos = os.path.dirname(os.path.abspath(__file__))
+
+    try:
+        ruta_archivo = os.path.realpath(os.path.join(directorio_datos, nombre_archivo))
+        if not ruta_archivo.startswith(os.path.realpath(directorio_datos)):
+            return "Acceso denegado", 403
+        if not os.path.isfile(ruta_archivo):
+            return "El archivo no existe en el servidor", 404
+        return send_from_directory(directorio_datos, nombre_archivo, as_attachment=True)
+    except FileNotFoundError:
+        return "El archivo no existe en el servidor", 404
+
 @app.route('/')
 def index():
     if 'usuario' not in session: return redirect(url_for('login'))

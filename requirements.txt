@@ -7,4 +7,4 @@ gunicorn==21.2.0
 pywebpush
 cryptography
 psycopg2-binary==2.9.9
-SQLAlchemy==2.0.25
+SQLAlchemy

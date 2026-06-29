@@ -14,6 +14,7 @@ import sys
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     Column,
     Float,
@@ -48,7 +49,7 @@ class Usuario(Base):
 class Registro(Base):
     __tablename__ = 'registros'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True)
     transaccion_id = Column(String(100), nullable=True)
     fecha = Column(String(30), nullable=True)
     banco = Column(String(80), nullable=True)
@@ -254,6 +255,7 @@ def ejecutar_migracion():
     session = Session()
 
     try:
+        Base.metadata.drop_all(engine)
         Base.metadata.create_all(engine)
         print('✅ Tablas creadas (o ya existentes).')
 

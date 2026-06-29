@@ -26,6 +26,7 @@ openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 # --- CONFIGURACIÓN DE NOTIFICACIONES PUSH (VAPID) ---
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 VAPID_CLAIMS = {"sub": "mailto:contenido2025yt@gmail.com"}
 
 WEBHOOK_SOCIO_URL = os.environ.get('WEBHOOK_SOCIO_URL', 'https://api-socio.com/api/v1/webhooks/codigos-retiro')

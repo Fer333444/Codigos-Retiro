@@ -845,6 +845,33 @@ def cargar_logs_hoy():
             return []
     return []
 
+# Palabras clave para el filtro "Solo Operaciones Finales" del SOC
+PALABRAS_OPERACION_FINAL_SOC = (
+    'retirado',
+    'dinero en mano',
+    'no salió',
+    'no salio',
+    'fallido',
+    'expirado',
+    'vencido',
+)
+
+def es_operacion_final_soc(log):
+    """True si el log corresponde a un cierre de código (retiro, fallo, expiración)."""
+    if not isinstance(log, dict):
+        return False
+    tipo = str(log.get('tipo', '')).strip()
+    if tipo == 'Visita de Página':
+        return False
+    texto = f"{log.get('mensaje', '')} {log.get('detalles', '')}".lower()
+    coincide = any(palabra in texto for palabra in PALABRAS_OPERACION_FINAL_SOC)
+    if tipo == 'Clic en Interfaz':
+        return coincide
+    return coincide
+
+def filtrar_logs_operaciones_finales(logs):
+    return [log for log in logs if es_operacion_final_soc(log)]
+
 # Patrones de ataque comunes
 PAYLOADS_PELIGROSOS = re.compile(r'(?i)(<script|%3Cscript|UNION.+SELECT|SELECT.+FROM|DROP\s+TABLE|wp-admin|\.env|\.git|\.\./\.\.)')
 
@@ -880,6 +907,7 @@ def api_obtener_logs():
         return jsonify([])
 
     fecha_req = request.args.get('fecha')
+    solo_operaciones = request.args.get('solo_operaciones', '').lower() in ('1', 'true', 'yes', 'on')
     carpeta_logs = '/var/data/auditoria' if os.path.exists('/var/data') else 'auditoria'
 
     if fecha_req:
@@ -887,7 +915,10 @@ def api_obtener_logs():
         if os.path.exists(archivo):
             try:
                 with open(archivo, 'r', encoding='utf-8') as f:
-                    return jsonify(json.load(f))
+                    logs = json.load(f)
+                    if solo_operaciones:
+                        logs = filtrar_logs_operaciones_finales(logs)
+                    return jsonify(logs)
             except Exception:
                 return jsonify([])
         return jsonify([])
@@ -902,6 +933,9 @@ def api_obtener_logs():
                     todos_los_logs.extend(json.load(f))
             except Exception:
                 pass
+
+    if solo_operaciones:
+        todos_los_logs = filtrar_logs_operaciones_finales(todos_los_logs)
 
     return jsonify(todos_los_logs)
 

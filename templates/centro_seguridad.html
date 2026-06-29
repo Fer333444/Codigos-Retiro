@@ -21,8 +21,11 @@
         .btn { padding: 8px 15px; border-radius: 5px; border: none; cursor: pointer; font-weight: 600; font-size: 13px; text-decoration: none; transition: 0.2s; white-space: nowrap; }
         .btn-blue { background: var(--accent); color: white; } .btn-blue:hover { background: #2563eb; }
         .btn-red { background: transparent; color: #ef4444; border: 1px solid #ef4444; } .btn-red:hover { background: #ef4444; color: white; }
+        .btn-operaciones { background: #334155; color: #e2e8f0; border: 2px solid #475569; flex: 1 1 100%; text-align: center; font-size: 14px; padding: 10px 16px; }
+        .btn-operaciones.activo { background: linear-gradient(135deg, #b45309 0%, #d97706 100%); color: #fff; border-color: #fbbf24; box-shadow: 0 0 12px rgba(251, 191, 36, 0.35); }
+        .filter-operaciones-row { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; }
 
-        .table-container { background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border); overflow-y: auto; height: calc(100vh - 160px); }
+        .table-container { background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border); overflow-y: auto; height: calc(100vh - 210px); }
         table { width: 100%; border-collapse: collapse; text-align: left; }
         thead th { background: #0f172a; padding: 12px 15px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--border); }
         tbody td { padding: 12px 15px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; }
@@ -65,7 +68,8 @@
             .filter-date-group { flex-direction: column; align-items: stretch; }
             #timeInput { max-width: none !important; }
             .btn { text-align: center; }
-            .table-container { height: calc(100vh - 220px); border: none; background: transparent; overflow: visible; }
+            .btn-operaciones { width: 100%; }
+            .table-container { height: calc(100vh - 280px); border: none; background: transparent; overflow: visible; }
 
             table, thead, tbody, th, td, tr { display: block; }
             thead tr { position: absolute; top: -9999px; left: -9999px; }
@@ -109,6 +113,11 @@
                 <button type="submit" class="btn btn-red">Purga</button>
             </form>
         </div>
+        <div class="filter-operaciones-row">
+            <button type="button" id="btnSoloOperaciones" class="btn btn-operaciones" title="Mostrar solo cierres: retirados, fallidos y expirados">
+                🎯 Solo Operaciones Finales
+            </button>
+        </div>
     </div>
 
     <div class="table-container">
@@ -140,13 +149,36 @@
         const logsPorPagina = 30;
         let logsFiltrados = [];
         let todosLosLogs = [];
+        let soloOperacionesFinales = false;
         const isMobile = window.innerWidth <= 768;
+
+        const PALABRAS_OPERACION_FINAL = [
+            'retirado', 'dinero en mano', 'no salió', 'no salio', 'fallido', 'expirado', 'vencido'
+        ];
 
         const inputBusqueda = document.getElementById('buscador_soc');
         const selectNivel = document.getElementById('levelFilter');
         const inputFecha = document.getElementById('dateInput');
         const inputHora = document.getElementById('timeInput');
+        const btnSoloOperaciones = document.getElementById('btnSoloOperaciones');
         const tbodyLogs = document.getElementById('tabla_logs');
+
+        function esOperacionFinal(log) {
+            const tipo = (log.tipo || '').trim();
+            if (tipo === 'Visita de Página') return false;
+            const texto = `${log.mensaje || ''} ${log.detalles || ''}`.toLowerCase();
+            const coincide = PALABRAS_OPERACION_FINAL.some(p => texto.includes(p));
+            if (tipo === 'Clic en Interfaz') return coincide;
+            return coincide;
+        }
+
+        function actualizarBotonOperaciones() {
+            if (!btnSoloOperaciones) return;
+            btnSoloOperaciones.classList.toggle('activo', soloOperacionesFinales);
+            btnSoloOperaciones.textContent = soloOperacionesFinales
+                ? '🎯 Solo Operaciones Finales (ACTIVO)'
+                : '🎯 Solo Operaciones Finales';
+        }
 
         function textoBusquedaLog(log) {
             return [
@@ -179,7 +211,8 @@
                 const fullDate = log.fecha || '';
                 const fechaOk = !searchDate || fullDate.startsWith(searchDate);
                 const horaOk = !searchTimeRaw || fullDate.includes(' ' + searchTimeRaw);
-                return textoOk && nivelOk && fechaOk && horaOk;
+                const operacionOk = !soloOperacionesFinales || esOperacionFinal(log);
+                return textoOk && nivelOk && fechaOk && horaOk && operacionOk;
             });
 
             if (resetPagina) {
@@ -196,12 +229,12 @@
             const searchTimeRaw = inputHora ? inputHora.value : '';
             const filterLevel = selectNivel ? selectNivel.value : 'todos';
 
-            return { searchText, searchDateRaw, searchTimeRaw, filterLevel };
+            return { searchText, searchDateRaw, searchTimeRaw, filterLevel, soloOperacionesFinales };
         }
 
         function actualizarEstadoLive() {
-            const { searchText, searchDateRaw, searchTimeRaw, filterLevel } = obtenerCriteriosFiltro();
-            const hayFiltros = !!(searchText || searchDateRaw || searchTimeRaw || (filterLevel && filterLevel !== 'todos'));
+            const { searchText, searchDateRaw, searchTimeRaw, filterLevel, soloOperacionesFinales: soloOps } = obtenerCriteriosFiltro();
+            const hayFiltros = !!(searchText || searchDateRaw || searchTimeRaw || (filterLevel && filterLevel !== 'todos') || soloOps);
             const dot = document.getElementById('status-dot');
 
             isPaused = hayFiltros;
@@ -301,7 +334,11 @@
         async function fetchLogs(fecha = '') {
             try {
                 let url = '/api/obtener_logs_seguridad';
-                if (fecha) url += `?fecha=${fecha}`;
+                const params = new URLSearchParams();
+                if (fecha) params.set('fecha', fecha);
+                if (soloOperacionesFinales) params.set('solo_operaciones', '1');
+                const query = params.toString();
+                if (query) url += `?${query}`;
 
                 const response = await fetch(url);
                 todosLosLogs = await response.json();
@@ -338,9 +375,24 @@
             if (selectNivel) selectNivel.value = 'todos';
             if (inputFecha) inputFecha.value = '';
             if (inputHora) inputHora.value = '';
+            soloOperacionesFinales = false;
+            actualizarBotonOperaciones();
             lastFetchedDate = '';
             actualizarEstadoLive();
             fetchLogs();
+        }
+
+        if (btnSoloOperaciones) {
+            btnSoloOperaciones.addEventListener('click', () => {
+                soloOperacionesFinales = !soloOperacionesFinales;
+                actualizarBotonOperaciones();
+                const { searchDateRaw } = obtenerCriteriosFiltro();
+                if (searchDateRaw) {
+                    filtrarTabla();
+                } else {
+                    fetchLogs(lastFetchedDate);
+                }
+            });
         }
 
         if (inputBusqueda) {

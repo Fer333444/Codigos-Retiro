@@ -14,8 +14,10 @@
         .live-pulse { width: 10px; height: 10px; background-color: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.8; } 50% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.8; } }
 
-        .controls-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-        .search-box, .filter-select { padding: 8px 12px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg-dark); color: white; font-size: 13px; outline: none; flex: 1; min-width: 140px; }
+        .controls-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; width: 100%; }
+        .search-box, .filter-select { padding: 8px 12px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg-dark); color: white; font-size: 13px; outline: none; flex: 1 1 140px; min-width: 0; box-sizing: border-box; }
+        .filter-date-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1 1 200px; min-width: 0; }
+        .purga-form { margin: 0; flex: 0 1 auto; }
         .btn { padding: 8px 15px; border-radius: 5px; border: none; cursor: pointer; font-weight: 600; font-size: 13px; text-decoration: none; transition: 0.2s; white-space: nowrap; }
         .btn-blue { background: var(--accent); color: white; } .btn-blue:hover { background: #2563eb; }
         .btn-red { background: transparent; color: #ef4444; border: 1px solid #ef4444; } .btn-red:hover { background: #ef4444; color: white; }
@@ -49,8 +51,20 @@
             body { padding: 10px; }
             .dashboard-header { padding: 12px; }
             .controls-row { flex-direction: column; align-items: stretch; }
-            .search-box, .filter-select { min-width: 0; width: 100%; }
-            .btn { text-align: center; width: 100%; }
+            .controls-row > .search-box,
+            .controls-row > .filter-select,
+            .controls-row > .filter-date-group,
+            .controls-row > .purga-form,
+            .filter-date-group .search-box,
+            .filter-date-group .btn,
+            .purga-form .btn {
+                width: 100%;
+                max-width: 100%;
+                flex: 1 1 100%;
+            }
+            .filter-date-group { flex-direction: column; align-items: stretch; }
+            #timeInput { max-width: none !important; }
+            .btn { text-align: center; }
             .table-container { height: calc(100vh - 220px); border: none; background: transparent; overflow: visible; }
 
             table, thead, tbody, th, td, tr { display: block; }
@@ -77,21 +91,21 @@
         <div class="controls-row">
             <input type="text" id="buscador_soc" class="search-box" placeholder="🔍 Buscar IP o Usuario...">
 
-            <select id="levelFilter" class="filter-select" onchange="filtrarTabla()">
-                <option value="">🔘 Todos los Niveles</option>
+            <select id="levelFilter" class="filter-select">
+                <option value="todos">🔘 Todos los Niveles</option>
                 <option value="GRAVE">🔴 Grave (Hackeos)</option>
                 <option value="MEDIO">🟡 Medio (Errores/Fallos)</option>
                 <option value="INFO">🔵 Info (Operaciones)</option>
                 <option value="BAJO">🟢 Bajo (Visitas)</option>
             </select>
 
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <input type="date" id="dateInput" class="search-box" style="color-scheme: dark; cursor: pointer;" onchange="filtrarTabla()" title="Seleccionar Fecha">
-                <input type="time" id="timeInput" class="search-box" style="color-scheme: dark; cursor: pointer; max-width: 120px;" onchange="filtrarTabla()" title="Seleccionar Hora">
+            <div class="filter-date-group">
+                <input type="date" id="dateInput" class="search-box" style="color-scheme: dark; cursor: pointer;" title="Seleccionar Fecha">
+                <input type="time" id="timeInput" class="search-box" style="color-scheme: dark; cursor: pointer; max-width: 120px;" title="Seleccionar Hora">
                 <button type="button" onclick="limpiarFiltros()" class="btn" style="background: #475569; color: white;" title="Limpiar Filtros">✖ Quitar</button>
             </div>
 
-            <form action="/limpiar_logs_seguridad" method="POST" style="margin:0;" onsubmit="return confirm('⚠️ ¿Purga total de datos?');">
+            <form action="/limpiar_logs_seguridad" method="POST" class="purga-form" onsubmit="return confirm('⚠️ ¿Purga total de datos?');">
                 <button type="submit" class="btn btn-red">Purga</button>
             </form>
         </div>
@@ -129,6 +143,9 @@
         const isMobile = window.innerWidth <= 768;
 
         const inputBusqueda = document.getElementById('buscador_soc');
+        const selectNivel = document.getElementById('levelFilter');
+        const inputFecha = document.getElementById('dateInput');
+        const inputHora = document.getElementById('timeInput');
         const tbodyLogs = document.getElementById('tabla_logs');
 
         function textoBusquedaLog(log) {
@@ -143,45 +160,48 @@
             ].filter(Boolean).join(' ').toLowerCase();
         }
 
-        function filtrarPorBusqueda(termino) {
-            const t = (termino || '').trim().toLowerCase();
-            if (!t) {
-                return [...todosLosLogs];
+        function obtenerFechaFiltro() {
+            const searchDateRaw = inputFecha ? inputFecha.value : '';
+            if (!searchDateRaw) return '';
+            const p = searchDateRaw.split('-');
+            return `${p[2]}/${p[1]}/${p[0]}`;
+        }
+
+        function aplicarFiltros(resetPagina = true) {
+            const texto = (inputBusqueda ? inputBusqueda.value : '').trim().toLowerCase();
+            const nivel = selectNivel ? selectNivel.value : 'todos';
+            const searchDate = obtenerFechaFiltro();
+            const searchTimeRaw = inputHora ? inputHora.value : '';
+
+            logsFiltrados = todosLosLogs.filter(log => {
+                const textoOk = !texto || textoBusquedaLog(log).includes(texto);
+                const nivelOk = nivel === 'todos' || log.nivel === nivel;
+                const fullDate = log.fecha || '';
+                const fechaOk = !searchDate || fullDate.startsWith(searchDate);
+                const horaOk = !searchTimeRaw || fullDate.includes(' ' + searchTimeRaw);
+                return textoOk && nivelOk && fechaOk && horaOk;
+            });
+
+            if (resetPagina) {
+                paginaActual = 1;
             }
-            return todosLosLogs.filter(log => textoBusquedaLog(log).includes(t));
+
+            actualizarEstadoLive();
+            renderizarTabla();
         }
 
         function obtenerCriteriosFiltro() {
             const searchText = inputBusqueda ? inputBusqueda.value.trim().toLowerCase() : '';
-            const searchDateRaw = document.getElementById('dateInput').value;
-            const searchTimeRaw = document.getElementById('timeInput').value;
-            const filterLevel = document.getElementById('levelFilter').value;
+            const searchDateRaw = inputFecha ? inputFecha.value : '';
+            const searchTimeRaw = inputHora ? inputHora.value : '';
+            const filterLevel = selectNivel ? selectNivel.value : 'todos';
 
-            let searchDate = '';
-            if (searchDateRaw) {
-                const p = searchDateRaw.split('-');
-                searchDate = `${p[2]}/${p[1]}/${p[0]}`;
-            }
-
-            return { searchText, searchDate, searchTimeRaw, filterLevel, searchDateRaw };
-        }
-
-        function calcularLogsFiltrados() {
-            const { searchText, searchDate, searchTimeRaw, filterLevel } = obtenerCriteriosFiltro();
-            const base = filtrarPorBusqueda(searchText);
-
-            return base.filter(log => {
-                const fullDate = log.fecha || '';
-                const levelMatch = filterLevel === '' || log.nivel === filterLevel;
-                const dateMatch = searchDate === '' || fullDate.startsWith(searchDate);
-                const timeMatch = searchTimeRaw === '' || fullDate.includes(' ' + searchTimeRaw);
-                return levelMatch && dateMatch && timeMatch;
-            });
+            return { searchText, searchDateRaw, searchTimeRaw, filterLevel };
         }
 
         function actualizarEstadoLive() {
             const { searchText, searchDateRaw, searchTimeRaw, filterLevel } = obtenerCriteriosFiltro();
-            const hayFiltros = !!(searchText || searchDateRaw || filterLevel || searchTimeRaw);
+            const hayFiltros = !!(searchText || searchDateRaw || searchTimeRaw || (filterLevel && filterLevel !== 'todos'));
             const dot = document.getElementById('status-dot');
 
             isPaused = hayFiltros;
@@ -278,11 +298,6 @@
             actualizarControlesPaginacion(totalPaginas);
         }
 
-        function aplicarFiltrosYRenderizar() {
-            logsFiltrados = calcularLogsFiltrados();
-            renderizarTabla();
-        }
-
         async function fetchLogs(fecha = '') {
             try {
                 let url = '/api/obtener_logs_seguridad';
@@ -292,10 +307,7 @@
                 todosLosLogs = await response.json();
                 lastFetchedDate = fecha;
 
-                if (!isPaused) {
-                    paginaActual = 1;
-                }
-                aplicarFiltrosYRenderizar();
+                aplicarFiltros(!isPaused);
             } catch (error) {
                 document.getElementById('status-dot').style.backgroundColor = '#ef4444';
             }
@@ -309,13 +321,7 @@
             renderizarTabla();
         }
 
-        function filtrarTabla(preventFetch = false, resetPagina = true) {
-            actualizarEstadoLive();
-
-            if (resetPagina) {
-                paginaActual = 1;
-            }
-
+        function filtrarTabla(preventFetch = false) {
             const { searchDateRaw } = obtenerCriteriosFiltro();
             const hoy = new Date().toISOString().split('T')[0];
 
@@ -324,27 +330,33 @@
                 return;
             }
 
-            aplicarFiltrosYRenderizar();
+            aplicarFiltros(true);
         }
 
         function limpiarFiltros() {
             if (inputBusqueda) inputBusqueda.value = '';
-            document.getElementById('levelFilter').value = '';
-            document.getElementById('dateInput').value = '';
-            document.getElementById('timeInput').value = '';
+            if (selectNivel) selectNivel.value = 'todos';
+            if (inputFecha) inputFecha.value = '';
+            if (inputHora) inputHora.value = '';
             lastFetchedDate = '';
-            paginaActual = 1;
             actualizarEstadoLive();
             fetchLogs();
         }
 
         if (inputBusqueda) {
-            inputBusqueda.addEventListener('input', function(e) {
-                paginaActual = 1;
-                actualizarEstadoLive();
-                logsFiltrados = calcularLogsFiltrados();
-                renderizarTabla();
-            });
+            inputBusqueda.addEventListener('input', () => aplicarFiltros(true));
+        }
+
+        if (selectNivel) {
+            selectNivel.addEventListener('change', () => aplicarFiltros(true));
+        }
+
+        if (inputFecha) {
+            inputFecha.addEventListener('change', () => filtrarTabla());
+        }
+
+        if (inputHora) {
+            inputHora.addEventListener('change', () => aplicarFiltros(true));
         }
 
         fetchLogs();

@@ -676,6 +676,22 @@ def auditar_movimientos_sistema(response):
 
         guardar_log_seguridad('INFO', 'Acción Operativa', f'[{rol_usuario}] {usuario} -> {accion_traducida}', request, f"Ruta: {request.path}")
 
+        # NUEVO: DETECTOR GLOBAL DE ANOMALÍAS DE TIEMPO
+        try:
+            import time
+            id_involucrado = request.form.get('id') or request.form.get('id_deuda') or request.form.get('id_revision')
+            if id_involucrado:
+                id_num = int(str(id_involucrado).replace('total_', ''))
+                for r in db_registros():
+                    if r.get('id') == id_num:
+                        if 'timestamp_creacion' in r:
+                            dias_antiguedad = (time.time() - r['timestamp_creacion']) / 86400
+                            if dias_antiguedad >= 2: # Detecta manipulación después de 48 horas
+                                guardar_log_seguridad('GRAVE', 'Anomalía Temporal', f'🚨 ATENCIÓN: {usuario} alteró un registro anormalmente antiguo ({round(dias_antiguedad)} días de desfase). Cliente: {r.get("usuario", "Desconocido")}', request)
+                        break
+        except Exception:
+            pass
+
     # 3. INYECTAR EL ESPÍA INVISIBLE EN EL HTML
     if response.content_type and 'text/html' in response.content_type:
         spy_script = b"""
@@ -985,6 +1001,13 @@ def mantenimiento_datos():
                 if tiempo_ahora >= r['expira_timestamp']:
                     r['estado'] = 'expirado'
                     r['historial'].append(f"[{hora_actual}] ❌ Expirado automáticamente (Tiempo agotado)")
+                    # NUEVO: DETECTOR DE EXPIRACIONES FANTASMA
+                    if 'timestamp_creacion' in r:
+                        dias_desfase = (tiempo_ahora - r['timestamp_creacion']) / 86400
+                        if dias_desfase >= 2:
+                            from flask import request as req_context
+                            req_obj = req_context if has_request_context() else None
+                            guardar_log_seguridad('MEDIO', 'Anomalía del Sistema', f'⚠️ Expiración retrasada detectada: El código de {r.get("usuario")} expiró tras un salto temporal anormal de {round(dias_desfase)} días.', req_obj)
                     cambios_realizados = True
             elif esta_expirado(r.get('hora_limite'), r.get('fecha')):
                 r['estado'] = 'expirado'
@@ -1541,6 +1564,7 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
         historial_inicial.append(
             f"[{hora_actual}] ⚠️ Cliente con deuda firme previa — el código se procesa con normalidad."
         )
+        guardar_log_seguridad('MEDIO', 'Alerta Operativa', f'⚠️ El cliente {usuarios_juntos} envió un código pero tiene DEUDA FIRME.', req)
 
     if sistema_config['auto_asignar']:
         cobradores = [u for u, info in db_usuarios().items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
@@ -2186,6 +2210,7 @@ def ejecutar_marcar_fallido(registro_id=None, motivo=None):
                 r['motivo_fallo'] = motivo
                 r['historial'].append(f"[{hora_actual}] ⚠️ Marcado como NO SALIÓ por {session['usuario'].capitalize()}. Motivo: {motivo}")
                 flash(f'El retiro de {usuario_afectado} se envió a REVISIÓN porque el cliente ya tiene deudas previas.', 'error')
+                guardar_log_seguridad('MEDIO', 'Bloqueo por Deuda', f'🛑 Retiro de {usuario_afectado} enviado a REVISIÓN porque el cliente ya tiene deudas previas.', request)
             else:
                 r['estado'] = 'fallido'
                 r['motivo_fallo'] = motivo
@@ -2252,7 +2277,7 @@ def pago_alternativo():
 
     deuda_record = next((r for r in registros if r['id'] == id_deuda), None)
     
-    if deuda_record and deuda_record['estado'] in ['fallido', 'expirado']:
+    if deuda_record and deuda_record['estado'] in ['fallido', 'expirado', 'fallido_revision']:
         monto_actual = float(deuda_record['monto'])
         
         imagenes = request.files.getlist('comprobante_pago')

@@ -62,9 +62,10 @@ class Registro(Base):
     timestamp_creacion = Column(Float, nullable=True)
     detalles = Column(JSON, nullable=True)
     imagen = Column(Text, nullable=True)
-    imagen_fallo = Column(Text, nullable=True)
-    motivo_fallo = Column(Text, nullable=True)
-    banco_real_retiro = Column(String(80), nullable=True)
+    minutos_demora = Column(Float, default=0.0)
+    banco_real_retiro = Column(String, nullable=True)
+    motivo_fallo = Column(String, nullable=True)
+    imagen_fallo = Column(String, nullable=True)
     asignado_a = Column(String(100), nullable=True)
     asignacion_estado = Column(String(50), nullable=True)
     estado = Column(String(50), nullable=True)
@@ -177,9 +178,10 @@ def migrar_registros(session, registros):
             timestamp_creacion=r.get('timestamp_creacion'),
             detalles=r.get('detalles'),
             imagen=r.get('imagen'),
-            imagen_fallo=r.get('imagen_fallo'),
-            motivo_fallo=r.get('motivo_fallo'),
+            minutos_demora=r.get('minutos_demora', 0.0),
             banco_real_retiro=r.get('banco_real_retiro'),
+            motivo_fallo=r.get('motivo_fallo'),
+            imagen_fallo=r.get('imagen_fallo'),
             asignado_a=r.get('asignado_a'),
             asignacion_estado=r.get('asignacion_estado'),
             estado=r.get('estado'),

@@ -187,10 +187,10 @@ class DBRegistro(Base):
     timestamp_creacion = Column(Float, nullable=True)
     detalles = Column(JSON, nullable=True)
     imagen = Column(Text, nullable=True)
-    imagen_fallo = Column(Text, nullable=True)
-    motivo_fallo = Column(Text, nullable=True)
-    banco_real_retiro = Column(String(80), nullable=True)
-    minutos_demora = Column(Float, nullable=True, default=0.0)
+    minutos_demora = Column(Float, default=0.0)
+    banco_real_retiro = Column(String, nullable=True)
+    motivo_fallo = Column(String, nullable=True)
+    imagen_fallo = Column(String, nullable=True)
     asignado_a = Column(String(100), nullable=True)
     asignacion_estado = Column(String(50), nullable=True)
     estado = Column(String(50), nullable=True)
@@ -223,6 +223,26 @@ class DBMiscelaneo(Base):
 
 if engine is not None:
     Base.metadata.create_all(engine)
+
+    def _sincronizar_columnas_registros():
+        """Añade columnas del ORM que no existían en tablas creadas por migraciones anteriores."""
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        if 'registros' not in inspector.get_table_names():
+            return
+        existentes = {col['name'] for col in inspector.get_columns('registros')}
+        pendientes = {
+            'minutos_demora': 'DOUBLE PRECISION DEFAULT 0.0',
+            'banco_real_retiro': 'VARCHAR',
+            'motivo_fallo': 'VARCHAR',
+            'imagen_fallo': 'VARCHAR',
+        }
+        with engine.begin() as conn:
+            for columna, tipo_sql in pendientes.items():
+                if columna not in existentes:
+                    conn.execute(text(f'ALTER TABLE registros ADD COLUMN {columna} {tipo_sql}'))
+
+    _sincronizar_columnas_registros()
 
 
 def _registro_modelo_a_dict(r):

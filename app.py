@@ -683,7 +683,7 @@ def extraer_datos_imagen_ocr(image_bytes_list):
         FORMATO JSON ESTRICTO:
         {
          "BANCO": "pichincha, guayaquil, produbanco u otro",
-         "MONTO": "Solo el número (ej. 50.00)",
+         "MONTO": "Extrae ÚNICAMENTE el valor real del retiro, pago o transferencia (suele ser el número principal, el más grande o tener un signo negativo '-'). DEBES IGNORAR TOTALMENTE cualquier número asociado a textos como 'Saldo', 'Saldo disponible', 'Saldo después del movimiento' o 'Disponible'. Solo devuelve el número final en formato decimal (ej. 70.00).",
          "CELULAR": "Número de celular asociado o ''",
          "CEDULA": "Número de cédula, C.I., o documento de identidad si aparece, sino ''",
          "CLAVE_RETIRO": "El código PIN principal",

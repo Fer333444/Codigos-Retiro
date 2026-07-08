@@ -288,6 +288,78 @@ def _registro_modelo_a_dict(r):
     return d
 
 
+def _usuario_dict_a_orm(username, info):
+    return DBUsuario(
+        username=username,
+        password=info.get('password'),
+        rol=info.get('rol'),
+        nombre=info.get('nombre'),
+        apellido=info.get('apellido'),
+        email=info.get('email'),
+        estado=info.get('estado'),
+        disponible=info.get('disponible', True),
+        permisos=info.get('permisos', []),
+    )
+
+
+def _enlace_dict_a_orm(token, info):
+    return DBEnlace(
+        token=token,
+        usuario=info.get('usuario'),
+        fecha=info.get('fecha'),
+        grupo=info.get('grupo', 'General'),
+    )
+
+
+def _registro_dict_a_orm(r):
+    return DBRegistro(
+        id=r['id'],
+        transaccion_id=r.get('transaccion_id'),
+        fecha=r.get('fecha'),
+        banco=r.get('banco'),
+        celular=r.get('celular'),
+        cedula=r.get('cedula'),
+        monto=r.get('monto'),
+        usuario=r.get('usuario'),
+        hora_limite=r.get('hora_limite'),
+        expira_timestamp=r.get('expira_timestamp'),
+        timestamp_creacion=r.get('timestamp_creacion'),
+        detalles=r.get('detalles'),
+        imagen=r.get('imagen'),
+        asignado_a=r.get('asignado_a'),
+        asignacion_estado=r.get('asignacion_estado'),
+        estado=r.get('estado'),
+        historial=r.get('historial'),
+        liquidado=r.get('liquidado', False),
+        banco_real_retiro=r.get('banco_real_retiro'),
+        minutos_demora=r.get('minutos_demora', 0.0),
+        motivo_fallo=r.get('motivo_fallo'),
+        imagen_fallo=r.get('imagen_fallo'),
+        referencia_externa=r.get('referencia_externa'),
+        origen_socio=r.get('origen_socio'),
+        es_prueba=bool(r.get('es_prueba', False)),
+        codigo_prueba=bool(r.get('codigo_prueba', False)),
+        alerta_deuda_firme=bool(r.get('alerta_deuda_firme', False)),
+        entorno_staging=bool(r.get('entorno_staging', False)),
+        notificado_deuda_1dia=bool(r.get('notificado_deuda_1dia', False)),
+    )
+
+
+def _calcular_minutos_demora_registro(registro):
+    """Calcula minutos_demora sin asumir que timestamp_creacion sea numérico."""
+    ts_creacion = registro.get('timestamp_creacion')
+    if ts_creacion is not None:
+        try:
+            return round((time.time() - float(ts_creacion)) / 60, 1)
+        except (TypeError, ValueError):
+            pass
+    try:
+        creacion_dt = datetime.strptime(registro.get('fecha', ''), "%d/%m/%Y %H:%M")
+        return round((hora_ecuador() - creacion_dt).total_seconds() / 60, 1)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def guardar_datos():
     if es_entorno_staging():
         guardar_registros_pruebas()
@@ -314,68 +386,44 @@ def guardar_datos():
 
     session = SessionLocal()
     try:
-        session.query(DBUsuario).delete()
+        usernames_memoria = set(usuarios_db.keys())
         for username, info in usuarios_db.items():
-            session.add(DBUsuario(
-                username=username,
-                password=info.get('password'),
-                rol=info.get('rol'),
-                nombre=info.get('nombre'),
-                apellido=info.get('apellido'),
-                email=info.get('email'),
-                estado=info.get('estado'),
-                disponible=info.get('disponible', True),
-                permisos=info.get('permisos', []),
-            ))
+            session.merge(_usuario_dict_a_orm(username, info))
+        query_usuarios = session.query(DBUsuario)
+        if usernames_memoria:
+            query_usuarios.filter(~DBUsuario.username.in_(usernames_memoria)).delete(synchronize_session=False)
+        else:
+            query_usuarios.delete(synchronize_session=False)
 
-        session.query(DBEnlace).delete()
+        tokens_memoria = set(enlaces_db.keys())
         for token, info in enlaces_db.items():
-            session.add(DBEnlace(
-                token=token,
-                usuario=info.get('usuario'),
-                fecha=info.get('fecha'),
-                grupo=info.get('grupo', 'General'),
-            ))
+            session.merge(_enlace_dict_a_orm(token, info))
+        query_enlaces = session.query(DBEnlace)
+        if tokens_memoria:
+            query_enlaces.filter(~DBEnlace.token.in_(tokens_memoria)).delete(synchronize_session=False)
+        else:
+            query_enlaces.delete(synchronize_session=False)
 
-        session.query(DBRegistro).delete()
+        ids_memoria = {r['id'] for r in registros if r.get('id') is not None}
         for r in registros:
-            session.add(DBRegistro(
-                id=r['id'],
-                transaccion_id=r.get('transaccion_id'),
-                fecha=r.get('fecha'),
-                banco=r.get('banco'),
-                celular=r.get('celular'),
-                cedula=r.get('cedula'),
-                monto=r.get('monto'),
-                usuario=r.get('usuario'),
-                hora_limite=r.get('hora_limite'),
-                expira_timestamp=r.get('expira_timestamp'),
-                timestamp_creacion=r.get('timestamp_creacion'),
-                detalles=r.get('detalles'),
-                imagen=r.get('imagen'),
-                asignado_a=r.get('asignado_a'),
-                asignacion_estado=r.get('asignacion_estado'),
-                estado=r.get('estado'),
-                historial=r.get('historial'),
-                liquidado=r.get('liquidado', False),
-                banco_real_retiro=r.get('banco_real_retiro'),
-                minutos_demora=r.get('minutos_demora', 0.0),
-                motivo_fallo=r.get('motivo_fallo'),
-                imagen_fallo=r.get('imagen_fallo'),
-                referencia_externa=r.get('referencia_externa'),
-                origen_socio=r.get('origen_socio'),
-                es_prueba=bool(r.get('es_prueba', False)),
-                codigo_prueba=bool(r.get('codigo_prueba', False)),
-                alerta_deuda_firme=bool(r.get('alerta_deuda_firme', False)),
-                entorno_staging=bool(r.get('entorno_staging', False)),
-                notificado_deuda_1dia=bool(r.get('notificado_deuda_1dia', False)),
-            ))
+            session.merge(_registro_dict_a_orm(r))
+        query_registros = session.query(DBRegistro)
+        if ids_memoria:
+            query_registros.filter(~DBRegistro.id.in_(ids_memoria)).delete(synchronize_session=False)
+        else:
+            query_registros.delete(synchronize_session=False)
 
-        session.query(DBMiscelaneo).delete()
-        session.add(DBMiscelaneo(clave='sistema_config', valor=sistema_config))
-        session.add(DBMiscelaneo(clave='grupos_creados', valor=grupos_creados))
-        session.add(DBMiscelaneo(clave='historial_pagos', valor=historial_pagos))
-        session.add(DBMiscelaneo(clave='suscripciones_push', valor=suscripciones_push))
+        misc_items = {
+            'sistema_config': sistema_config,
+            'grupos_creados': grupos_creados,
+            'historial_pagos': historial_pagos,
+            'suscripciones_push': suscripciones_push,
+        }
+        for clave, valor in misc_items.items():
+            session.merge(DBMiscelaneo(clave=clave, valor=valor))
+        session.query(DBMiscelaneo).filter(
+            ~DBMiscelaneo.clave.in_(misc_items.keys())
+        ).delete(synchronize_session=False)
 
         session.commit()
     except Exception as e:
@@ -1233,15 +1281,14 @@ def ejecutar_webhook_erp_pago_aprobado():
 
     app.logger.info(f"Webhook ERP: clave de cruce extraída = «{nombre_extraido}»")
 
-    modificados_prueba = procesar_cruce_deuda_socio(nombre_extraido, es_entorno_prueba=True)
-    modificados_prod = procesar_cruce_deuda_socio(nombre_extraido, es_entorno_prueba=False)
-    total_modificados = modificados_prueba + modificados_prod
+    es_prueba = bool(data.get('es_prueba'))
+    modificados = procesar_cruce_deuda_socio(nombre_extraido, es_entorno_prueba=es_prueba)
 
     app.logger.info(
-        f"Webhook ERP pago-aprobado: prueba={modificados_prueba}, prod={modificados_prod}, total={total_modificados}"
+        f"Webhook ERP pago-aprobado: es_prueba={es_prueba}, modificados={modificados}"
     )
 
-    return jsonify({'success': True, 'modificados': total_modificados}), 200
+    return jsonify({'success': True, 'modificados': modificados}), 200
 
 @app.route('/api/webhook/erp/pago-aprobado', methods=['POST'])
 def webhook_erp_pago_aprobado():
@@ -1545,7 +1592,6 @@ def eliminar_link():
         flash('Error: El cliente no existe.', 'error')
     return redirect(url_for('index'))
 
-@app.route('/grupos')
 @app.route('/grupos')
 def vista_grupos():
     mis_permisos = session.get('permisos', [])
@@ -2428,15 +2474,7 @@ def ejecutar_marcar_retirado(registro_id=None, banco_real=None):
         if r['id'] == registro_id:
             r['estado'] = 'retirado'
             r['banco_real_retiro'] = banco_real.upper()
-
-            if 'timestamp_creacion' in r:
-                r['minutos_demora'] = round((time.time() - r['timestamp_creacion']) / 60, 1)
-            else:
-                try:
-                    creacion_dt = datetime.strptime(r['fecha'], "%d/%m/%Y %H:%M")
-                    r['minutos_demora'] = round((hora_ecuador() - creacion_dt).total_seconds() / 60, 1)
-                except:
-                    r['minutos_demora'] = 0.0
+            r['minutos_demora'] = _calcular_minutos_demora_registro(r)
 
             r['historial'].append(f"[{hora_actual}] ✅ Retirado en {banco_real.upper()} por {session['usuario'].capitalize()}")
             registro_afectado = r

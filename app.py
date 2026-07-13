@@ -17,6 +17,7 @@ from pywebpush import webpush, WebPushException
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory, Blueprint, has_request_context, Response
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
+from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy import create_engine, Column, String, BigInteger, Boolean, JSON, Text, Float
 from sqlalchemy.orm import declarative_base, sessionmaker
 
@@ -243,6 +244,45 @@ if engine is not None:
                     conn.execute(text(f'ALTER TABLE registros ADD COLUMN {columna} {tipo_sql}'))
 
     _sincronizar_columnas_registros()
+
+
+def sellar_imagen_evidencia(ruta_destino, stream_imagen, texto_sello):
+    """Quema marca de agua antifraude en la esquina inferior derecha antes de guardar."""
+    imagen = Image.open(stream_imagen)
+    if imagen.mode not in ('RGB', 'RGBA'):
+        imagen = imagen.convert('RGBA')
+
+    overlay = Image.new('RGBA', imagen.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    font = ImageFont.load_default()
+
+    texto = f"EVIDENCIA: {texto_sello}"
+    bbox = draw.textbbox((0, 0), texto, font=font)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    padding_x, padding_y = 8, 4
+    margin = 8
+
+    x1 = max(margin, imagen.width - text_w - (padding_x * 2) - margin)
+    y1 = max(margin, imagen.height - text_h - (padding_y * 2) - margin)
+    x2 = imagen.width - margin
+    y2 = imagen.height - margin
+
+    draw.rectangle([x1, y1, x2, y2], fill=(0, 0, 0, 179))
+    draw.text((x1 + padding_x, y1 + padding_y), texto, fill=(255, 255, 255, 255), font=font)
+
+    base = imagen.convert('RGBA')
+    sellada = Image.alpha_composite(base, overlay)
+
+    ext = os.path.splitext(ruta_destino)[1].lower()
+    if ext in ('.jpg', '.jpeg'):
+        sellada.convert('RGB').save(ruta_destino, format='JPEG', quality=92)
+    elif ext == '.png':
+        sellada.save(ruta_destino, format='PNG')
+    elif ext == '.webp':
+        sellada.save(ruta_destino, format='WEBP', quality=92)
+    else:
+        sellada.convert('RGB').save(ruta_destino)
 
 
 def _registro_modelo_a_dict(r):
@@ -2518,7 +2558,14 @@ def ejecutar_marcar_fallido(registro_id=None, motivo=None):
     for img in imagenes:
         if img and img.filename != '':
             nombre = secure_filename(f"evidencia_fallo_{hora_ecuador().strftime('%Y%m%d%H%M%S')}_{img.filename}")
-            img.save(os.path.join(app.config['UPLOAD_FOLDER'], nombre))
+            ruta_destino = os.path.join(app.config['UPLOAD_FOLDER'], nombre)
+            try:
+                img.stream.seek(0)
+                sellar_imagen_evidencia(ruta_destino, img.stream, hora_actual)
+            except Exception as e:
+                print(f"Error al sellar evidencia {nombre}: {e}")
+                img.stream.seek(0)
+                img.save(ruta_destino)
             nombres_imagenes.append(nombre)
     str_imagenes_fallo = ",".join(nombres_imagenes) if nombres_imagenes else None
 

@@ -2050,6 +2050,38 @@ def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
         modo_prueba=modo_prueba, form_action=form_action,
     )
 
+EXTENSIONES_COMPROBANTE_PERMITIDAS = {'.png', '.jpg', '.jpeg', '.webp'}
+
+
+def _extension_comprobante_valida(filename):
+    ext = os.path.splitext(filename or '')[1].lower()
+    return ext in EXTENSIONES_COMPROBANTE_PERMITIDAS
+
+
+def _rechazar_procesar_formulario_retiro(req, mensaje, modo_widget=False, modo_prueba='real', form_action=None):
+    if modo_widget:
+        horario = sistema_config.get('horario_activo', True)
+        bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
+        token = req.form.get('token', '').strip()
+        usuario_widget = req.form.get('usuario', 'Widget-Externo')
+        cliente_externo = req.form.get('cliente_externo', 'Desconocido')
+        referencia_externa = (req.form.get('referencia_externa') or req.args.get('referencia_externa') or '').strip()
+        return render_template(
+            'widget_retiro.html',
+            usuario=usuario_widget,
+            token=token,
+            horario_activo=horario,
+            bancos_activos=bancos_activos,
+            cliente_externo=cliente_externo,
+            referencia_externa=referencia_externa,
+            modo_prueba=modo_prueba,
+            form_action=form_action,
+            error=mensaje,
+        ), 400
+    flash(mensaje, 'error')
+    return redirect(req.url)
+
+
 def procesar_formulario_retiro(req, usuarios, modo_widget=False, origen_historial=None, es_prueba=False, modo_prueba='real', form_action=None):
     referencia_externa = (req.form.get('referencia_externa') or req.args.get('referencia_externa') or '').strip() or None
     if origen_historial is None:
@@ -2065,11 +2097,55 @@ def procesar_formulario_retiro(req, usuarios, modo_widget=False, origen_historia
     clave_envio = req.form.get('clave_envio', '')
     codigo_seguridad = req.form.get('codigo_seguridad', '')
 
+    is_split = len(usuarios) > 1
+    if is_split:
+        try:
+            monto_total = float(str(monto_total_str).replace(',', '.').strip())
+        except (TypeError, ValueError):
+            return _rechazar_procesar_formulario_retiro(
+                req,
+                'El monto total del retiro no es válido.',
+                modo_widget=modo_widget,
+                modo_prueba=modo_prueba,
+                form_action=form_action,
+            )
+
+        suma_desglose = 0.0
+        for u in usuarios:
+            monto_u_raw = req.form.get(f'monto_usuario_{u}', '')
+            try:
+                suma_desglose += float(str(monto_u_raw).replace(',', '.').strip())
+            except (TypeError, ValueError):
+                return _rechazar_procesar_formulario_retiro(
+                    req,
+                    f'El monto desglosado para "{u}" no es válido.',
+                    modo_widget=modo_widget,
+                    modo_prueba=modo_prueba,
+                    form_action=form_action,
+                )
+
+        if round(suma_desglose, 2) != round(monto_total, 2):
+            return _rechazar_procesar_formulario_retiro(
+                req,
+                f'La suma del desglose (${suma_desglose:.2f}) no coincide con el monto total (${monto_total:.2f}).',
+                modo_widget=modo_widget,
+                modo_prueba=modo_prueba,
+                form_action=form_action,
+            )
+
     imagenes = req.files.getlist('comprobante')
     nombres_imagenes = []
 
     for img in imagenes:
         if img and img.filename != '':
+            if not _extension_comprobante_valida(img.filename):
+                return _rechazar_procesar_formulario_retiro(
+                    req,
+                    'Solo se permiten imágenes en formato PNG, JPG, JPEG o WEBP.',
+                    modo_widget=modo_widget,
+                    modo_prueba=modo_prueba,
+                    form_action=form_action,
+                )
             nombre = secure_filename(f"{hora_ecuador().strftime('%Y%m%d%H%M%S')}_{img.filename}")
             img.save(os.path.join(app.config['UPLOAD_FOLDER'], nombre))
             nombres_imagenes.append(nombre)
@@ -2115,7 +2191,6 @@ def procesar_formulario_retiro(req, usuarios, modo_widget=False, origen_historia
             referencia_externa=referencia_externa,
         )
 
-    is_split = len(usuarios) > 1
     usuarios_para_recibo = ""
     if is_split:
         recibo_desglose = []

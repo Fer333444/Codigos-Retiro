@@ -1760,6 +1760,13 @@ def agrupar_bulk():
     flash(f'✅ {count} clientes movidos al grupo "{destino}".', 'success')
     return redirect(url_for('index'))
 
+def generar_token_seguro(nombre):
+    """Convierte un nombre de cliente en slug seguro para rutas /retiro/<token>."""
+    texto = (nombre or '').strip().lower()
+    texto = re.sub(r'[^a-z0-9]+', '-', texto)
+    texto = re.sub(r'-+', '-', texto).strip('-')
+    return texto
+
 @app.route('/crear_link', methods=['GET', 'POST'])
 def crear_link():
     mis_permisos = session.get('permisos', [])
@@ -1767,10 +1774,21 @@ def crear_link():
         return redirect(url_for('login'))
         
     if request.method == 'POST':
-        usuario = request.form.get('usuario_cliente').strip()
-        grupo = request.form.get('grupo_usuario', 'General').strip() 
-        
-        nuevo_token = usuario.replace(' ', '-')
+        usuario = request.form.get('usuario_cliente', '').strip()
+        grupo = request.form.get('grupo_usuario', 'General').strip()
+
+        if not usuario:
+            flash('El nombre del cliente no puede estar vacío.', 'error')
+            return redirect(url_for('crear_link'))
+
+        nuevo_token = generar_token_seguro(usuario)
+        if not nuevo_token:
+            flash('El nombre del cliente no generó un enlace válido.', 'error')
+            return redirect(url_for('crear_link'))
+
+        if nuevo_token in enlaces_db:
+            flash(f'Ya existe un link con el token "{nuevo_token}". No se sobrescribió.', 'error')
+            return redirect(url_for('crear_link'))
         
         enlaces_db[nuevo_token] = {
             'usuario': usuario, 
@@ -1806,17 +1824,23 @@ def importar_links():
         contador = 0
         for linea in lineas:
             linea = linea.strip()
-            if not linea: continue
+            if not linea:
+                continue
             partes = linea.replace(';', ',').split(',')
             usuario_cliente = partes[0].strip()
-            if usuario_cliente and usuario_cliente.lower() not in ['usuario', 'cliente', 'nombre']:
-                token = usuario_cliente.replace(' ', '-')
-                enlaces_db[token] = {
-                    'usuario': usuario_cliente,
-                    'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"),
-                    'grupo': 'General'
-                }
-                contador += 1
+            if not usuario_cliente or usuario_cliente.lower() in ['usuario', 'cliente', 'nombre']:
+                continue
+            token = generar_token_seguro(usuario_cliente)
+            if not token:
+                continue
+            if token in enlaces_db:
+                continue
+            enlaces_db[token] = {
+                'usuario': usuario_cliente,
+                'fecha': hora_ecuador().strftime("%d/%m/%Y %H:%M"),
+                'grupo': 'General'
+            }
+            contador += 1
         guardar_datos()
         flash(f'✅ ¡Importación exitosa! Se generaron {contador} links nuevos.', 'success')
     except Exception as e:

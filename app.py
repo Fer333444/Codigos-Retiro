@@ -1352,23 +1352,6 @@ def mantenimiento_datos():
     tiempo_ahora = time.time()
     regs = db_registros()
 
-    # --- 🛠️ AUTO-REPARADOR RETROACTIVO DE DEUDAS ---
-    # Solo el 2.º código problemático (u otro distinto) pasa a fallido_revision.
-    for r in sorted(regs, key=lambda x: x.get('id', 0)):
-        usuario = r.get('usuario')
-        rid = r.get('id')
-        if r.get('estado') == 'fallido' and usuario:
-            tiene_otra_deuda = any(
-                other for other in regs
-                if other.get('usuario') == usuario
-                and other.get('id') != rid
-                and other.get('estado') in ['fallido', 'expirado', 'fallido_revision']
-            )
-            if tiene_otra_deuda:
-                r['estado'] = 'fallido_revision'
-                cambios_realizados = True
-    # ------------------------------------------------
-
     # --- 🛠️ AUTO-REPARADOR DE IDs DUPLICADOS ---
     ids_vistos = set()
     # Leemos la lista al revés para que los códigos viejos conserven su ID original

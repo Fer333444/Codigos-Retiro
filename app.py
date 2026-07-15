@@ -204,6 +204,7 @@ class DBRegistro(Base):
     alerta_deuda_firme = Column(Boolean, nullable=True, default=False)
     entorno_staging = Column(Boolean, nullable=True, default=False)
     notificado_deuda_1dia = Column(Boolean, nullable=True, default=False)
+    notificado_vencimiento_10m = Column(Boolean, nullable=True, default=False)
 
 
 class DBEnlace(Base):
@@ -237,6 +238,7 @@ if engine is not None:
             'banco_real_retiro': 'VARCHAR',
             'motivo_fallo': 'VARCHAR',
             'imagen_fallo': 'VARCHAR',
+            'notificado_vencimiento_10m': 'BOOLEAN DEFAULT FALSE',
         }
         with engine.begin() as conn:
             for columna, tipo_sql in pendientes.items():
@@ -325,6 +327,8 @@ def _registro_modelo_a_dict(r):
         d['entorno_staging'] = r.entorno_staging
     if r.notificado_deuda_1dia:
         d['notificado_deuda_1dia'] = r.notificado_deuda_1dia
+    if r.notificado_vencimiento_10m:
+        d['notificado_vencimiento_10m'] = r.notificado_vencimiento_10m
     return d
 
 
@@ -382,6 +386,7 @@ def _registro_dict_a_orm(r):
         alerta_deuda_firme=bool(r.get('alerta_deuda_firme', False)),
         entorno_staging=bool(r.get('entorno_staging', False)),
         notificado_deuda_1dia=bool(r.get('notificado_deuda_1dia', False)),
+        notificado_vencimiento_10m=bool(r.get('notificado_vencimiento_10m', False)),
     )
 
 
@@ -1365,6 +1370,27 @@ def mantenimiento_datos():
     for r in regs:
         if r['estado'] == 'activo':
             if 'expira_timestamp' in r:
+                tiempo_restante = r['expira_timestamp'] - tiempo_ahora
+                if 0 < tiempo_restante <= 600 and not r.get('notificado_vencimiento_10m'):
+                    r['notificado_vencimiento_10m'] = True
+                    cambios_realizados = True
+
+                    destinatarios = [
+                        u for u, info in usuarios_db.items()
+                        if info.get('rol') in ['supremo', 'recaudador']
+                    ]
+                    asignado_a = r.get('asignado_a')
+                    if asignado_a and asignado_a not in destinatarios:
+                        destinatarios.append(asignado_a)
+
+                    titulo_alerta = "🚨 Código por vencer en 10 min 🚨"
+                    mensaje_alerta = (
+                        f"¡Rápido! El código de ${r.get('monto')} de {r.get('banco')} "
+                        f"del cliente {r.get('usuario')} está a punto de expirar."
+                    )
+                    for destinatario in destinatarios:
+                        disparar_alerta_push(destinatario, titulo_alerta, mensaje_alerta)
+
                 if tiempo_ahora >= r['expira_timestamp']:
                     r['estado'] = 'expirado'
                     r['historial'].append(f"[{hora_actual}] ❌ Expirado automáticamente (Tiempo agotado)")
@@ -1962,7 +1988,8 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
         'asignacion_estado': asignacion_estado,
         'estado': 'activo',
         'historial': historial_inicial,
-        'liquidado': False
+        'liquidado': False,
+        'notificado_vencimiento_10m': False,
     }
 
     if referencia_externa is not None and str(referencia_externa).strip():

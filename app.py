@@ -169,6 +169,7 @@ class DBUsuario(Base):
     email = Column(String(255), nullable=True)
     estado = Column(String(50), nullable=True, default='Activo')
     disponible = Column(Boolean, nullable=False, default=True)
+    auto_asignable = Column(Boolean, nullable=False, default=False)
     permisos = Column(JSON, nullable=True, default=list)
 
 
@@ -205,6 +206,7 @@ class DBRegistro(Base):
     entorno_staging = Column(Boolean, nullable=True, default=False)
     notificado_deuda_1dia = Column(Boolean, nullable=True, default=False)
     notificado_vencimiento_10m = Column(Boolean, nullable=True, default=False)
+    rescate_45m_activado = Column(Boolean, nullable=True, default=False)
 
 
 class DBEnlace(Base):
@@ -230,20 +232,32 @@ if engine is not None:
         """Añade columnas del ORM que no existían en tablas creadas por migraciones anteriores."""
         from sqlalchemy import inspect, text
         inspector = inspect(engine)
-        if 'registros' not in inspector.get_table_names():
-            return
-        existentes = {col['name'] for col in inspector.get_columns('registros')}
-        pendientes = {
-            'minutos_demora': 'DOUBLE PRECISION DEFAULT 0.0',
-            'banco_real_retiro': 'VARCHAR',
-            'motivo_fallo': 'VARCHAR',
-            'imagen_fallo': 'VARCHAR',
-            'notificado_vencimiento_10m': 'BOOLEAN DEFAULT FALSE',
-        }
-        with engine.begin() as conn:
-            for columna, tipo_sql in pendientes.items():
-                if columna not in existentes:
-                    conn.execute(text(f'ALTER TABLE registros ADD COLUMN {columna} {tipo_sql}'))
+        tablas = inspector.get_table_names()
+
+        if 'registros' in tablas:
+            existentes = {col['name'] for col in inspector.get_columns('registros')}
+            pendientes = {
+                'minutos_demora': 'DOUBLE PRECISION DEFAULT 0.0',
+                'banco_real_retiro': 'VARCHAR',
+                'motivo_fallo': 'VARCHAR',
+                'imagen_fallo': 'VARCHAR',
+                'notificado_vencimiento_10m': 'BOOLEAN DEFAULT FALSE',
+                'rescate_45m_activado': 'BOOLEAN DEFAULT FALSE',
+            }
+            with engine.begin() as conn:
+                for columna, tipo_sql in pendientes.items():
+                    if columna not in existentes:
+                        conn.execute(text(f'ALTER TABLE registros ADD COLUMN {columna} {tipo_sql}'))
+
+        if 'usuarios' in tablas:
+            existentes_u = {col['name'] for col in inspector.get_columns('usuarios')}
+            pendientes_u = {
+                'auto_asignable': 'BOOLEAN DEFAULT FALSE',
+            }
+            with engine.begin() as conn:
+                for columna, tipo_sql in pendientes_u.items():
+                    if columna not in existentes_u:
+                        conn.execute(text(f'ALTER TABLE usuarios ADD COLUMN {columna} {tipo_sql}'))
 
     _sincronizar_columnas_registros()
 
@@ -329,6 +343,8 @@ def _registro_modelo_a_dict(r):
         d['notificado_deuda_1dia'] = r.notificado_deuda_1dia
     if r.notificado_vencimiento_10m:
         d['notificado_vencimiento_10m'] = r.notificado_vencimiento_10m
+    if r.rescate_45m_activado:
+        d['rescate_45m_activado'] = r.rescate_45m_activado
     return d
 
 
@@ -342,6 +358,7 @@ def _usuario_dict_a_orm(username, info):
         email=info.get('email'),
         estado=info.get('estado'),
         disponible=info.get('disponible', True),
+        auto_asignable=bool(info.get('auto_asignable', False)),
         permisos=info.get('permisos', []),
     )
 
@@ -387,6 +404,7 @@ def _registro_dict_a_orm(r):
         entorno_staging=bool(r.get('entorno_staging', False)),
         notificado_deuda_1dia=bool(r.get('notificado_deuda_1dia', False)),
         notificado_vencimiento_10m=bool(r.get('notificado_vencimiento_10m', False)),
+        rescate_45m_activado=bool(r.get('rescate_45m_activado', False)),
     )
 
 
@@ -510,7 +528,8 @@ def cargar_datos():
                 'apellido': u.apellido,
                 'email': u.email,
                 'estado': u.estado,
-                'disponible': u.disponible,
+                'disponible': u.disponible if u.disponible is not None else True,
+                'auto_asignable': bool(u.auto_asignable) if u.auto_asignable is not None else False,
             }
             for u in session.query(DBUsuario).all()
         }
@@ -1371,6 +1390,43 @@ def mantenimiento_datos():
         if r['estado'] == 'activo':
             if 'expira_timestamp' in r:
                 tiempo_restante = r['expira_timestamp'] - tiempo_ahora
+
+                # === ESCUADRÓN DE RESCATE (45 minutos) ===
+                if (
+                    not r.get('asignado_a')
+                    and 0 < tiempo_restante <= 2700
+                    and not r.get('rescate_45m_activado')
+                ):
+                    users_pool = db_usuarios()
+                    elegibles = [
+                        u for u, info in users_pool.items()
+                        if (
+                            (info.get('rol') == 'cobrador' or 'procesar_retiros' in info.get('permisos', []))
+                            and info.get('disponible', True)
+                            and info.get('auto_asignable', False)
+                        )
+                    ]
+                    if elegibles:
+                        cargas = {c: 0 for c in elegibles}
+                        for reg in regs:
+                            asignado = reg.get('asignado_a')
+                            if reg.get('estado') == 'activo' and asignado in cargas:
+                                cargas[asignado] += 1
+                        elegido = min(cargas, key=cargas.get)
+                        r['asignado_a'] = elegido
+                        r['asignacion_estado'] = 'asignado'
+                        r['visto_por_cobrador'] = False
+                        r['rescate_45m_activado'] = True
+                        r.setdefault('historial', []).append(
+                            f"[{hora_actual}] [Auto-Asignación 45m] Asignado automáticamente a {elegido} por tiempo crítico."
+                        )
+                        cambios_realizados = True
+                        disparar_alerta_push(
+                            elegido,
+                            "¡CÓDIGO DE RESCATE (45m)! Se te auto-asignó un código urgente.",
+                            f"Cliente {r.get('usuario')} — ${r.get('monto')} ({r.get('banco')}). ¡Priorízalo!",
+                        )
+
                 if 0 < tiempo_restante <= 600 and not r.get('notificado_vencimiento_10m'):
                     r['notificado_vencimiento_10m'] = True
                     cambios_realizados = True
@@ -2364,7 +2420,8 @@ def vista_admin(url_prefix=''):
         cobradores.append({
             'username': c,
             'nombre_mostrar': users[c].get('nombre', c).capitalize(),
-            'disponible': esta_disponible
+            'disponible': esta_disponible,
+            'auto_asignable': bool(users[c].get('auto_asignable', False)),
         })
     
     hoy_ecuador = hora_ecuador().strftime("%d/%m/%Y")
@@ -3774,6 +3831,30 @@ def toggle_disponibilidad():
         return jsonify({"status": "ok", "estado": usuarios_db[usuario]['disponible'], "mensaje": f"Estado cambiado a: {nuevo_estado}"})
     
     return jsonify({"error": "Usuario no encontrado"}), 404
+
+@app.route('/toggle_pool_auto', methods=['POST'])
+def toggle_pool_auto():
+    if session.get('rol') != 'supremo':
+        return jsonify({"error": "No autorizado"}), 403
+
+    data = request.get_json(silent=True) or {}
+    username = (data.get('username') or request.form.get('username') or '').strip().lower()
+    if not username:
+        return jsonify({"error": "Falta el username del cobrador"}), 400
+
+    if username not in usuarios_db:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    estado_actual = usuarios_db[username].get('auto_asignable', False)
+    usuarios_db[username]['auto_asignable'] = not estado_actual
+    guardar_datos()
+
+    activo = usuarios_db[username]['auto_asignable']
+    return jsonify({
+        "status": "ok",
+        "estado": activo,
+        "mensaje": f"Pool Autoasignación: {'🟢 Activo' if activo else '🔴 Inactivo'} para {username}",
+    })
 
 # ==========================================
 # 🧪 SIMULADOR CERRADO (/pruebas)

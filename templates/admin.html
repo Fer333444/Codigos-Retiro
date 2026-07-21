@@ -141,6 +141,21 @@
                             <h3 class="text-xl font-black text-white uppercase tracking-widest"><i class="fas fa-user-tie mr-2 opacity-80"></i>{{ nombre_mostrar }}</h3>
                         </div>
 
+                        {% if rol == 'supremo' %}
+                        {% set pool_activo = (usuarios_db[cobrador].get('auto_asignable', false) if cobrador in usuarios_db else false) %}
+                        <div class="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-2">
+                            <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Pool Autoasignación</span>
+                            <button type="button"
+                                    id="btn-pool-{{ cobrador }}"
+                                    onclick="togglePoolAuto('{{ cobrador }}', this)"
+                                    class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border transition-colors focus:outline-none {% if pool_activo %}bg-emerald-100 text-emerald-700 border-emerald-300{% else %}bg-slate-200 text-slate-500 border-slate-300{% endif %}"
+                                    title="Incluir/excluir del escuadrón de rescate (45m)">
+                                <i class="fas fa-robot {% if pool_activo %}text-emerald-600{% else %}text-rose-400{% endif %}"></i>
+                                <span class="pool-label">{% if pool_activo %}En Pool{% else %}Fuera{% endif %}</span>
+                            </button>
+                        </div>
+                        {% endif %}
+
                         <div class="p-5 flex justify-between items-center border-b border-slate-100">
                             <div>
                                 <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Saldo en Efectivo (Hoy)</h4>
@@ -859,6 +874,42 @@
             }
         } else {
             setNotificationState(false);
+        }
+
+        async function togglePoolAuto(username, btn) {
+            if (!btn) return;
+            btn.disabled = true;
+            try {
+                const response = await fetch('/toggle_pool_auto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    mostrarToast(data.error || 'No se pudo actualizar el pool.');
+                    return;
+                }
+                const activo = !!data.estado;
+                const icon = btn.querySelector('i');
+                const label = btn.querySelector('.pool-label');
+                btn.className = 'inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border transition-colors focus:outline-none ' +
+                    (activo
+                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                        : 'bg-slate-200 text-slate-500 border-slate-300');
+                if (icon) {
+                    icon.className = 'fas fa-robot ' + (activo ? 'text-emerald-600' : 'text-rose-400');
+                }
+                if (label) {
+                    label.textContent = activo ? 'En Pool' : 'Fuera';
+                }
+                mostrarToast(data.mensaje || (activo ? 'Incluido en el pool.' : 'Sacado del pool.'));
+            } catch (e) {
+                console.error(e);
+                mostrarToast('Error de red al actualizar el pool.');
+            } finally {
+                btn.disabled = false;
+            }
         }
 
         async function toggleNotificaciones() {

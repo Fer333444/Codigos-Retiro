@@ -152,7 +152,7 @@
                                     </td>
                                     <td class="py-4 px-2 capitalize font-bold text-slate-500">{{ info.rol }}</td>
                                     <td class="py-4 px-2 text-right">
-                                        <button onclick='abrirModalEditar("{{ username }}", "{{ info.nombre }}", "{{ info.email }}", "{{ info.rol }}", "{{ info.estado }}", {{ info.permisos | tojson }})' class="border border-slate-300 text-slate-600 font-bold text-xs px-4 py-2 rounded-lg bg-white hover:bg-slate-50 shadow-sm transition-colors">
+                                        <button onclick='abrirModalEditar({{ username|tojson }}, {{ info.nombre|tojson }}, {{ (info.email or "")|tojson }}, {{ info.rol|tojson }}, {{ info.estado|tojson }}, {{ info.permisos|tojson }}, {{ (info.telegram_id or "")|tojson }})' class="border border-slate-300 text-slate-600 font-bold text-xs px-4 py-2 rounded-lg bg-white hover:bg-slate-50 shadow-sm transition-colors">
                                             Editar <i class="fas fa-edit ml-1"></i>
                                         </button>
                                     </td>
@@ -180,7 +180,7 @@
                                 <p class="text-sm text-slate-600 capitalize font-bold"><i class="fas fa-user-tag w-5 text-slate-400"></i> {{ info.rol }}</p>
                             </div>
                             
-                            <button onclick='abrirModalEditar("{{ username }}", "{{ info.nombre }}", "{{ info.email }}", "{{ info.rol }}", "{{ info.estado }}", {{ info.permisos | tojson }})' class="w-full bg-slate-50 border border-slate-300 text-slate-700 font-black text-sm py-2.5 rounded-lg hover:bg-slate-100 transition-colors">
+                            <button onclick='abrirModalEditar({{ username|tojson }}, {{ info.nombre|tojson }}, {{ (info.email or "")|tojson }}, {{ info.rol|tojson }}, {{ info.estado|tojson }}, {{ info.permisos|tojson }}, {{ (info.telegram_id or "")|tojson }})' class="w-full bg-slate-50 border border-slate-300 text-slate-700 font-black text-sm py-2.5 rounded-lg hover:bg-slate-100 transition-colors">
                                 Editar Usuario <i class="fas fa-edit ml-1 text-slate-400"></i>
                             </button>
                         </div>
@@ -226,6 +226,11 @@
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1"><i class="fas fa-key text-rose-500"></i> Nueva Contraseña</label>
                             <input type="text" name="password" id="edit_password" placeholder="(Opcional)" class="w-full bg-white border border-slate-300 text-slate-800 font-bold text-sm rounded-lg p-2.5 outline-none focus:border-rose-500 transition-colors">
                         </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1"><i class="fab fa-telegram text-sky-500"></i> Telegram ID (Chat ID)</label>
+                        <input type="text" name="telegram_id" id="edit_telegram_id" placeholder="Ej. 123456789" class="w-full bg-white border border-slate-300 text-slate-800 font-bold text-sm rounded-lg p-2.5 outline-none focus:border-sky-500 transition-colors">
                     </div>
 
                     <div class="grid grid-cols-2 gap-4 border-b border-slate-100 pb-4">
@@ -329,14 +334,15 @@
     </div>
 
     <script>
-        function abrirModalEditar(username, nombre, email, rol, estado, permisosList) {
+        function abrirModalEditar(username, nombre, email, rol, estado, permisosList, telegramId) {
             document.getElementById('edit_username').value = username;
             document.getElementById('edit_username_display').value = "@" + username;
             document.getElementById('edit_nombre').value = nombre;
             document.getElementById('edit_email').value = email;
             document.getElementById('edit_rol').value = rol.toLowerCase();
             document.getElementById('edit_estado').value = estado;
-            document.getElementById('edit_password').value = ""; 
+            document.getElementById('edit_password').value = "";
+            document.getElementById('edit_telegram_id').value = telegramId || "";
             document.getElementById('delete_username').value = username;
             
             document.querySelectorAll('input[name="permisos"]').forEach(chk => chk.checked = false);

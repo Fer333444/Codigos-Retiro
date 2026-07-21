@@ -29,6 +29,7 @@ openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 # --- CONFIGURACIÓN DE NOTIFICACIONES PUSH (VAPID) ---
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
@@ -170,6 +171,7 @@ class DBUsuario(Base):
     estado = Column(String(50), nullable=True, default='Activo')
     disponible = Column(Boolean, nullable=False, default=True)
     auto_asignable = Column(Boolean, nullable=False, default=False)
+    telegram_id = Column(String(50), nullable=True)
     permisos = Column(JSON, nullable=True, default=list)
 
 
@@ -253,6 +255,7 @@ if engine is not None:
             existentes_u = {col['name'] for col in inspector.get_columns('usuarios')}
             pendientes_u = {
                 'auto_asignable': 'BOOLEAN DEFAULT FALSE',
+                'telegram_id': 'VARCHAR(50)',
             }
             with engine.begin() as conn:
                 for columna, tipo_sql in pendientes_u.items():
@@ -359,6 +362,7 @@ def _usuario_dict_a_orm(username, info):
         estado=info.get('estado'),
         disponible=info.get('disponible', True),
         auto_asignable=bool(info.get('auto_asignable', False)),
+        telegram_id=info.get('telegram_id') or None,
         permisos=info.get('permisos', []),
     )
 
@@ -530,6 +534,7 @@ def cargar_datos():
                 'estado': u.estado,
                 'disponible': u.disponible if u.disponible is not None else True,
                 'auto_asignable': bool(u.auto_asignable) if u.auto_asignable is not None else False,
+                'telegram_id': u.telegram_id or '',
             }
             for u in session.query(DBUsuario).all()
         }
@@ -3024,6 +3029,7 @@ def vista_crear_usuario(url_prefix=''):
             'rol': request.form.get('rol'),
             'permisos': permisos_marcados,
             'estado': 'Activo',
+            'telegram_id': request.form.get('telegram_id', '').strip(),
         }
         if url_prefix:
             if usuario_existe_en_staging(username):
@@ -3070,6 +3076,7 @@ def ejecutar_editar_usuario(url_prefix=''):
         actualizado['rol'] = request.form.get('rol', actualizado.get('rol'))
         actualizado['estado'] = request.form.get('estado', actualizado.get('estado'))
         actualizado['permisos'] = permisos_marcados
+        actualizado['telegram_id'] = request.form.get('telegram_id', '').strip()
         nueva_pass = request.form.get('password')
         if nueva_pass and nueva_pass.strip():
             actualizado['password'] = nueva_pass
@@ -3083,6 +3090,7 @@ def ejecutar_editar_usuario(url_prefix=''):
             usuarios_db[username]['rol'] = request.form.get('rol', usuarios_db[username]['rol'])
             usuarios_db[username]['estado'] = request.form.get('estado', usuarios_db[username]['estado'])
             usuarios_db[username]['permisos'] = permisos_marcados
+            usuarios_db[username]['telegram_id'] = request.form.get('telegram_id', '').strip()
             nueva_pass = request.form.get('password')
             if nueva_pass and nueva_pass.strip() != '':
                 usuarios_db[username]['password'] = nueva_pass
@@ -3686,8 +3694,34 @@ def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None, es_p
     threading.Thread(target=enviar_en_hilo, daemon=True).start()
     return True
 
+def disparar_alerta_telegram(usuario_destino, mensaje):
+    """Envía alerta nativa por Telegram en un hilo aparte (no bloquea Flask)."""
+    if not TELEGRAM_BOT_TOKEN:
+        return
+
+    info = db_usuarios().get(usuario_destino) or {}
+    chat_id = str(info.get('telegram_id') or '').strip()
+    if not chat_id:
+        return
+
+    token = TELEGRAM_BOT_TOKEN
+    texto = str(mensaje or '')
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": texto}
+
+    def enviar_en_hilo():
+        try:
+            response = requests.post(url, json=payload, timeout=10)
+            print(f"✅ Telegram → {usuario_destino} ({chat_id}): HTTP {response.status_code}")
+        except Exception as ex:
+            print(f"❌ Error Telegram → {usuario_destino}:", repr(ex))
+
+    threading.Thread(target=enviar_en_hilo, daemon=True).start()
+
 def disparar_alerta_push(usuario_destino, titulo, mensaje):
     """Dispara la notificación push en un hilo secundario para no bloquear Flask."""
+    disparar_alerta_telegram(usuario_destino, f"{titulo}\n{mensaje}")
+
     subs = suscripciones_push.get(usuario_destino)
     if not subs:
         print(f"No hay suscripción guardada para {usuario_destino}")

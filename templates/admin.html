@@ -278,7 +278,7 @@
                             {% set reasignar_btn = 'border-slate-200 text-slate-400' %}
                         {% endif %}
 
-                        <div class="relative flex-shrink-0 flex flex-col items-stretch gap-2 min-w-[200px]" id="wrap-cob-{{ c }}">
+                        <div class="flex-shrink-0 flex flex-col items-stretch gap-2 min-w-[200px]" id="wrap-cob-{{ c }}">
                             <button type="button" 
                                 {% if esta_disponible %} onclick="seleccionarCobrador('{{ c }}', '{{ ring_color }}', '{{ bg_light }}', '{{ ring_light }}')" {% endif %}
                                 id="btn-cob-{{ c }}" 
@@ -297,36 +297,16 @@
                                 <span id="contador-live-{{ c }}" class="contador-live block text-sm font-bold mt-2 px-3 py-2 rounded-lg {{ badge_classes }} transition-colors shadow-inner">
                                     0 Seleccionados
                                 </span>
+                                <span class="block text-sm font-bold mt-2 px-3 py-2 rounded-lg bg-sky-50 text-sky-700 border border-sky-100 shadow-inner">
+                                    {{ stats_cobradores[c].asignados_count }} Asignados
+                                </span>
                             </button>
 
                             <button type="button"
-                                    onclick="event.stopPropagation(); toggleListaReasignar('{{ c }}')"
+                                    onclick="event.stopPropagation(); abrirModalCodigosCobrador('{{ c }}')"
                                     class="w-full text-[11px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border-2 bg-white shadow-sm transition-colors focus:outline-none {{ reasignar_btn }}">
                                 🔄 Reasignar
                             </button>
-
-                            <div id="lista-reasignar-{{ c }}" class="hidden absolute top-full left-0 right-0 mt-1 z-40 bg-white border-2 border-slate-200 rounded-xl shadow-xl overflow-hidden">
-                                <div class="px-3 py-2 bg-slate-50 border-b border-slate-200">
-                                    <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Códigos de {{ nombre_mostrar }}</p>
-                                </div>
-                                <div class="max-h-48 overflow-y-auto custom-scrollbar">
-                                    {% set ns_cob = namespace(tiene=false) %}
-                                    {% for r in activos_todos %}
-                                        {% if r.asignado_a == c %}
-                                            {% set ns_cob.tiene = true %}
-                                            <button type="button"
-                                                    onclick="event.stopPropagation(); abrirModalReasignar('{{ r.id }}'); toggleListaReasignar('{{ c }}', true);"
-                                                    class="w-full text-left px-3 py-2.5 border-b border-slate-100 last:border-b-0 hover:bg-indigo-50 transition-colors focus:outline-none">
-                                                <span class="block text-sm font-black text-emerald-600">${{ r.monto }}</span>
-                                                <span class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">{{ r.banco }} · {{ r.usuario }}</span>
-                                            </button>
-                                        {% endif %}
-                                    {% endfor %}
-                                    {% if not ns_cob.tiene %}
-                                        <p class="text-[11px] text-slate-400 italic text-center py-4 px-3">Sin códigos activos asignados.</p>
-                                    {% endif %}
-                                </div>
-                            </div>
                         </div>
                         {% endfor %}
                     </div>
@@ -513,6 +493,47 @@
         </div>
     </div>
 
+    {% for cob_dict in cobradores %}
+    {% set c = cob_dict.username %}
+    {% set nombre_mostrar = cob_dict.nombre_mostrar %}
+    <div id="modal-codigos-{{ c }}" class="modal-codigos-cobrador hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[190] flex justify-center items-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
+            <div class="p-5 border-b border-slate-200 bg-sky-50 flex justify-between items-center shrink-0">
+                <h3 class="font-black text-sky-800 text-lg uppercase tracking-widest">Códigos de {{ nombre_mostrar }}</h3>
+                <button type="button" onclick="cerrarModalCodigosCobrador('{{ c }}')" class="text-sky-400 hover:text-sky-700 focus:outline-none">
+                    <i class="fas fa-times-circle text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-3 overflow-y-auto custom-scrollbar flex-1">
+                {% set ns_cob = namespace(tiene=false) %}
+                {% for r in activos_todos %}
+                    {% if r.asignado_a == c %}
+                        {% set ns_cob.tiene = true %}
+                        <div class="bg-slate-50 border-2 border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 shadow-sm">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-2xl font-black text-emerald-600 leading-none">${{ r.monto }}</p>
+                                <p class="text-xs font-black text-slate-600 uppercase tracking-widest mt-2 truncate">{{ r.banco }}</p>
+                                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">{{ r.usuario }}</p>
+                            </div>
+                            <button type="button"
+                                    onclick="moverCodigoDesdeModal('{{ c }}', '{{ r.id }}')"
+                                    class="shrink-0 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest px-4 py-3 rounded-xl shadow-sm transition-colors focus:outline-none">
+                                ➡️ Mover a otro
+                            </button>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                {% if not ns_cob.tiene %}
+                    <div class="text-center py-10 px-4">
+                        <i class="fas fa-inbox text-3xl text-slate-300 mb-3"></i>
+                        <p class="text-sm font-bold text-slate-400 uppercase tracking-widest">No tiene códigos asignados</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
     <div id="modalReasignar" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
         <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
             <div class="p-5 border-b border-slate-200 bg-blue-50 flex justify-between items-center">
@@ -605,26 +626,21 @@
             document.getElementById('modalReasignar').classList.add('hidden');
         }
 
-        function toggleListaReasignar(cobrador, forzarCerrar) {
-            const lista = document.getElementById('lista-reasignar-' + cobrador);
-            if (!lista) return;
-
-            document.querySelectorAll('[id^="lista-reasignar-"]').forEach(el => {
-                if (el !== lista) el.classList.add('hidden');
-            });
-
-            if (forzarCerrar) {
-                lista.classList.add('hidden');
-                return;
-            }
-            lista.classList.toggle('hidden');
+        function abrirModalCodigosCobrador(cobrador) {
+            document.querySelectorAll('.modal-codigos-cobrador').forEach(el => el.classList.add('hidden'));
+            const modal = document.getElementById('modal-codigos-' + cobrador);
+            if (modal) modal.classList.remove('hidden');
         }
 
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('[id^="wrap-cob-"]') && !e.target.closest('[id^="lista-reasignar-"]')) {
-                document.querySelectorAll('[id^="lista-reasignar-"]').forEach(el => el.classList.add('hidden'));
-            }
-        });
+        function cerrarModalCodigosCobrador(cobrador) {
+            const modal = document.getElementById('modal-codigos-' + cobrador);
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function moverCodigoDesdeModal(cobrador, id) {
+            cerrarModalCodigosCobrador(cobrador);
+            abrirModalReasignar(id);
+        }
 
         async function ejecutarReasignacion(nuevoCobrador, btnElement) {
             const id = document.getElementById('reasignar_id').value;
@@ -1027,11 +1043,13 @@
             const modalPapelera = document.getElementById('modalPapelera');
             const modalRecibir = document.getElementById('modalRecibir');
             const modalReasignar = document.getElementById('modalReasignar');
+            const modalCodigosAbierto = document.querySelector('.modal-codigos-cobrador:not(.hidden)');
             
             const hasChecked = document.querySelector('.chk-asignar:checked') !== null;
             if((modalPapelera && !modalPapelera.classList.contains('hidden')) || 
                (modalRecibir && !modalRecibir.classList.contains('hidden')) ||
                (modalReasignar && !modalReasignar.classList.contains('hidden')) ||
+               modalCodigosAbierto ||
                hasChecked || cobradorParaAsignar !== null) {
                 return;
             }

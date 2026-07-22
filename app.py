@@ -2413,7 +2413,8 @@ def vista_admin(url_prefix=''):
         return redirect(login_route)
     
     regs = db_registros()
-    activos = [r for r in regs if r['estado'] == 'activo']
+    activos_todos = [r for r in regs if r['estado'] == 'activo']
+    activos = [r for r in activos_todos if not r.get('asignado_a')]
     claves_deuda_firme = obtener_claves_clientes_con_deuda_firme(regs)
     users = db_usuarios()
     
@@ -2475,7 +2476,8 @@ def vista_admin(url_prefix=''):
                         stats_cobradores[asignado]['fallidos'].append(r)
                 
     return render_template('admin.html', 
-                           activos=activos, 
+                           activos=activos,
+                           activos_todos=activos_todos,
                            cobradores=cobradores, # Ahora es una lista de diccionarios
                            stats_cobradores=stats_cobradores, 
                            mi_usuario=session['usuario'], 

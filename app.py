@@ -1444,13 +1444,9 @@ def mantenimiento_datos():
                     if asignado_a and asignado_a not in destinatarios:
                         destinatarios.append(asignado_a)
 
-                    titulo_alerta = "🚨 Código por vencer en 10 min 🚨"
-                    mensaje_alerta = (
-                        f"¡Rápido! El código de ${r.get('monto')} de {r.get('banco')} "
-                        f"del cliente {r.get('usuario')} está a punto de expirar."
-                    )
                     for destinatario in destinatarios:
-                        disparar_alerta_push(destinatario, titulo_alerta, mensaje_alerta)
+                        mensaje_tg = f"⚠️ <b>¡CÓDIGO POR EXPIRAR! (10 min)</b> ⚠️\n\n💰 <b>Monto:</b> ${r.get('monto')}\n🏦 <b>Banco:</b> {str(r.get('banco')).upper()}\n👤 <b>Cliente:</b> {r.get('usuario')}\n\n<i>¡Corran, el tiempo se agota!</i>"
+                        disparar_alerta_telegram(destinatario, mensaje_tg)
 
                 if tiempo_ahora >= r['expira_timestamp']:
                     r['estado'] = 'expirado'
@@ -2094,10 +2090,12 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
     if not es_entorno_staging():
         admin_users = [u for u, info in db_usuarios().items() if info['rol'] in ['supremo', 'recaudador', 'cobrador'] or 'procesar_retiros' in info.get('permisos', [])]
         for admin in admin_users:
-            disparar_alerta_push(admin, "¡Nuevo Retiro Cliente! 💰", f"Se han ingresado ${monto_total_str} del banco {banco}.")
+            mensaje_tg = f"🚨 <b>NUEVO CÓDIGO INGRESADO</b> 🚨\n\n💰 <b>Monto:</b> ${monto_total_str}\n🏦 <b>Banco:</b> {banco.upper()}\n👤 <b>Cliente:</b> {usuarios_juntos}\n\n<i>Revisa el panel para asignarlo.</i>"
+            disparar_alerta_telegram(admin, mensaje_tg)
 
         if asignado_a_quien:
-            disparar_alerta_push(asignado_a_quien, "¡Retiro Asignado! 🏃‍♂️", f"Te cayó un código de ${monto_total_str} ({banco}). ¡Revisa tu bandeja!")
+            mensaje_tg = f"🏃‍♂️ <b>¡NUEVO RETIRO ASIGNADO!</b> 🏃‍♂️\n\n💰 <b>Monto:</b> ${monto_total_str}\n🏦 <b>Banco:</b> {banco.upper()}\n\n⏳ <i>¡Abre tu bandeja rápido antes de que expire!</i>"
+            disparar_alerta_telegram(asignado_a_quien, mensaje_tg)
 
     return transaccion_id, None
 
@@ -2586,7 +2584,10 @@ def ejecutar_asignar(url_prefix=''):
             r['historial'].append(f"[{hora_actual}] 👤 Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
 
         if not es_entorno_staging() and not url_prefix:
-            disparar_alerta_push(trabajador, "¡Nuevo Retiro Asignado! 🏃‍♂️", "Tienes un nuevo código de retiro listo en tu bandeja.")
+            monto_total_str = r.get('monto', '')
+            banco_nombre = str(r.get('banco') or '').upper()
+            mensaje_tg = f"🏃‍♂️ <b>¡NUEVO RETIRO ASIGNADO!</b> 🏃‍♂️\n\n💰 <b>Monto:</b> ${monto_total_str}\n🏦 <b>Banco:</b> {banco_nombre}\n\n⏳ <i>¡Abre tu bandeja rápido antes de que expire!</i>"
+            disparar_alerta_telegram(trabajador, mensaje_tg)
         break
 
     if not registro_afectado:
@@ -3707,9 +3708,8 @@ def disparar_alerta_telegram(usuario_destino, mensaje):
         return
 
     token = TELEGRAM_BOT_TOKEN
-    texto = str(mensaje or '')
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": texto}
+    payload = {"chat_id": chat_id, "text": mensaje, "parse_mode": "HTML"}
 
     def enviar_en_hilo():
         try:

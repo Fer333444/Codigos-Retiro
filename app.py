@@ -5,6 +5,7 @@ import string
 import csv
 import io
 import json
+import html as html_lib
 import base64
 import time
 import threading
@@ -2088,46 +2089,49 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
     guardar_datos()
 
     if not es_entorno_staging():
-        users_db = db_usuarios()
-        admins_sistema = [
-            u for u, info in users_db.items()
-            if str(info.get('rol') or '').strip().lower() in ('supremo', 'recaudador')
-            and str(info.get('telegram_id') or '').strip()
-        ]
         mensaje_nuevo = (
             f"🚨 <b>NUEVO CÓDIGO INGRESADO</b> 🚨\n\n"
-            f"💰 <b>Monto:</b> ${monto_total_str}\n"
-            f"🏦 <b>Banco:</b> {banco.upper()}\n"
-            f"👤 <b>Cliente:</b> {usuarios_juntos}\n\n"
+            f"💰 <b>Monto:</b> ${_escapar_html_telegram(monto_total_str)}\n"
+            f"🏦 <b>Banco:</b> {_escapar_html_telegram(banco.upper())}\n"
+            f"👤 <b>Cliente:</b> {_escapar_html_telegram(usuarios_juntos)}\n\n"
             f"<i>Revisa el panel para asignarlo.</i>"
         )
-        for admin in admins_sistema:
-            disparar_alerta_telegram(admin, mensaje_nuevo)
+        try:
+            for jefe in obtener_jefes_con_telegram():
+                disparar_telegram_chat_id(jefe['telegram_id'], mensaje_nuevo, etiqueta=jefe.get('username', 'jefe'))
+        except Exception as e:
+            print(f"Error al notificar nuevo código a jefes: {e}")
 
         if asignado_a_quien:
             ahora = hora_ecuador()
+            users_db = db_usuarios()
+            nombre_trabajador_asignado = (users_db.get(asignado_a_quien) or {}).get('nombre') or asignado_a_quien
             mensaje_ticket = (
                 f"🏃 <b>¡NUEVO RETIRO ASIGNADO!</b> 🏃\n\n"
-                f"💰 <b>Monto:</b> ${monto_total_str}\n"
-                f"🏦 <b>Banco:</b> {banco.upper()}\n"
+                f"💰 <b>Monto:</b> ${_escapar_html_telegram(monto_total_str)}\n"
+                f"🏦 <b>Banco:</b> {_escapar_html_telegram(banco.upper())}\n"
                 f"📅 <b>Fecha:</b> {ahora.strftime('%d/%m/%Y')}\n"
                 f"⏰ <b>Hora:</b> {ahora.strftime('%I:%M %p')}\n\n"
                 f"⏳ <i>¡Abre tu bandeja rápido antes de que expire!</i>"
             )
             disparar_alerta_telegram(asignado_a_quien, mensaje_ticket)
 
-            nombre_trabajador = (users_db.get(asignado_a_quien) or {}).get('nombre') or asignado_a_quien
-            mensaje_auditoria = (
-                f"✅ <b>ASIGNACIÓN CONFIRMADA</b> ✅\n\n"
-                f"💰 <b>Monto:</b> ${monto_total_str}\n"
-                f"🏦 <b>Banco:</b> {banco.upper()}\n"
-                f"👤 <b>Cliente:</b> {usuarios_juntos}\n"
-                f"➡️ <b>Asignado a:</b> {str(nombre_trabajador).capitalize()}"
-            )
-            for admin in admins_sistema:
-                if admin == asignado_a_quien:
-                    continue
-                disparar_alerta_telegram(admin, mensaje_auditoria)
+            # --- INICIO DE NOTIFICACIÓN A JEFES ---
+            try:
+                mensaje_jefes = (
+                    f"✅ <b>ASIGNACIÓN CONFIRMADA</b> ✅\n\n"
+                    f"💰 <b>Monto:</b> ${_escapar_html_telegram(monto_total_str)}\n"
+                    f"🏦 <b>Banco:</b> {_escapar_html_telegram(banco.upper())}\n"
+                    f"👤 <b>Cliente:</b> {_escapar_html_telegram(usuarios_juntos)}\n"
+                    f"➡️ <b>Asignado a:</b> {_escapar_html_telegram(str(nombre_trabajador_asignado).capitalize())}"
+                )
+                for jefe in obtener_jefes_con_telegram():
+                    if jefe.get('username') == asignado_a_quien:
+                        continue
+                    disparar_telegram_chat_id(jefe['telegram_id'], mensaje_jefes, etiqueta=jefe.get('username', 'jefe'))
+            except Exception as e:
+                print(f"Error al enviar confirmación a jefes: {e}")
+            # --- FIN DE NOTIFICACIÓN A JEFES ---
 
     return transaccion_id, None
 
@@ -2616,41 +2620,47 @@ def ejecutar_asignar(url_prefix=''):
             r['historial'].append(f"[{hora_actual}] 👤 Asignado a {trabajador.capitalize()} por {session['usuario'].capitalize()}")
 
         if not es_entorno_staging() and not url_prefix:
-            monto_total_str = r.get('monto', '')
-            banco_nombre = str(r.get('banco') or '').upper()
-            cliente_nombre = r.get('usuario', '')
+            monto_retiro = r.get('monto', '')
+            banco_retiro = str(r.get('banco') or '').upper()
+            cliente_retiro = r.get('usuario', '')
             ahora = hora_ecuador()
             users_db = db_usuarios()
+            nombre_trabajador_asignado = (users_db.get(trabajador) or {}).get('nombre') or trabajador
 
-            # 1) Ticket exclusivo para el trabajador asignado
+            # Paso 1: Ticket exclusivo para el trabajador asignado
             mensaje_ticket = (
                 f"🏃 <b>¡NUEVO RETIRO ASIGNADO!</b> 🏃\n\n"
-                f"💰 <b>Monto:</b> ${monto_total_str}\n"
-                f"🏦 <b>Banco:</b> {banco_nombre}\n"
+                f"💰 <b>Monto:</b> ${_escapar_html_telegram(monto_retiro)}\n"
+                f"🏦 <b>Banco:</b> {_escapar_html_telegram(banco_retiro)}\n"
                 f"📅 <b>Fecha:</b> {ahora.strftime('%d/%m/%Y')}\n"
                 f"⏰ <b>Hora:</b> {ahora.strftime('%I:%M %p')}\n\n"
                 f"⏳ <i>¡Abre tu bandeja rápido antes de que expire!</i>"
             )
             disparar_alerta_telegram(trabajador, mensaje_ticket)
 
-            # 2) Auditoría independiente para jefes (Supremo / Recaudador)
-            nombre_trabajador = (users_db.get(trabajador) or {}).get('nombre') or trabajador
-            mensaje_auditoria = (
-                f"✅ <b>ASIGNACIÓN CONFIRMADA</b> ✅\n\n"
-                f"💰 <b>Monto:</b> ${monto_total_str}\n"
-                f"🏦 <b>Banco:</b> {banco_nombre}\n"
-                f"👤 <b>Cliente:</b> {cliente_nombre}\n"
-                f"➡️ <b>Asignado a:</b> {str(nombre_trabajador).capitalize()}"
-            )
-            for admin, info in users_db.items():
-                rol_admin = str(info.get('rol') or '').strip().lower()
-                if rol_admin not in ('supremo', 'recaudador'):
-                    continue
-                if not str(info.get('telegram_id') or '').strip():
-                    continue
-                if admin == trabajador:
-                    continue
-                disparar_alerta_telegram(admin, mensaje_auditoria)
+            # --- INICIO DE NOTIFICACIÓN A JEFES ---
+            try:
+                jefes = obtener_jefes_con_telegram()
+                mensaje_jefes = (
+                    f"✅ <b>ASIGNACIÓN CONFIRMADA</b> ✅\n\n"
+                    f"💰 <b>Monto:</b> ${_escapar_html_telegram(monto_retiro)}\n"
+                    f"🏦 <b>Banco:</b> {_escapar_html_telegram(banco_retiro)}\n"
+                    f"👤 <b>Cliente:</b> {_escapar_html_telegram(cliente_retiro)}\n"
+                    f"➡️ <b>Asignado a:</b> {_escapar_html_telegram(str(nombre_trabajador_asignado).capitalize())}"
+                )
+                print(f"📢 Enviando ASIGNACIÓN CONFIRMADA a {len(jefes)} jefe(s)...")
+                for jefe in jefes:
+                    if jefe.get('username') == trabajador:
+                        continue
+                    disparar_telegram_chat_id(
+                        jefe['telegram_id'],
+                        mensaje_jefes,
+                        etiqueta=jefe.get('username', 'jefe'),
+                    )
+            except Exception as e:
+                print(f"Error al enviar confirmación a jefes: {e}")
+                traceback.print_exc()
+            # --- FIN DE NOTIFICACIÓN A JEFES ---
         break
 
     if not registro_afectado:
@@ -3788,13 +3798,56 @@ def disparar_webhook_socio(cliente, estado, monto, referencia_externa=None, es_p
     threading.Thread(target=enviar_en_hilo, daemon=True).start()
     return True
 
-def disparar_alerta_telegram(usuario_destino, mensaje):
-    """Envía alerta nativa por Telegram en un hilo aparte (no bloquea Flask)."""
+def _escapar_html_telegram(texto):
+    return html_lib.escape(str(texto if texto is not None else ''), quote=False)
+
+def obtener_jefes_con_telegram():
+    """Supremo/Recaudador con telegram_id válido (consulta fresca a DB si hay Postgres)."""
+    roles_ok = {'supremo', 'recaudador'}
+    jefes = []
+
+    if SessionLocal:
+        session_db = SessionLocal()
+        try:
+            filas = session_db.query(DBUsuario).filter(
+                DBUsuario.telegram_id.isnot(None),
+                DBUsuario.telegram_id != '',
+            ).all()
+            for u in filas:
+                if str(u.rol or '').strip().lower() not in roles_ok:
+                    continue
+                tid = str(u.telegram_id or '').strip()
+                if not tid:
+                    continue
+                jefes.append({
+                    'username': u.username,
+                    'telegram_id': tid,
+                    'nombre': u.nombre or u.username,
+                    'rol': u.rol,
+                })
+        finally:
+            session_db.close()
+    else:
+        for username, info in (db_usuarios() or {}).items():
+            if str(info.get('rol') or '').strip().lower() not in roles_ok:
+                continue
+            tid = str(info.get('telegram_id') or '').strip()
+            if not tid:
+                continue
+            jefes.append({
+                'username': username,
+                'telegram_id': tid,
+                'nombre': info.get('nombre') or username,
+                'rol': info.get('rol'),
+            })
+
+    return jefes
+
+def disparar_telegram_chat_id(chat_id, mensaje, etiqueta='directo'):
+    """Envía por chat_id sin depender del lookup por username."""
     if not TELEGRAM_BOT_TOKEN:
         return
-
-    info = db_usuarios().get(usuario_destino) or {}
-    chat_id = str(info.get('telegram_id') or '').strip()
+    chat_id = str(chat_id or '').strip()
     if not chat_id:
         return
 
@@ -3805,11 +3858,24 @@ def disparar_alerta_telegram(usuario_destino, mensaje):
     def enviar_en_hilo():
         try:
             response = requests.post(url, json=payload, timeout=10)
-            print(f"✅ Telegram → {usuario_destino} ({chat_id}): HTTP {response.status_code}")
+            print(f"✅ Telegram → {etiqueta} ({chat_id}): HTTP {response.status_code} | {response.text[:180]}")
         except Exception as ex:
-            print(f"❌ Error Telegram → {usuario_destino}:", repr(ex))
+            print(f"❌ Error Telegram → {etiqueta}:", repr(ex))
 
     threading.Thread(target=enviar_en_hilo, daemon=True).start()
+
+def disparar_alerta_telegram(usuario_destino, mensaje):
+    """Envía alerta nativa por Telegram en un hilo aparte (no bloquea Flask)."""
+    if not TELEGRAM_BOT_TOKEN:
+        return
+
+    info = db_usuarios().get(usuario_destino) or {}
+    chat_id = str(info.get('telegram_id') or '').strip()
+    if not chat_id:
+        print(f"⚠️ Telegram omitido: {usuario_destino} no tiene telegram_id")
+        return
+
+    disparar_telegram_chat_id(chat_id, mensaje, etiqueta=usuario_destino)
 
 def disparar_alerta_push(usuario_destino, titulo, mensaje):
     """Dispara la notificación push en un hilo secundario para no bloquear Flask."""

@@ -2586,8 +2586,25 @@ def ejecutar_asignar(url_prefix=''):
         if not es_entorno_staging() and not url_prefix:
             monto_total_str = r.get('monto', '')
             banco_nombre = str(r.get('banco') or '').upper()
+            cliente_nombre = r.get('usuario', '')
             mensaje_tg = f"🏃‍♂️ <b>¡NUEVO RETIRO ASIGNADO!</b> 🏃‍♂️\n\n💰 <b>Monto:</b> ${monto_total_str}\n🏦 <b>Banco:</b> {banco_nombre}\n\n⏳ <i>¡Abre tu bandeja rápido antes de que expire!</i>"
             disparar_alerta_telegram(trabajador, mensaje_tg)
+
+            users_db = db_usuarios()
+            nombre_trabajador = (users_db.get(trabajador) or {}).get('nombre') or trabajador
+            mensaje_auditoria = (
+                f"✅ <b>ASIGNACIÓN CONFIRMADA</b> ✅\n\n"
+                f"💰 <b>Monto:</b> ${monto_total_str}\n"
+                f"🏦 <b>Banco:</b> {banco_nombre}\n"
+                f"👤 <b>Cliente:</b> {cliente_nombre}\n"
+                f"➡️ <b>Asignado a:</b> {str(nombre_trabajador).capitalize()}"
+            )
+            admins_auditoria = [
+                u for u, info in users_db.items()
+                if info.get('rol') in ['supremo', 'recaudador'] and str(info.get('telegram_id') or '').strip()
+            ]
+            for admin in admins_auditoria:
+                disparar_alerta_telegram(admin, mensaje_auditoria)
         break
 
     if not registro_afectado:

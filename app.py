@@ -2088,14 +2088,45 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
     guardar_datos()
 
     if not es_entorno_staging():
-        admin_users = [u for u, info in db_usuarios().items() if info['rol'] in ['supremo', 'recaudador', 'cobrador'] or 'procesar_retiros' in info.get('permisos', [])]
-        for admin in admin_users:
-            mensaje_tg = f"🚨 <b>NUEVO CÓDIGO INGRESADO</b> 🚨\n\n💰 <b>Monto:</b> ${monto_total_str}\n🏦 <b>Banco:</b> {banco.upper()}\n👤 <b>Cliente:</b> {usuarios_juntos}\n\n<i>Revisa el panel para asignarlo.</i>"
-            disparar_alerta_telegram(admin, mensaje_tg)
+        users_db = db_usuarios()
+        admins_sistema = [
+            u for u, info in users_db.items()
+            if info.get('rol') in ['supremo', 'recaudador'] and str(info.get('telegram_id') or '').strip()
+        ]
+        mensaje_nuevo = (
+            f"🚨 <b>NUEVO CÓDIGO INGRESADO</b> 🚨\n\n"
+            f"💰 <b>Monto:</b> ${monto_total_str}\n"
+            f"🏦 <b>Banco:</b> {banco.upper()}\n"
+            f"👤 <b>Cliente:</b> {usuarios_juntos}\n\n"
+            f"<i>Revisa el panel para asignarlo.</i>"
+        )
+        for admin in admins_sistema:
+            disparar_alerta_telegram(admin, mensaje_nuevo)
 
         if asignado_a_quien:
-            mensaje_tg = f"🏃‍♂️ <b>¡NUEVO RETIRO ASIGNADO!</b> 🏃‍♂️\n\n💰 <b>Monto:</b> ${monto_total_str}\n🏦 <b>Banco:</b> {banco.upper()}\n\n⏳ <i>¡Abre tu bandeja rápido antes de que expire!</i>"
-            disparar_alerta_telegram(asignado_a_quien, mensaje_tg)
+            ahora = hora_ecuador()
+            mensaje_ticket = (
+                f"🏃 <b>¡NUEVO RETIRO ASIGNADO!</b> 🏃\n\n"
+                f"💰 <b>Monto:</b> ${monto_total_str}\n"
+                f"🏦 <b>Banco:</b> {banco.upper()}\n"
+                f"📅 <b>Fecha:</b> {ahora.strftime('%d/%m/%Y')}\n"
+                f"⏰ <b>Hora:</b> {ahora.strftime('%I:%M %p')}\n\n"
+                f"⏳ <i>¡Abre tu bandeja rápido antes de que expire!</i>"
+            )
+            disparar_alerta_telegram(asignado_a_quien, mensaje_ticket)
+
+            nombre_trabajador = (users_db.get(asignado_a_quien) or {}).get('nombre') or asignado_a_quien
+            mensaje_auditoria = (
+                f"✅ <b>ASIGNACIÓN CONFIRMADA</b> ✅\n\n"
+                f"💰 <b>Monto:</b> ${monto_total_str}\n"
+                f"🏦 <b>Banco:</b> {banco.upper()}\n"
+                f"👤 <b>Cliente:</b> {usuarios_juntos}\n"
+                f"➡️ <b>Asignado a:</b> {str(nombre_trabajador).capitalize()}"
+            )
+            for admin in admins_sistema:
+                if admin == asignado_a_quien:
+                    continue
+                disparar_alerta_telegram(admin, mensaje_auditoria)
 
     return transaccion_id, None
 
@@ -2587,9 +2618,20 @@ def ejecutar_asignar(url_prefix=''):
             monto_total_str = r.get('monto', '')
             banco_nombre = str(r.get('banco') or '').upper()
             cliente_nombre = r.get('usuario', '')
-            mensaje_tg = f"🏃‍♂️ <b>¡NUEVO RETIRO ASIGNADO!</b> 🏃‍♂️\n\n💰 <b>Monto:</b> ${monto_total_str}\n🏦 <b>Banco:</b> {banco_nombre}\n\n⏳ <i>¡Abre tu bandeja rápido antes de que expire!</i>"
-            disparar_alerta_telegram(trabajador, mensaje_tg)
+            ahora = hora_ecuador()
 
+            # Ticket exclusivo para el trabajador asignado (cobrador)
+            mensaje_ticket = (
+                f"🏃 <b>¡NUEVO RETIRO ASIGNADO!</b> 🏃\n\n"
+                f"💰 <b>Monto:</b> ${monto_total_str}\n"
+                f"🏦 <b>Banco:</b> {banco_nombre}\n"
+                f"📅 <b>Fecha:</b> {ahora.strftime('%d/%m/%Y')}\n"
+                f"⏰ <b>Hora:</b> {ahora.strftime('%I:%M %p')}\n\n"
+                f"⏳ <i>¡Abre tu bandeja rápido antes de que expire!</i>"
+            )
+            disparar_alerta_telegram(trabajador, mensaje_ticket)
+
+            # Auditoría solo para Supremo / Recaudador (nunca al cobrador asignado)
             users_db = db_usuarios()
             nombre_trabajador = (users_db.get(trabajador) or {}).get('nombre') or trabajador
             mensaje_auditoria = (
@@ -2601,7 +2643,9 @@ def ejecutar_asignar(url_prefix=''):
             )
             admins_auditoria = [
                 u for u, info in users_db.items()
-                if info.get('rol') in ['supremo', 'recaudador'] and str(info.get('telegram_id') or '').strip()
+                if info.get('rol') in ['supremo', 'recaudador']
+                and str(info.get('telegram_id') or '').strip()
+                and u != trabajador
             ]
             for admin in admins_auditoria:
                 disparar_alerta_telegram(admin, mensaje_auditoria)

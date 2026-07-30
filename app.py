@@ -2091,7 +2091,8 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
         users_db = db_usuarios()
         admins_sistema = [
             u for u, info in users_db.items()
-            if info.get('rol') in ['supremo', 'recaudador'] and str(info.get('telegram_id') or '').strip()
+            if str(info.get('rol') or '').strip().lower() in ('supremo', 'recaudador')
+            and str(info.get('telegram_id') or '').strip()
         ]
         mensaje_nuevo = (
             f"🚨 <b>NUEVO CÓDIGO INGRESADO</b> 🚨\n\n"
@@ -2619,8 +2620,9 @@ def ejecutar_asignar(url_prefix=''):
             banco_nombre = str(r.get('banco') or '').upper()
             cliente_nombre = r.get('usuario', '')
             ahora = hora_ecuador()
+            users_db = db_usuarios()
 
-            # Ticket exclusivo para el trabajador asignado (cobrador)
+            # 1) Ticket exclusivo para el trabajador asignado
             mensaje_ticket = (
                 f"🏃 <b>¡NUEVO RETIRO ASIGNADO!</b> 🏃\n\n"
                 f"💰 <b>Monto:</b> ${monto_total_str}\n"
@@ -2631,8 +2633,7 @@ def ejecutar_asignar(url_prefix=''):
             )
             disparar_alerta_telegram(trabajador, mensaje_ticket)
 
-            # Auditoría solo para Supremo / Recaudador (nunca al cobrador asignado)
-            users_db = db_usuarios()
+            # 2) Auditoría independiente para jefes (Supremo / Recaudador)
             nombre_trabajador = (users_db.get(trabajador) or {}).get('nombre') or trabajador
             mensaje_auditoria = (
                 f"✅ <b>ASIGNACIÓN CONFIRMADA</b> ✅\n\n"
@@ -2641,13 +2642,14 @@ def ejecutar_asignar(url_prefix=''):
                 f"👤 <b>Cliente:</b> {cliente_nombre}\n"
                 f"➡️ <b>Asignado a:</b> {str(nombre_trabajador).capitalize()}"
             )
-            admins_auditoria = [
-                u for u, info in users_db.items()
-                if info.get('rol') in ['supremo', 'recaudador']
-                and str(info.get('telegram_id') or '').strip()
-                and u != trabajador
-            ]
-            for admin in admins_auditoria:
+            for admin, info in users_db.items():
+                rol_admin = str(info.get('rol') or '').strip().lower()
+                if rol_admin not in ('supremo', 'recaudador'):
+                    continue
+                if not str(info.get('telegram_id') or '').strip():
+                    continue
+                if admin == trabajador:
+                    continue
                 disparar_alerta_telegram(admin, mensaje_auditoria)
         break
 
@@ -2845,6 +2847,34 @@ def ejecutar_marcar_fallido(registro_id=None, motivo=None):
             disparar_webhook_fercho(registro_afectado, estado_fercho, request.host_url)
         else:
             notificar_webhook_socio_desde_registro(registro_afectado, 'fallido', referencia_externa=referencia_externa)
+
+        # Auditoría Telegram: solo Supremo / Recaudador
+        if not es_entorno_staging():
+            ahora = hora_ecuador()
+            dias_semana = {
+                0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves',
+                4: 'Viernes', 5: 'Sábado', 6: 'Domingo',
+            }
+            dia_nombre = dias_semana.get(ahora.weekday(), '')
+            cobrador_sesion = session.get('usuario', 'Desconocido')
+            users_db = db_usuarios()
+            nombre_cobrador = (users_db.get(cobrador_sesion) or {}).get('nombre') or cobrador_sesion
+
+            mensaje_tg = (
+                f"❌ <b>¡ALERTA: CÓDIGO NO RETIRADO!</b> ❌\n\n"
+                f"💰 <b>Monto:</b> ${registro_afectado.get('monto', '')}\n"
+                f"🏦 <b>Banco:</b> {str(registro_afectado.get('banco') or '').upper()}\n"
+                f"👤 <b>Cliente:</b> {registro_afectado.get('usuario', '')}\n"
+                f"🛑 <b>Reportado por (Cobrador):</b> {str(nombre_cobrador).capitalize()}\n"
+                f"📅 <b>Día y Fecha:</b> {dia_nombre}, {ahora.strftime('%d/%m/%Y')}\n"
+                f"⏰ <b>Hora:</b> {ahora.strftime('%I:%M %p')}"
+            )
+            admins_auditoria = [
+                u for u, info in users_db.items()
+                if info.get('rol') in ['supremo', 'recaudador'] and str(info.get('telegram_id') or '').strip()
+            ]
+            for admin in admins_auditoria:
+                disparar_alerta_telegram(admin, mensaje_tg)
 
     return redirect(request.referrer)
 

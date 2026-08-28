@@ -1309,5 +1309,46 @@
         if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
         if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
     </script>
+
+    {% if rol in ['supremo', 'reportes'] and (cantidad_caidos + cantidad_expirados + cantidad_por_cruzar) > 0 %}
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (sessionStorage.getItem('alerta_gestion_pendiente_vista') === '1') return;
+            sessionStorage.setItem('alerta_gestion_pendiente_vista', '1');
+
+            const urlHistorial = '{{ (url_prefix ~ "/reportes?vista=historial") if url_prefix else url_for("vista_reportes", vista="historial") }}';
+
+            Swal.fire({
+                icon: 'warning',
+                title: '⚠️ Resumen de Pendientes ⚠️',
+                html: `
+                    <div class="text-left text-sm space-y-3 mt-2 font-bold text-slate-700">
+                        <p class="flex items-center gap-2"><span>🔴</span> <span><b>{{ cantidad_caidos }}</b> Código(s) No Salieron / Caídos</span></p>
+                        <p class="flex items-center gap-2"><span>⏱️</span> <span><b>{{ cantidad_expirados }}</b> Código(s) Expirados</span></p>
+                        <p class="flex items-center gap-2"><span>🔄</span> <span><b>{{ cantidad_por_cruzar }}</b> Código(s) por Cruzar Manualmente</span></p>
+                        <p class="text-xs font-medium text-slate-500 pt-2 border-t border-slate-200 italic">Por favor, revisa el Historial y Deudas para mantener el sistema al día.</p>
+                    </div>
+                `,
+                confirmButtonText: '<i class="fas fa-history mr-1"></i> Ir a Historial',
+                showCancelButton: true,
+                cancelButtonText: 'Entendido',
+                confirmButtonColor: '#4f46e5',
+                cancelButtonColor: '#64748b',
+                allowOutsideClick: true,
+                customClass: {
+                    popup: 'rounded-2xl',
+                    title: 'text-lg font-black',
+                    confirmButton: 'font-black uppercase tracking-wider text-xs px-5 py-3',
+                    cancelButton: 'font-black uppercase tracking-wider text-xs px-5 py-3'
+                }
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    window.location.href = urlHistorial;
+                }
+            });
+        });
+    </script>
+    {% endif %}
 </body>
 </html>

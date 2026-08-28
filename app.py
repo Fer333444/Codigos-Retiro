@@ -1163,6 +1163,25 @@ ESTADOS_DEUDA_HISTORIAL = ('expirado', 'fallido', 'saldado', 'fallido_revision',
 def es_deuda_cruzable(estado):
     return estado in ('fallido', 'expirado', 'fallido_revision', ESTADO_PENDIENTE_CRUCE)
 
+def contar_pendientes_gestion(regs, url_prefix=''):
+    """Contadores para alerta de gestión (Supremo / Reportes)."""
+    cantidad_caidos = 0
+    cantidad_expirados = 0
+    cantidad_por_cruzar = 0
+
+    for r in regs:
+        if not url_prefix and r.get('es_prueba', False):
+            continue
+        estado = r.get('estado')
+        if estado in ('fallido', 'fallido_revision'):
+            cantidad_caidos += 1
+        elif estado == 'expirado':
+            cantidad_expirados += 1
+        elif estado == ESTADO_PENDIENTE_CRUCE:
+            cantidad_por_cruzar += 1
+
+    return cantidad_caidos, cantidad_expirados, cantidad_por_cruzar
+
 def ocultar_deudas_previas_tras_retiro_exitoso(regs, registro_retirado, hora_actual):
     """
     Si el mismo cliente y cobrador ya tenían un código caído, lo oculta de la tarjeta
@@ -2547,19 +2566,29 @@ def vista_admin(url_prefix=''):
                         stats_cobradores[asignado]['fallidos'].append(r)
                     elif r['estado'] == 'expirado' and r['fecha'].startswith(hoy_ecuador):
                         stats_cobradores[asignado]['fallidos'].append(r)
-                
+
+    cantidad_caidos = 0
+    cantidad_expirados = 0
+    cantidad_por_cruzar = 0
+    rol_sesion = session.get('rol')
+    if rol_sesion in ['supremo', 'reportes']:
+        cantidad_caidos, cantidad_expirados, cantidad_por_cruzar = contar_pendientes_gestion(regs, url_prefix)
+
     return render_template('admin.html', 
                            activos=activos,
                            activos_todos=activos_todos,
                            cobradores=cobradores, # Ahora es una lista de diccionarios
                            stats_cobradores=stats_cobradores, 
                            mi_usuario=session['usuario'], 
-                           rol=session.get('rol'),
+                           rol=rol_sesion,
                            auto_asignar=sistema_config['auto_asignar'],
                            usuarios_db=users,
                            claves_deuda_firme=claves_deuda_firme,
                            url_prefix=url_prefix,
-                           entorno_staging=bool(url_prefix))
+                           entorno_staging=bool(url_prefix),
+                           cantidad_caidos=cantidad_caidos,
+                           cantidad_expirados=cantidad_expirados,
+                           cantidad_por_cruzar=cantidad_por_cruzar)
 
 @app.route('/toggle_auto', methods=['POST'])
 def toggle_auto():

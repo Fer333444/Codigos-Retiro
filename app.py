@@ -1159,15 +1159,35 @@ ESTADOS_DEUDA_CERRABLE_ERP = ['fallido', 'expirado', 'fallido_revision', 'pendie
 ESTADOS_CAIDOS_TARJETA = ('fallido', 'fallido_revision', 'expirado')
 ESTADO_PENDIENTE_CRUCE = 'pendiente_de_cruce'
 ESTADOS_DEUDA_HISTORIAL = ('expirado', 'fallido', 'saldado', 'fallido_revision', 'fusionado', 'pendiente_de_cruce')
+ESTADOS_DEUDA_ACTIVA_HISTORIAL = ('fallido', 'fallido_revision', 'expirado', ESTADO_PENDIENTE_CRUCE)
+
+def total_deuda_activa_usuario(registros_usuario):
+    total = 0.0
+    for r in registros_usuario:
+        if r.get('estado') in ESTADOS_DEUDA_ACTIVA_HISTORIAL:
+            try:
+                total += float(r.get('monto', 0) or 0)
+            except (TypeError, ValueError):
+                pass
+    return total
+
+def ordenar_deudas_agrupadas_por_prioridad(deudas_agrupadas):
+    """Deudores activos primero (mayor monto arriba); luego usuarios sin deuda firme."""
+    def clave_orden(item):
+        usuario, registros = item
+        total_activa = total_deuda_activa_usuario(registros)
+        tiene_activa = any(r.get('estado') in ESTADOS_DEUDA_ACTIVA_HISTORIAL for r in registros)
+        return (0 if tiene_activa else 1, -total_activa, str(usuario).lower())
+
+    return dict(sorted(deudas_agrupadas.items(), key=clave_orden))
 
 def es_deuda_cruzable(estado):
     return estado in ('fallido', 'expirado', 'fallido_revision', ESTADO_PENDIENTE_CRUCE)
 
 def contar_pendientes_gestion(regs, url_prefix=''):
-    """Contadores para alerta de gestión (Supremo / Reportes)."""
+    """Contadores para alerta de gestión (Supremo / Reportes): caídos y expirados."""
     cantidad_caidos = 0
     cantidad_expirados = 0
-    cantidad_por_cruzar = 0
 
     for r in regs:
         if not url_prefix and r.get('es_prueba', False):
@@ -1177,10 +1197,8 @@ def contar_pendientes_gestion(regs, url_prefix=''):
             cantidad_caidos += 1
         elif estado == 'expirado':
             cantidad_expirados += 1
-        elif estado == ESTADO_PENDIENTE_CRUCE:
-            cantidad_por_cruzar += 1
 
-    return cantidad_caidos, cantidad_expirados, cantidad_por_cruzar
+    return cantidad_caidos, cantidad_expirados
 
 def ocultar_deudas_previas_tras_retiro_exitoso(regs, registro_retirado, hora_actual):
     """
@@ -2569,10 +2587,9 @@ def vista_admin(url_prefix=''):
 
     cantidad_caidos = 0
     cantidad_expirados = 0
-    cantidad_por_cruzar = 0
     rol_sesion = session.get('rol')
     if rol_sesion in ['supremo', 'reportes']:
-        cantidad_caidos, cantidad_expirados, cantidad_por_cruzar = contar_pendientes_gestion(regs, url_prefix)
+        cantidad_caidos, cantidad_expirados = contar_pendientes_gestion(regs, url_prefix)
 
     return render_template('admin.html', 
                            activos=activos,
@@ -2587,8 +2604,7 @@ def vista_admin(url_prefix=''):
                            url_prefix=url_prefix,
                            entorno_staging=bool(url_prefix),
                            cantidad_caidos=cantidad_caidos,
-                           cantidad_expirados=cantidad_expirados,
-                           cantidad_por_cruzar=cantidad_por_cruzar)
+                           cantidad_expirados=cantidad_expirados)
 
 @app.route('/toggle_auto', methods=['POST'])
 def toggle_auto():
@@ -3517,6 +3533,9 @@ def vista_reportes(url_prefix=''):
         user = r['usuario']
         if user not in deudas_agrupadas: deudas_agrupadas[user] = []
         deudas_agrupadas[user].append(r)
+
+    if vista == 'historial':
+        deudas_agrupadas = ordenar_deudas_agrupadas_por_prioridad(deudas_agrupadas)
         
     cobradores_activos = [u for u, info in users.items() if info['rol'] == 'cobrador' or 'procesar_retiros' in info.get('permisos', [])]
     cobradores_mostrar = [filtro_cobrador] if filtro_cobrador in cobradores_activos else cobradores_activos

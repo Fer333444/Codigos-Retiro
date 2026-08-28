@@ -1310,12 +1310,13 @@
         if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
     </script>
 
-    {% if rol in ['supremo', 'reportes'] and (cantidad_caidos + cantidad_expirados + cantidad_por_cruzar) > 0 %}
+    {% if rol in ['supremo', 'reportes'] and (cantidad_caidos + cantidad_expirados) > 0 %}
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            if (sessionStorage.getItem('alerta_gestion_pendiente_vista') === '1') return;
-            sessionStorage.setItem('alerta_gestion_pendiente_vista', '1');
+            const hoy = new Date().toLocaleDateString();
+            if (localStorage.getItem('alerta_pendientes_fecha') === hoy) return;
+            localStorage.setItem('alerta_pendientes_fecha', hoy);
 
             const urlHistorial = '{{ (url_prefix ~ "/reportes?vista=historial") if url_prefix else url_for("vista_reportes", vista="historial") }}';
 
@@ -1326,7 +1327,6 @@
                     <div class="text-left text-sm space-y-3 mt-2 font-bold text-slate-700">
                         <p class="flex items-center gap-2"><span>🔴</span> <span><b>{{ cantidad_caidos }}</b> Código(s) No Salieron / Caídos</span></p>
                         <p class="flex items-center gap-2"><span>⏱️</span> <span><b>{{ cantidad_expirados }}</b> Código(s) Expirados</span></p>
-                        <p class="flex items-center gap-2"><span>🔄</span> <span><b>{{ cantidad_por_cruzar }}</b> Código(s) por Cruzar Manualmente</span></p>
                         <p class="text-xs font-medium text-slate-500 pt-2 border-t border-slate-200 italic">Por favor, revisa el Historial y Deudas para mantener el sistema al día.</p>
                     </div>
                 `,

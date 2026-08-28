@@ -105,7 +105,7 @@ def obtener_claves_clientes_con_deuda_firme(regs):
     """Clientes con deuda firme activa (fallido o expirado). Solo informativo."""
     claves = set()
     for r in regs:
-        if r.get('estado') in ('fallido', 'expirado'):
+        if r.get('estado') in ('fallido', 'expirado', ESTADO_PENDIENTE_CRUCE):
             clave = normalizar_clave_cliente(r.get('usuario', ''))
             if clave:
                 claves.add(clave)
@@ -1155,7 +1155,47 @@ def esta_expirado(hora_limite_str, fecha_creacion_str):
     except Exception as e:
         return False
 
-ESTADOS_DEUDA_CERRABLE_ERP = ['fallido', 'expirado', 'fallido_revision']
+ESTADOS_DEUDA_CERRABLE_ERP = ['fallido', 'expirado', 'fallido_revision', 'pendiente_de_cruce']
+ESTADOS_CAIDOS_TARJETA = ('fallido', 'fallido_revision', 'expirado')
+ESTADO_PENDIENTE_CRUCE = 'pendiente_de_cruce'
+ESTADOS_DEUDA_HISTORIAL = ('expirado', 'fallido', 'saldado', 'fallido_revision', 'fusionado', 'pendiente_de_cruce')
+
+def es_deuda_cruzable(estado):
+    return estado in ('fallido', 'expirado', 'fallido_revision', ESTADO_PENDIENTE_CRUCE)
+
+def ocultar_deudas_previas_tras_retiro_exitoso(regs, registro_retirado, hora_actual):
+    """
+    Si el mismo cliente y cobrador ya tenían un código caído, lo oculta de la tarjeta
+    del panel pero lo conserva en BD como 'pendiente_de_cruce' para cruce manual.
+    """
+    clave_cliente = normalizar_clave_cliente(registro_retirado.get('usuario', ''))
+    cobrador = registro_retirado.get('asignado_a')
+    id_retirado = registro_retirado.get('id')
+    if not clave_cliente or not cobrador or id_retirado is None:
+        return 0
+
+    ocultados = 0
+    for r in regs:
+        if r.get('id') == id_retirado:
+            continue
+        if r.get('asignado_a') != cobrador:
+            continue
+        if normalizar_clave_cliente(r.get('usuario', '')) != clave_cliente:
+            continue
+        if r.get('estado') not in ESTADOS_CAIDOS_TARJETA:
+            continue
+        if r.get('id') is not None and id_retirado is not None and r.get('id') >= id_retirado:
+            continue
+
+        estado_anterior = r.get('estado')
+        r['estado'] = ESTADO_PENDIENTE_CRUCE
+        r.setdefault('historial', []).append(
+            f"[{hora_actual}] 👁️ Oculto de tarjeta — Retiro exitoso #{id_retirado} del mismo cliente. "
+            f"Estado anterior: {estado_anterior}. Pendiente de cruce manual."
+        )
+        ocultados += 1
+
+    return ocultados
 
 def normalizar_referencia_venta(val):
     if val is None:
@@ -2502,9 +2542,8 @@ def vista_admin(url_prefix=''):
                                 stats_cobradores[asignado]['total_dia'] += monto
                         except: pass
                         
-                    # Mostrar las deudas SIEMPRE hasta que se salden. 
-                    # Los expirados los dejamos solo por hoy para que no se acumule basura.
-                    elif r['estado'] in ['fallido', 'fallido_revision']:
+                    # Deudas visibles en tarjeta (excluye pendiente_de_cruce)
+                    elif r['estado'] in ('fallido', 'fallido_revision'):
                         stats_cobradores[asignado]['fallidos'].append(r)
                     elif r['estado'] == 'expirado' and r['fecha'].startswith(hoy_ecuador):
                         stats_cobradores[asignado]['fallidos'].append(r)
@@ -2764,6 +2803,7 @@ def ejecutar_marcar_retirado(registro_id=None, banco_real=None):
             r['minutos_demora'] = _calcular_minutos_demora_registro(r)
 
             r['historial'].append(f"[{hora_actual}] ✅ Retirado en {banco_real.upper()} por {session['usuario'].capitalize()}")
+            ocultar_deudas_previas_tras_retiro_exitoso(regs, r, hora_actual)
             registro_afectado = r
             break
 
@@ -2831,7 +2871,7 @@ def ejecutar_marcar_fallido(registro_id=None, motivo=None):
                 reg for reg in regs
                 if reg['usuario'] == usuario_afectado
                 and reg['id'] != registro_id
-                and reg['estado'] in ['fallido', 'expirado', 'fallido_revision']
+                and reg['estado'] in list(ESTADOS_CAIDOS_TARJETA) + [ESTADO_PENDIENTE_CRUCE]
             )
 
             if tiene_deuda_previa:
@@ -2934,7 +2974,7 @@ def pago_alternativo():
 
     deuda_record = next((r for r in registros if r['id'] == id_deuda), None)
     
-    if deuda_record and deuda_record['estado'] in ['fallido', 'expirado', 'fallido_revision']:
+    if deuda_record and es_deuda_cruzable(deuda_record['estado']):
         monto_actual = float(deuda_record['monto'])
         
         imagenes = request.files.getlist('comprobante_pago')
@@ -3006,7 +3046,7 @@ def saldar_deuda():
         usuario_deudor = str(id_deuda_raw).split('total_')[1]
         
         # CANDADO 1: Solo tomamos deudas donde el id_pago sea MAYOR (posterior) al id de la deuda
-        deudas_usuario = [r for r in registros if r['usuario'] == usuario_deudor and r['estado'] in ['fallido', 'expirado'] and r['id'] < id_pago]
+        deudas_usuario = [r for r in registros if r['usuario'] == usuario_deudor and es_deuda_cruzable(r['estado']) and r['id'] < id_pago]
         
         if not deudas_usuario:
             flash("No hay deudas válidas anteriores a este pago para cruzar.", "error")
@@ -3260,7 +3300,7 @@ def marcar_recibido():
     count_liquidados = 0
     
     # Filtramos los registros del cobrador que están listos para liquidar y no han sido liquidados
-    registros_a_liquidar = [r for r in registros if r.get('asignado_a') == cobrador and not r.get('liquidado', False) and r['estado'] in ['retirado', 'fallido', 'fallido_revision', 'fusionado', 'saldado']]
+    registros_a_liquidar = [r for r in registros if r.get('asignado_a') == cobrador and not r.get('liquidado', False) and r['estado'] in ['retirado', 'fallido', 'fallido_revision', 'fusionado', 'saldado', ESTADO_PENDIENTE_CRUCE]]
     
     for r in registros_a_liquidar:
         # Solo los 'retirado' suman dinero real que el cobrador tiene en mano y debe entregar
@@ -3441,7 +3481,7 @@ def vista_reportes(url_prefix=''):
 
     # APLICANDO FILTROS COMPLETOS A LAS TABLAS
     exitosos = [r for r in regs if r['estado'] == 'retirado' and pasa_filtros_basicos(r)]
-    no_exitosos_raw = [r for r in regs if r['estado'] in ['expirado', 'fallido', 'saldado', 'fallido_revision', 'fusionado'] and pasa_filtros_basicos(r)]
+    no_exitosos_raw = [r for r in regs if r['estado'] in ESTADOS_DEUDA_HISTORIAL and pasa_filtros_basicos(r)]
     
     deudas_agrupadas = {}
     for r in no_exitosos_raw:
@@ -3469,7 +3509,7 @@ def vista_reportes(url_prefix=''):
         if asignado in stats_cobradores:
             if r['estado'] == 'retirado':
                 stats_cobradores[asignado]['exitosos'].append(r)
-            elif r['estado'] in ['fallido', 'fallido_revision', 'fusionado', 'saldado']:
+            elif r['estado'] in ['fallido', 'fallido_revision', 'fusionado', 'saldado', ESTADO_PENDIENTE_CRUCE]:
                 stats_cobradores[asignado]['fallidos'].append(r)
             elif r['estado'] == 'expirado':
                 stats_cobradores[asignado]['expirados'].append(r)

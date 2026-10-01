@@ -263,10 +263,17 @@
                                             <i class="fas fa-check-circle text-lg"></i> Marcar Retirado
                                         </button>
                                         
-                                        <!-- BOTÓN NO SALIÓ (ACTUALIZADO A CÁMARA) -->
-                                        <button type="button" onclick="intentarFallido('{{ r.id }}', '{{ r.monto }}', '{{ r.usuario }}')" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-[11px] sm:text-xs flex justify-center items-center gap-2">
-                                            <i class="fas fa-camera text-lg"></i> No Salió
-                                        </button>
+                                        <!-- El toque llega directamente al selector nativo de cámara. -->
+                                        <div data-control-fallo>
+                                            <label class="relative w-full bg-rose-500 hover:bg-rose-600 text-white font-black py-3 rounded-lg shadow-md transition-colors uppercase tracking-widest text-[11px] sm:text-xs flex justify-center items-center gap-2 overflow-hidden focus-within:ring-2 focus-within:ring-rose-700">
+                                                <i class="fas fa-camera text-lg"></i> No Salió
+                                                <input type="file" accept="image/*" capture="environment" aria-label="No salió: tomar foto de evidencia" data-id="{{ r.id }}" data-monto="{{ r.monto }}" data-cliente="{{ r.usuario }}" onclick="prepararFotoFallo(this)" onchange="recibirFotoFallo(this)" oncancel="cancelarFotoFallo(this)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                                            </label>
+                                            <div data-aviso-foto class="hidden mt-2 text-xs text-slate-600">
+                                                <p data-mensaje-foto role="status" aria-live="polite"></p>
+                                                <button type="button" data-cancelar-foto onclick="cancelarFotoFallo(this.closest('[data-control-fallo]').querySelector('input[type=file]'))" class="mt-1 font-bold text-rose-700 underline">Cancelar captura</button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -376,18 +383,15 @@
     </div>
 
     <!-- MODAL FALLIDO ACTUALIZADO CON FOTO -->
-    <div id="modalFallido" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
-        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
-            <div class="p-5 border-b border-slate-200 bg-rose-50 flex justify-between items-center">
-                <h3 class="font-black text-rose-700 text-lg uppercase tracking-widest"><i class="fas fa-exclamation-triangle mr-2"></i> Reportar Fallo</h3>
+    <div id="modalFallido" role="dialog" aria-modal="true" aria-labelledby="tituloModalFallido" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[200] flex justify-center items-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
+            <div class="p-5 border-b border-slate-200 bg-rose-50 flex justify-between items-center shrink-0">
+                <h3 id="tituloModalFallido" class="font-black text-rose-700 text-lg uppercase tracking-widest"><i class="fas fa-exclamation-triangle mr-2"></i> Reportar Fallo</h3>
                 <button type="button" onclick="cerrarModalFallido()" class="text-rose-400 hover:text-rose-600 transition-colors focus:outline-none"><i class="fas fa-times-circle text-2xl"></i></button>
             </div>
             
-            <form action="{{ '/pruebas' if entorno_staging else '' }}/marcar_fallido" method="POST" enctype="multipart/form-data" class="p-6 space-y-5 bg-white form-mantener-scroll">
+            <form id="formReportarFallo" action="{{ '/pruebas' if entorno_staging else '' }}/marcar_fallido" method="POST" enctype="multipart/form-data" class="p-6 space-y-5 bg-white form-mantener-scroll overflow-y-auto min-h-0">
                 <input type="hidden" name="id" id="fallido_id">
-                
-                <!-- ESTE INPUT OCULTO LLAMA A LA CÁMARA NATIVA EN CELULARES -->
-                <input type="file" name="evidencia_fallo" id="inputEvidenciaFallo" accept="image/*" capture="environment" class="hidden">
 
                 <div class="bg-slate-50 border border-slate-200 p-4 rounded-lg flex justify-between items-center">
                     <div>
@@ -400,13 +404,17 @@
                     </div>
                 </div>
 
+                <div>
+                    <label for="inputEvidenciaFallo" class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2"><i class="fas fa-camera mr-1"></i> Cambiar foto de evidencia</label>
+                    <div id="contenedorEvidenciaFallo"></div>
+                    <p id="estadoEvidenciaFallo" role="status" aria-live="polite" class="mt-2 text-xs text-slate-600"></p>
+                </div>
+
                 <!-- PREVIEW DE LA FOTO TOMADA -->
                 <div id="previewFallo" class="hidden flex flex-col items-center">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Evidencia Fotográfica:</p>
-                    <img id="imgPreviewFallo" class="w-32 h-32 object-cover rounded-xl border-4 border-slate-200 shadow-md mb-2">
-                    <button type="button" onclick="document.getElementById('inputEvidenciaFallo').click()" class="text-[10px] font-black text-blue-500 hover:text-blue-700 uppercase tracking-widest underline decoration-blue-300 underline-offset-4 transition-colors">
-                        <i class="fas fa-redo-alt mr-1"></i> Tomar otra foto
-                    </button>
+                    <img id="imgPreviewFallo" alt="Vista previa de la evidencia" class="w-32 h-32 object-cover rounded-xl border-4 border-slate-200 shadow-md mb-2">
+                    <p class="text-xs text-slate-500">Para repetir la foto, usa de nuevo el selector de arriba.</p>
                 </div>
 
                 <div>
@@ -597,36 +605,108 @@
             document.getElementById('modalRetirado').classList.add('hidden');
         }
 
-        // --- NUEVA LÓGICA DE CÁMARA PARA FALLOS ---
-        function intentarFallido(id, monto, cliente) {
-            document.getElementById('fallido_id').value = id;
-            document.getElementById('fallido_monto').innerText = "$" + monto;
-            document.getElementById('fallido_cliente').innerText = cliente;
+        // Foto primero: el selector recibe el toque sin llamar a click() por código.
+        let inputFotoFalloActivo = null;
 
-            // Limpiamos la foto anterior si había una
-            const inputCamara = document.getElementById('inputEvidenciaFallo');
-            inputCamara.value = '';
-            document.getElementById('previewFallo').classList.add('hidden');
-            
-            // Disparamos la cámara nativa
-            inputCamara.click();
+        function prepararFotoFallo(input) {
+            if (inputFotoFalloActivo && inputFotoFalloActivo !== input) {
+                cancelarFotoFallo(inputFotoFalloActivo);
+            }
+            document.getElementById('formReportarFallo').reset();
+            document.getElementById('contenedorEvidenciaFallo').textContent = '';
+            limpiarVistaPreviaFallo();
+            document.getElementById('fallido_id').value = input.dataset.id;
+            document.getElementById('fallido_monto').innerText = "$" + input.dataset.monto;
+            document.getElementById('fallido_cliente').innerText = input.dataset.cliente;
+            input.value = '';
+            inputFotoFalloActivo = input;
+            const control = input.closest('[data-control-fallo]');
+            control.querySelector('[data-mensaje-foto]').textContent = 'Toma la foto para continuar. Si la cámara no se abre, cancela la captura y vuelve a intentarlo.';
+            control.querySelector('[data-aviso-foto]').classList.remove('hidden');
+            control.querySelector('[data-cancelar-foto]').classList.remove('hidden');
         }
 
-        // Detectar cuando el usuario toma la foto y le da a "Usar"
-        document.getElementById('inputEvidenciaFallo').addEventListener('change', function(e) {
-            if (this.files && this.files.length > 0) {
-                // Mostrar la previsualización de la foto que tomó
-                const url = URL.createObjectURL(this.files[0]);
-                document.getElementById('imgPreviewFallo').src = url;
-                document.getElementById('previewFallo').classList.remove('hidden');
+        function cancelarFotoFallo(input) {
+            if (inputFotoFalloActivo !== input) return;
+            inputFotoFalloActivo = null;
+            const control = input.closest('[data-control-fallo]');
+            control.querySelector('[data-mensaje-foto]').textContent = 'No se adjuntó ninguna foto. Pulsa «No salió» para volver a intentarlo.';
+            control.querySelector('[data-cancelar-foto]').classList.add('hidden');
+        }
 
-                // Abrir el modal del formulario
-                document.getElementById('modalFallido').classList.remove('hidden');
+        function recibirFotoFallo(input) {
+            if (inputFotoFalloActivo !== input) return;
+            if (!input.files || input.files.length === 0) {
+                cancelarFotoFallo(input);
+                return;
             }
+
+            // Conserva el archivo moviendo su input al formulario, sin copiar el FileList.
+            const control = input.closest('[data-control-fallo]');
+            const siguienteCaptura = input.cloneNode(false);
+            siguienteCaptura.value = '';
+            input.parentNode.replaceChild(siguienteCaptura, input);
+            control.querySelector('[data-aviso-foto]').classList.add('hidden');
+            input.removeAttribute('onclick');
+            input.removeAttribute('onchange');
+            input.removeAttribute('oncancel');
+            input.id = 'inputEvidenciaFallo';
+            input.name = 'evidencia_fallo';
+            input.required = true;
+            input.setAttribute('aria-label', 'Cambiar foto de evidencia');
+            input.setAttribute('aria-describedby', 'estadoEvidenciaFallo');
+            input.className = 'block w-full min-w-0 rounded-lg border border-slate-300 bg-slate-50 p-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-rose-600 file:px-3 file:py-3 file:font-bold file:text-white';
+            input.addEventListener('change', function() { actualizarEvidenciaFallo(this); });
+            input.addEventListener('invalid', function() {
+                const mensaje = 'Adjunta una foto de evidencia antes de confirmar el fallo.';
+                this.setCustomValidity(mensaje);
+                document.getElementById('estadoEvidenciaFallo').textContent = mensaje;
+            });
+            input.addEventListener('cancel', function() {
+                if (!this.files || this.files.length === 0) actualizarEvidenciaFallo(this);
+            });
+            document.getElementById('contenedorEvidenciaFallo').appendChild(input);
+            document.getElementById('modalFallido').classList.remove('hidden');
+            inputFotoFalloActivo = null;
+            actualizarEvidenciaFallo(input);
+        }
+
+        function limpiarVistaPreviaFallo() {
+            const imagen = document.getElementById('imgPreviewFallo');
+            const urlAnterior = imagen.getAttribute('src');
+            if (urlAnterior && urlAnterior.indexOf('blob:') === 0) {
+                URL.revokeObjectURL(urlAnterior);
+            }
+            imagen.removeAttribute('src');
+            document.getElementById('previewFallo').classList.add('hidden');
+        }
+
+        function actualizarEvidenciaFallo(input) {
+            input.setCustomValidity('');
+            limpiarVistaPreviaFallo();
+            const estado = document.getElementById('estadoEvidenciaFallo');
+            if (!input.files || input.files.length === 0) {
+                estado.textContent = 'No se adjuntó ninguna foto. Usa el selector de evidencia para intentarlo de nuevo.';
+                return;
+            }
+            estado.textContent = 'Foto adjuntada. Selecciona el motivo y confirma el fallo.';
+            try {
+                document.getElementById('imgPreviewFallo').src = URL.createObjectURL(input.files[0]);
+                document.getElementById('previewFallo').classList.remove('hidden');
+            } catch (error) {
+                estado.textContent = 'Foto adjuntada. La vista previa no está disponible, pero puedes confirmar el fallo.';
+            }
+        }
+
+        document.getElementById('imgPreviewFallo').addEventListener('error', function() {
+            if (!this.getAttribute('src')) return;
+            document.getElementById('previewFallo').classList.add('hidden');
+            document.getElementById('estadoEvidenciaFallo').textContent = 'Foto adjuntada. La vista previa no está disponible, pero puedes confirmar el fallo.';
         });
 
         function cerrarModalFallido() {
             document.getElementById('modalFallido').classList.add('hidden');
+            limpiarVistaPreviaFallo();
         }
 
         function notificarVisto(id, btnElement) {
@@ -809,8 +889,8 @@
             const modalRetirado = document.getElementById('modalRetirado');
             const modalFallido = document.getElementById('modalFallido');
             
-            if((modalRetirado && !modalRetirado.classList.contains('hidden')) || 
-               (modalFallido && !modalFallido.classList.contains('hidden'))) {
+            if(inputFotoFalloActivo || (modalRetirado && !modalRetirado.classList.contains('hidden')) || 
+                (modalFallido && !modalFallido.classList.contains('hidden'))) {
                 return;
             }
 
@@ -822,6 +902,8 @@
             })
                 .then(response => response.text())
                 .then(html => {
+                    // Una petición iniciada antes de abrir la cámara tampoco debe sustituir la tarjeta.
+                    if (inputFotoFalloActivo || !modalRetirado.classList.contains('hidden') || !modalFallido.classList.contains('hidden')) return;
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
                     const nuevoContenido = doc.getElementById('contenidoDinamico');

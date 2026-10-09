@@ -145,7 +145,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                     {% for cobrador, stats in stats_cobradores.items() %}
                     {% set nombre_mostrar = usuarios_db[cobrador].nombre|default(cobrador)|capitalize if cobrador in usuarios_db else cobrador|capitalize %}
-                    <div class="bg-white rounded-2xl shadow-lg border-2 border-blue-500 overflow-hidden flex flex-col transform transition-transform hover:-translate-y-1">
+                    <div data-tarjeta-cobrador="{{ cobrador }}" class="bg-white rounded-2xl shadow-lg border-2 border-blue-500 overflow-hidden flex flex-col transform transition-transform hover:-translate-y-1">
                         
                         <div class="bg-blue-600 p-3 text-center shadow-inner">
                             <h3 class="text-xl font-black text-white uppercase tracking-widest"><i class="fas fa-user-tie mr-2 opacity-80"></i>{{ nombre_mostrar }}</h3>
@@ -212,12 +212,12 @@
                                 <span><i class="fas fa-times-circle text-rose-500 mr-1.5 text-sm"></i> Deudas / Caídos ({{ stats.fallidos|length }})</span>
                                 <span class="transition group-open:rotate-180 text-slate-400"><i class="fas fa-chevron-down"></i></span>
                             </summary>
-                            <div class="bg-white p-4 border-t border-slate-200 max-h-40 overflow-y-auto text-xs space-y-2 custom-scrollbar shadow-inner">
+                            <div data-lista-deudas class="bg-white p-4 border-t border-slate-200 max-h-40 overflow-y-auto text-xs space-y-2 custom-scrollbar shadow-inner">
                                 {% if stats.fallidos %}
                                     {% for f in stats.fallidos %}
-                                    <div class="flex justify-between border-b border-slate-100 pb-1.5">
-                                        <span class="font-bold text-slate-700 truncate max-w-[70%]">${{ f.monto }} <span class="font-medium text-slate-400 uppercase text-[10px] ml-1">{{ f.banco }}</span></span>
-                                        <span class="text-rose-600 uppercase font-black tracking-wider text-[9px] bg-rose-50 px-2 py-0.5 rounded shrink-0">{{ f.estado }}</span>
+                                    <div data-deuda-id="{{ f.id }}" class="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+                                        <div class="min-w-0"><span class="block font-bold text-slate-700 break-words">{{ f.usuario }}</span><span class="font-black text-rose-600">${{ f.monto }}</span><span class="font-medium text-slate-400 uppercase text-[10px] ml-1">{{ f.banco }}</span><span class="block text-[10px] text-slate-500 mt-1">Ingresado: {{ f.fecha }}</span></div>
+                                        <span class="{{ 'text-orange-700 bg-orange-50' if f.estado == 'expirado' else ('text-amber-700 bg-amber-50' if f.estado == 'fallido_revision' else 'text-rose-600 bg-rose-50') }} uppercase font-black tracking-wider text-[9px] px-2 py-0.5 rounded shrink-0">{{ 'Vencido' if f.estado == 'expirado' else ('En revisión' if f.estado == 'fallido_revision' else 'No salió') }}</span>
                                     </div>
                                     {% endfor %}
                                 {% else %}
@@ -1193,8 +1193,21 @@
                     if (nuevoContenido) {
                         const mainScroll = document.getElementById('mainScroll');
                         const scrollActual = mainScroll ? mainScroll.scrollTop : 0; 
+                        const deudasAbiertas = new Map();
+                        document.querySelectorAll('[data-tarjeta-cobrador]').forEach(tarjeta => {
+                            if (tarjeta.querySelector('details')?.open) {
+                                deudasAbiertas.set(tarjeta.dataset.tarjetaCobrador,
+                                    tarjeta.querySelector('[data-lista-deudas]')?.scrollTop || 0);
+                            }
+                        });
                         
                         document.getElementById('contenidoDinamico').innerHTML = nuevoContenido.innerHTML;
+                        document.querySelectorAll('[data-tarjeta-cobrador]').forEach(tarjeta => {
+                            if (deudasAbiertas.has(tarjeta.dataset.tarjetaCobrador)) {
+                                tarjeta.querySelector('details').open = true;
+                                tarjeta.querySelector('[data-lista-deudas]').scrollTop = deudasAbiertas.get(tarjeta.dataset.tarjetaCobrador);
+                            }
+                        });
                         
                         document.querySelectorAll('.form-mantener-scroll').forEach(form => {
                             form.addEventListener('submit', function() {

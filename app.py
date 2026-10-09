@@ -2628,11 +2628,10 @@ def vista_admin(url_prefix=''):
                                 stats_cobradores[asignado]['total_dia'] += monto
                         except: pass
                         
-                    # Deudas visibles en tarjeta (excluye pendiente_de_cruce)
-                    elif r['estado'] in ('fallido', 'fallido_revision'):
-                        stats_cobradores[asignado]['fallidos'].append(r)
-                    elif r['estado'] == 'expirado' and r['fecha'].startswith(hoy_ecuador):
-                        stats_cobradores[asignado]['fallidos'].append(r)
+                # Auditar la caja no salda la deuda del cliente. Los caídos y
+                # vencidos siguen visibles hasta que cambien de estado.
+                if r['estado'] in ESTADOS_CAIDOS_TARJETA:
+                    stats_cobradores[asignado]['fallidos'].append(r)
 
     cantidad_caidos = 0
     cantidad_expirados = 0

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ficha de {{ identidad.usuario }} | Flujo ERP</title>
+    <style>
+        *{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#243047;font:15px/1.5 system-ui,sans-serif}
+        main{max-width:1180px;margin:auto;padding:32px 24px 60px}a{color:#7137b9}a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid #9e6bdc;outline-offset:3px}
+        .back{display:inline-flex;gap:8px;font-weight:650;text-decoration:none;margin-bottom:24px}header{margin-bottom:24px}h1{font-size:28px;line-height:1.2;margin:0 0 8px}h2{font-size:19px;margin:0 0 20px}.muted{color:#65718a}.identifier{overflow-wrap:anywhere}
+        .panel{background:#fff;border:1px solid #e0e5ee;border-radius:14px;padding:24px;margin-bottom:24px}.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}dt,label{display:block;font-size:13px;color:#58647b;font-weight:650;margin-bottom:6px}dd{margin:0;overflow-wrap:anywhere;font-weight:600}dl{margin:0}
+        input,select{width:100%;padding:10px 12px;border:1px solid #c7cfdd;border-radius:7px;font:inherit;background:white;color:inherit}input:focus,select:focus{outline:2px solid #a07cd6;outline-offset:1px}
+        button,.button,summary.edit{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border:0;border-radius:7px;font:600 14px system-ui;cursor:pointer;background:#743cb3;color:white;text-decoration:none}.secondary{background:#ece8f5;color:#5c338d}.filters{display:flex;align-items:end;gap:14px;flex-wrap:wrap}.filters>div{flex:1;min-width:160px}.actions{display:flex;gap:10px;align-items:center;margin-top:18px}
+        .editing{border-top:1px solid #e8ebf2;padding-top:20px;margin-top:24px}summary.edit{list-style:none}summary.edit::-webkit-details-marker{display:none}.edit-form{margin-top:20px}.note{font-size:13px;margin:16px 0 0}.notice{border-radius:8px;padding:12px 16px;margin-bottom:20px;background:#eaf7ef;color:#175c36}.error{background:#fff0f0;color:#982d38}
+        .table-wrap{overflow-x:auto;margin:20px -24px -24px;border-radius:0 0 14px 14px}table{border-collapse:collapse;width:100%;text-align:left;font-size:14px}th{background:#f7f8fc;color:#58647b;font-size:12px;letter-spacing:.03em}th,td{padding:16px;vertical-align:top;border-top:1px solid #e8ecf3}td:first-child,th:first-child{padding-left:24px}.nowrap{white-space:nowrap}.status{display:inline-block;background:#f0edf7;border-radius:5px;padding:3px 8px;font-size:12px}.detail{min-width:150px}.detail summary{color:#7137b9;cursor:pointer;font-weight:600}.detail[open]{min-width:260px}.detail dl{margin-top:14px}.detail dd{font-weight:400;margin-bottom:10px}.detail ul{padding-left:18px;white-space:normal;max-width:430px}.proof{display:block;margin-bottom:6px}.empty{text-align:center;color:#65718a;padding:35px}
+        @media(max-width:640px){main{padding:22px 14px}.panel{padding:20px}.fields{grid-template-columns:1fr;gap:18px}h1{font-size:24px}.table-wrap{margin-left:-20px;margin-right:-20px;margin-bottom:-20px}.filters>div{min-width:100%}.filters button{flex:1}}
+    </style>
+</head>
+<body>
+<main>
+    <a class="back" href="{{ volver_url }}">← Volver a Por Usuario</a>
+    <header>
+        <h1>Ficha del cliente</h1>
+        <div class="muted identifier">{{ identidad.origen_nombre }} · {{ identidad.usuario }}</div>
+    </header>
+    {% for categoria, mensaje in get_flashed_messages(with_categories=true) %}
+        <div class="notice{% if categoria == 'error' %} error{% endif %}" role="status">{{ mensaje }}</div>
+    {% endfor %}
+    {% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
+    <section class="panel" aria-label="Datos del cliente">
+        <dl class="fields">
+            <div><dt>Usuario o identificador</dt><dd>{{ identidad.usuario }}</dd></div>
+            <div><dt>Nombre del cliente</dt><dd>{{ ficha_guardada.nombre or 'Sin registrar' }}</dd></div>
+            <div><dt>Teléfono de contacto</dt><dd>{{ ficha_guardada.telefono or 'Sin registrar' }}</dd></div>
+        </dl>
+        {% if ficha.actualizado_en %}
+        <p class="note muted">Última modificación: {{ ficha_guardada.actualizado_por }} · {{ actualizado_en_local }} (UTC−5)</p>
+        {% endif %}
+        {% if puede_editar_fichas %}
+        <details class="editing" {% if abrir_editor %}open{% endif %}>
+            <summary class="edit">Editar ficha</summary>
+            <form method="POST" class="edit-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="version" value="{{ ficha.version }}">
+                {% for campo, valor in regreso.items() %}<input type="hidden" name="{{ campo }}" value="{{ valor }}">{% endfor %}
+                <input type="hidden" name="historial_desde" value="{{ historial_desde }}">
+                <input type="hidden" name="historial_hasta" value="{{ historial_hasta }}">
+                <input type="hidden" name="historial_estado" value="{{ historial_estado }}">
+                <div class="fields">
+                    <div><label for="nombre">Nombre del cliente</label><input id="nombre" name="nombre" maxlength="150" value="{{ ficha.nombre }}" autocomplete="name"></div>
+                    <div><label for="telefono">Teléfono de contacto</label><input id="telefono" name="telefono" type="tel" maxlength="40" value="{{ ficha.telefono }}" autocomplete="tel" placeholder="Sin registrar"></div>
+                </div>
+                <p class="note muted">Estos datos de contacto se guardan en la ficha. El celular original de cada retiro se conserva en su historial.</p>
+                <div class="actions"><button type="submit">Guardar cambios</button><a class="button secondary" href="{{ request.full_path }}">Cancelar</a></div>
+            </form>
+        </details>
+        {% endif %}
+    </section>
+    <section class="panel" aria-labelledby="titulo-historial">
+        <h2 id="titulo-historial">Historial de códigos</h2>
+        <form method="GET" class="filters">
+            {% for campo, valor in regreso.items() %}<input type="hidden" name="{{ campo }}" value="{{ valor }}">{% endfor %}
+            <div><label for="historial_desde">Desde</label><input id="historial_desde" type="date" name="historial_desde" value="{{ historial_desde }}"></div>
+            <div><label for="historial_hasta">Hasta</label><input id="historial_hasta" type="date" name="historial_hasta" value="{{ historial_hasta }}"></div>
+            <div><label for="historial_estado">Estado</label><select id="historial_estado" name="historial_estado"><option value="">Todos los estados</option>{% for estado in estados %}<option value="{{ estado }}" {% if estado == historial_estado %}selected{% endif %}>{{ estado|replace('_', ' ')|capitalize }}</option>{% endfor %}</select></div>
+            <button type="submit">Filtrar historial</button>
+            <a class="button secondary" href="{{ url_for('ficha_cliente', ficha_id=identidad.id, **regreso) }}">Limpiar</a>
+        </form>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th scope="col">Fecha</th><th scope="col">Monto</th><th scope="col">Banco</th><th scope="col">Estado</th><th scope="col">Cobrador asignado</th><th scope="col">Comprobante y detalles</th></tr></thead>
+                <tbody>
+                    {% for r in historial %}
+                    <tr data-registro-id="{{ r.id }}">
+                        <td class="nowrap">{{ r.fecha or 'Sin fecha' }}</td><td class="nowrap">${{ r.monto }}</td>
+                        <td>{{ (r.banco or 'Sin registrar')|upper }}</td><td><span class="status">{{ (r.estado or 'Sin estado')|replace('_', ' ')|capitalize }}</span></td>
+                        <td>{{ r.asignado_a or 'Sin asignar' }}</td>
+                        <td>
+                            {% for imagen in (r.imagen or '').split(',') if imagen.strip() %}
+                            <a class="proof" href="{{ url_for('comprobante_ficha', ficha_id=identidad.id, filename=imagen.strip()) }}" target="_blank" rel="noopener">Ver comprobante{% if loop.length > 1 %} {{ loop.index }}{% endif %}</a>
+                            {% else %}<span class="muted">Sin comprobante</span>{% endfor %}
+                            <details class="detail">
+                                <summary>Detalles del registro</summary>
+                                <dl>
+                                    <dt>Registro</dt><dd>#{{ r.id }} · {{ r.transaccion_id or 'Sin referencia' }}</dd>
+                                    <dt>Usuario original</dt><dd>{{ r.usuario }}</dd>
+                                    <dt>Celular original del retiro</dt><dd>{{ r.celular or 'Sin registrar' }}</dd>
+                                    <dt>Cédula registrada</dt><dd>{{ r.cedula or 'Sin registrar' }}</dd>
+                                    {% if r.referencia_externa %}<dt>Referencia externa</dt><dd>{{ r.referencia_externa }}</dd>{% endif %}
+                                    {% for clave, valor in (r.detalles or {}).items() if valor %}<dt>{{ clave|replace('_', ' ')|capitalize }}</dt><dd>{{ valor }}</dd>{% endfor %}
+                                    {% if r.motivo_fallo %}<dt>Motivo del fallo</dt><dd>{{ r.motivo_fallo }}</dd>{% endif %}
+                                </dl>
+                                {% for imagen in (r.imagen_fallo or '').split(',') if imagen.strip() %}<a class="proof" href="{{ url_for('comprobante_ficha', ficha_id=identidad.id, filename=imagen.strip()) }}" target="_blank" rel="noopener">Ver evidencia del fallo</a>{% endfor %}
+                                {% if r.historial %}<ul>{% for evento in r.historial %}<li>{{ evento }}</li>{% endfor %}</ul>{% endif %}
+                            </details>
+                        </td>
+                    </tr>
+                    {% else %}<tr><td colspan="6" class="empty">No hay códigos para los filtros seleccionados.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

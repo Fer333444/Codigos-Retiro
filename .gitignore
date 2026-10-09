@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 static/uploads/
 .env
+fichas_clientes.sqlite3*

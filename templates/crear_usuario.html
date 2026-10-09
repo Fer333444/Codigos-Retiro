@@ -44,6 +44,7 @@
         </div>
         
         <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            {% include '_acceso_fichas.html' %}
             {% set mis_permisos = session.get('permisos', []) %}
             
             {% if rol == 'supremo' or 'crear_links' in mis_permisos %}
@@ -211,6 +212,14 @@
                                 </label>
 
                                 <label class="checkbox-card relative cursor-pointer group">
+                                    <input type="checkbox" name="permisos" value="gestionar_fichas_clientes" id="chk_gestionar_fichas_clientes" class="peer sr-only">
+                                    <div class="p-3 bg-white rounded-lg border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-purple-500/30 transition-all flex items-center gap-3">
+                                        <i class="fas fa-address-card text-purple-500"></i>
+                                        <span class="text-xs font-bold text-slate-700">Consultar y editar fichas de clientes</span>
+                                    </div>
+                                </label>
+
+                                <label class="checkbox-card relative cursor-pointer group">
                                     <input type="checkbox" name="permisos" value="gestionar_usuarios" id="chk_gestionar_usuarios" class="peer sr-only">
                                     <div class="p-3 bg-white rounded-lg border-2 border-slate-200 peer-focus:ring-2 peer-focus:ring-green-500/30 transition-all flex items-center gap-3">
                                         <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors group-hover:bg-slate-200">
@@ -260,6 +269,7 @@
         const drawerPermisos = document.getElementById('contenedorPermisos');
         
         const chks = {
+            'gestionar_fichas_clientes': document.getElementById('chk_gestionar_fichas_clientes'),
             'ver_retiros': document.getElementById('chk_ver_retiros'),
             'procesar_retiros': document.getElementById('chk_procesar_retiros'),
             'ver_reportes': document.getElementById('chk_ver_reportes'),

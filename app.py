@@ -12,12 +12,16 @@ import threading
 import traceback
 import shutil
 import copy
+import secrets
+import tempfile
 import httpx
 import requests
 from pywebpush import webpush, WebPushException
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory, Blueprint, has_request_context, Response
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_from_directory, Blueprint, has_request_context, Response, abort, g
+from fichas_clientes import (AlmacenFichas, ConflictoFicha, PERMISO_FICHAS,
+                            crear_catalogo, identidades_nuevas, coincide_busqueda)
 from werkzeug.utils import secure_filename
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy import create_engine, Column, String, BigInteger, Boolean, JSON, Text, Float
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -82,7 +86,9 @@ def es_entorno_staging():
 @app.context_processor
 def inject_entorno():
     # Retorna True si la URL actual empieza con /pruebas
-    return dict(entorno_staging=es_entorno_staging())
+    consultar, editar = permisos_fichas()
+    return dict(entorno_staging=es_entorno_staging(),
+                puede_consultar_fichas=consultar, puede_editar_fichas=editar)
 
 @app.template_filter('clave_cliente')
 def filtro_clave_cliente(usuario):
@@ -210,6 +216,7 @@ class DBRegistro(Base):
     notificado_deuda_1dia = Column(Boolean, nullable=True, default=False)
     notificado_vencimiento_10m = Column(Boolean, nullable=True, default=False)
     rescate_45m_activado = Column(Boolean, nullable=True, default=False)
+    clientes_ficha = Column(JSON, nullable=True)
 
 
 class DBEnlace(Base):
@@ -240,6 +247,7 @@ if engine is not None:
         if 'registros' in tablas:
             existentes = {col['name'] for col in inspector.get_columns('registros')}
             pendientes = {
+                'clientes_ficha': 'JSON',
                 'minutos_demora': 'DOUBLE PRECISION DEFAULT 0.0',
                 'banco_real_retiro': 'VARCHAR',
                 'motivo_fallo': 'VARCHAR',
@@ -250,7 +258,9 @@ if engine is not None:
             with engine.begin() as conn:
                 for columna, tipo_sql in pendientes.items():
                     if columna not in existentes:
-                        conn.execute(text(f'ALTER TABLE registros ADD COLUMN {columna} {tipo_sql}'))
+                        # PostgreSQL puede arrancar varios workers a la vez.
+                        opcional = 'IF NOT EXISTS ' if engine.dialect.name == 'postgresql' else ''
+                        conn.execute(text(f'ALTER TABLE registros ADD COLUMN {opcional}{columna} {tipo_sql}'))
 
         if 'usuarios' in tablas:
             existentes_u = {col['name'] for col in inspector.get_columns('usuarios')}
@@ -349,6 +359,8 @@ def _registro_modelo_a_dict(r):
         d['notificado_vencimiento_10m'] = r.notificado_vencimiento_10m
     if r.rescate_45m_activado:
         d['rescate_45m_activado'] = r.rescate_45m_activado
+    if r.clientes_ficha is not None:
+        d['clientes_ficha'] = r.clientes_ficha
     return d
 
 
@@ -410,6 +422,7 @@ def _registro_dict_a_orm(r):
         notificado_deuda_1dia=bool(r.get('notificado_deuda_1dia', False)),
         notificado_vencimiento_10m=bool(r.get('notificado_vencimiento_10m', False)),
         rescate_45m_activado=bool(r.get('rescate_45m_activado', False)),
+        clientes_ficha=r.get('clientes_ficha'),
     )
 
 
@@ -445,12 +458,21 @@ def guardar_datos():
             'historial_pagos': historial_pagos,
             'suscripciones_push': suscripciones_push,
         }
+        temporal = None
         try:
-            with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=os.path.dirname(os.path.abspath(DATA_FILE)), delete=False) as f:
+                temporal = f.name
                 json.dump(data_a_guardar, f, ensure_ascii=False, indent=4)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temporal, DATA_FILE)
+            return True
         except Exception as e:
             print("Error crítico al guardar en disco:", e)
-        return
+            return False
+        finally:
+            if temporal and os.path.exists(temporal):
+                os.remove(temporal)
 
     session = SessionLocal()
     try:
@@ -494,9 +516,11 @@ def guardar_datos():
         ).delete(synchronize_session=False)
 
         session.commit()
+        return True
     except Exception as e:
         session.rollback()
         print("Error crítico al guardar en PostgreSQL:", e)
+        return False
     finally:
         session.close()
 
@@ -1073,6 +1097,9 @@ def rastreador_clics():
 
 @app.after_request
 def auditar_movimientos_sistema(response):
+    # La edición de fichas tiene auditoría transaccional propia, sin registrar el formulario/CSRF.
+    if request.endpoint in ('ficha_cliente', 'comprobante_ficha'):
+        return response
     rutas_ignoradas = ['/static/', '/centro_seguridad', '/obtener_ubicaciones', '/sw.js', '/api/', '/ver_imagen/', '/favicon.ico']
     if any(request.path.startswith(ruta) for ruta in rutas_ignoradas):
         return response
@@ -1453,6 +1480,9 @@ def api_saldar_deuda():
 
 @app.before_request
 def mantenimiento_datos():
+    # Consultar/editar contactos nunca ejecuta mantenimiento de retiros o deudas.
+    if request.endpoint in ('ficha_cliente', 'comprobante_ficha'):
+        return
     realizar_respaldo_diario()
     cambios_realizados = False
     hora_actual = hora_ecuador().strftime('%d/%m/%Y %H:%M')
@@ -1597,6 +1627,8 @@ def ruta_por_rol(rol, usuario):
         return '/reportes'
     elif 'gestionar_usuarios' in permisos:
         return '/usuarios'
+    elif PERMISO_FICHAS in permisos:
+        return '/reportes?vista=usuario'
         
     # 3. Rutas por defecto (Solo se usan si el usuario no tiene NINGUNA casilla marcada)
     if rol == 'recaudador': 
@@ -2011,7 +2043,10 @@ def retiro_grupo(grupo):
         banco_seleccionado = request.form.get('banco')
         if banco_seleccionado and not bancos_activos.get(banco_seleccionado, True):
             return f"El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.", 403
-        return procesar_formulario_retiro(request, request.form.getlist('usuarios_magis'))
+        seleccionados = request.form.getlist('usuarios_magis')
+        if not seleccionados or len(set(seleccionados)) != len(seleccionados) or any(u not in usuarios_del_grupo for u in seleccionados):
+            return 'Selecciona clientes válidos del grupo.', 400
+        return procesar_formulario_retiro(request, seleccionados)
         
     return render_template('formulario.html', es_grupo=True, nombre_grupo=grupo, usuarios_grupo=usuarios_del_grupo, form_action=url_for('retiro_grupo', grupo=grupo), recibo=session.pop('recibo_retiro', None), horario_activo=horario, bancos_activos=bancos_activos)
 
@@ -2161,6 +2196,12 @@ def insertar_registro_retiro(banco, celular, cedula, monto_total_str, codigo_rec
     nuevo_registro['alerta_deuda_firme'] = cliente_tiene_deuda_firme(usuarios_juntos, regs)
     if es_entorno_staging():
         nuevo_registro['entorno_staging'] = True
+
+    if not es_prueba:
+        nuevo_registro['clientes_ficha'] = identidades_nuevas(lista_usuarios, origen_socio)
+        if not origen_socio:
+            nuevo_registro['clientes_ficha'] = [i for i in nuevo_registro['clientes_ficha']
+                if sum(e.get('usuario') == i['usuario'] for e in enlaces_db.values()) <= 1]
 
     regs.insert(0, nuevo_registro)
     guardar_datos()
@@ -3232,7 +3273,10 @@ def vista_crear_usuario(url_prefix=''):
                 flash('El nombre de usuario ya existe.', 'error')
                 return redirect(url_for('crear_usuario'))
             usuarios_db[username] = nuevo_usuario
-            guardar_datos()
+            if not guardar_datos():
+                usuarios_db.pop(username, None)
+                flash('No se pudo guardar el usuario ni sus permisos. Intenta nuevamente.', 'error')
+                return redirect(url_for('crear_usuario'))
         flash(f'Usuario {username} creado con éxito como {request.form.get("rol")}.', 'success')
         return redirect(lista_route)
     return render_template('crear_usuario.html', mi_usuario=session['usuario'], rol=session.get('rol'), url_prefix=url_prefix, entorno_staging=bool(url_prefix))
@@ -3274,6 +3318,7 @@ def ejecutar_editar_usuario(url_prefix=''):
         guardar_usuario_en_staging(username, actualizado)
     else:
         if username in usuarios_db:
+            anterior = copy.deepcopy(usuarios_db[username])
             usuarios_db[username]['nombre'] = request.form.get('nombre', usuarios_db[username]['nombre'])
             usuarios_db[username]['email'] = request.form.get('email', usuarios_db[username]['email'])
             usuarios_db[username]['rol'] = request.form.get('rol', usuarios_db[username]['rol'])
@@ -3283,7 +3328,10 @@ def ejecutar_editar_usuario(url_prefix=''):
             nueva_pass = request.form.get('password')
             if nueva_pass and nueva_pass.strip() != '':
                 usuarios_db[username]['password'] = nueva_pass
-            guardar_datos()
+            if not guardar_datos():
+                usuarios_db[username] = anterior
+                flash('No se pudieron guardar los cambios ni los permisos. Intenta nuevamente.', 'error')
+                return redirect(lista_route)
         else:
             flash('Error: Usuario no encontrado en la base de datos.', 'error')
             return redirect(lista_route)
@@ -3399,6 +3447,167 @@ def marcar_recibido():
         
     return redirect(request.referrer)
 
+_almacen_fichas = None
+
+
+def almacen_fichas():
+    global _almacen_fichas
+    if _almacen_fichas is None:
+        # PostgreSQL en producción; archivo transaccional junto a los JSON en modo local.
+        motor = engine or create_engine('sqlite:///' + os.path.join(
+            os.path.dirname(os.path.abspath(DATA_FILE)), 'fichas_clientes.sqlite3').replace('\\', '/'))
+        _almacen_fichas = AlmacenFichas(motor)
+    return _almacen_fichas
+
+
+def usuario_actual_fichas():
+    """Relee la autorización guardada: una cookie antigua no mantiene permisos retirados."""
+    if hasattr(g, 'usuario_fichas'):
+        return g.usuario_fichas
+    g.usuario_fichas = {}
+    username = session.get('usuario')
+    if not username or session.get('entorno') != 'produccion' or es_entorno_staging():
+        return g.usuario_fichas
+    try:
+        if SessionLocal:
+            with SessionLocal() as db:
+                usuario = db.get(DBUsuario, username)
+                if usuario:
+                    g.usuario_fichas = {'rol': usuario.rol, 'permisos': usuario.permisos or [], 'estado': usuario.estado}
+        elif os.path.exists(DATA_FILE):
+            with open(DATA_FILE, encoding='utf-8') as archivo:
+                g.usuario_fichas = json.load(archivo).get('usuarios_db', {}).get(username, {})
+        else:
+            g.usuario_fichas = usuarios_db.get(username, {})
+    except Exception:
+        app.logger.exception('No se pudo comprobar la autorización de fichas')
+    return g.usuario_fichas
+
+
+def permisos_fichas():
+    usuario = usuario_actual_fichas()
+    if not usuario or usuario.get('estado', 'Activo') != 'Activo':
+        return False, False
+    editar = usuario.get('rol') == 'supremo' or PERMISO_FICHAS in (usuario.get('permisos') or [])
+    return editar or usuario.get('rol') == 'reportes', editar
+
+
+def contexto_regreso_ficha():
+    # Construye un destino local, nunca redirige a una URL recibida del navegador.
+    return {k: request.values.get(k, '') for k in ('cliente', 'fecha_desde', 'fecha_hasta')}
+
+
+def registros_de_ficha(ficha_id):
+    perfiles, por_registro, _ = crear_catalogo(registros, enlaces_db)
+    if ficha_id not in perfiles:
+        abort(404)
+    propios = [r for r in registros if any(i['id'] == ficha_id for i in por_registro.get(str(r.get('id')), []))]
+    return perfiles[ficha_id], propios
+
+
+@app.route('/clientes/<ficha_id>', methods=['GET', 'POST'])
+def ficha_cliente(ficha_id):
+    consultar, editar = permisos_fichas()
+    if not consultar or (request.method == 'POST' and not editar):
+        abort(403)
+    identidad, propios = registros_de_ficha(ficha_id)
+    regreso = contexto_regreso_ficha()
+    error, codigo = None, 200
+    try:
+        ficha = almacen_fichas().obtener(ficha_id)
+    except Exception:
+        app.logger.exception('No se pudo leer la ficha')
+        return 'No se pudo cargar la ficha. Intenta nuevamente.', 503
+    ficha_guardada = dict(ficha)
+
+    if request.method == 'POST':
+        token = request.form.get('csrf_token', '')
+        if not token or not secrets.compare_digest(token, session.get('csrf_fichas', '')):
+            abort(400, description='El formulario venció. Recarga la ficha antes de guardar.')
+        nombre = request.form.get('nombre', '').strip()
+        telefono = request.form.get('telefono', '').strip()
+        if len(nombre) > 150 or any(ord(c) < 32 for c in nombre):
+            error, codigo = 'El nombre debe tener como máximo 150 caracteres y una sola línea.', 400
+        elif telefono and (len(telefono) > 40 or not re.fullmatch(r'\+?[0-9\s().-]+', telefono) or not 5 <= len(re.sub(r'\D', '', telefono)) <= 20):
+            error, codigo = 'Escribe un teléfono válido o deja el campo vacío.', 400
+        else:
+            try:
+                version = int(request.form.get('version', '-1'))
+                almacen_fichas().guardar(identidad, nombre, telefono, session['usuario'], version)
+            except ValueError:
+                error, codigo = 'El formulario no es válido. Recarga la ficha.', 400
+            except ConflictoFicha as ex:
+                error, codigo = str(ex), 409
+            except Exception:
+                app.logger.exception('No se pudo guardar la ficha; transacción revertida')
+                error, codigo = 'No se guardaron los cambios. Intenta nuevamente.', 503
+            else:
+                flash('Ficha guardada correctamente.', 'success')
+                return redirect(url_for('ficha_cliente', ficha_id=ficha_id, **regreso,
+                                        historial_desde=request.form.get('historial_desde', ''),
+                                        historial_hasta=request.form.get('historial_hasta', ''),
+                                        historial_estado=request.form.get('historial_estado', '')))
+        # Conserva lo escrito sin presentarlo como datos guardados.
+        ficha = dict(ficha, nombre=nombre, telefono=telefono)
+
+    desde = request.values.get('historial_desde', '')
+    hasta = request.values.get('historial_hasta', '')
+    estado = request.values.get('historial_estado', '')
+    estados = sorted({r.get('estado') for r in propios if r.get('estado')})
+    fechas = {}
+    for campo, valor in (('desde', desde), ('hasta', hasta)):
+        try:
+            fechas[campo] = datetime.strptime(valor, '%Y-%m-%d').date() if valor else None
+        except ValueError:
+            error, codigo = 'Revisa las fechas del historial.', 400
+    if fechas.get('desde') and fechas.get('hasta') and fechas['desde'] > fechas['hasta']:
+        error, codigo = 'La fecha inicial debe ser anterior o igual a la final.', 400
+
+    def fecha_registro(r):
+        try:
+            return datetime.strptime(r.get('fecha', ''), '%d/%m/%Y %H:%M')
+        except (TypeError, ValueError):
+            return datetime.min
+
+    historial = []
+    if codigo != 400 or request.method == 'POST':
+        for registro in propios:
+            fecha = fecha_registro(registro).date()
+            if fechas.get('desde') and fecha < fechas['desde']:
+                continue
+            if fechas.get('hasta') and fecha > fechas['hasta']:
+                continue
+            if estado and registro.get('estado') != estado:
+                continue
+            historial.append(registro)
+    historial.sort(key=fecha_registro, reverse=True)
+    session.setdefault('csrf_fichas', secrets.token_urlsafe(32))
+    actualizado_en_local = ''
+    if ficha_guardada.get('actualizado_en'):
+        actualizado_en_local = datetime.fromisoformat(ficha_guardada['actualizado_en']).astimezone(
+            timezone(timedelta(hours=-5))).strftime('%d/%m/%Y %H:%M')
+    return render_template('ficha_cliente.html', identidad=identidad, ficha=ficha,
+                           ficha_guardada=ficha_guardada,
+                           actualizado_en_local=actualizado_en_local,
+                           historial=historial, estados=estados, regreso=regreso,
+                           volver_url=url_for('vista_reportes', vista='usuario', **regreso),
+                           historial_desde=desde, historial_hasta=hasta, historial_estado=estado,
+                           error=error, abrir_editor=request.method == 'POST',
+                           csrf_token=session['csrf_fichas']), codigo
+
+
+@app.route('/clientes/<ficha_id>/comprobantes/<filename>')
+def comprobante_ficha(ficha_id, filename):
+    if not permisos_fichas()[0]:
+        abort(403)
+    _, propios = registros_de_ficha(ficha_id)
+    nombres = {nombre.strip() for r in propios for campo in ('imagen', 'imagen_fallo')
+               for nombre in (r.get(campo) or '').split(',') if nombre.strip()}
+    if filename not in nombres:
+        abort(404)
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+
 @app.route('/reportes', endpoint='vista_reportes')
 def vista_reportes_produccion():
     return vista_reportes(url_prefix='')
@@ -3408,10 +3617,15 @@ def vista_reportes(url_prefix=''):
     if bloqueo:
         return bloqueo
 
-    mis_permisos = session.get('permisos', [])
-    login_route = f'{url_prefix}/login' if url_prefix else url_for('login')
-    if session.get('rol') != 'supremo' and 'ver_reportes' not in mis_permisos:
-        return redirect(login_route)
+    usuario_actual = usuario_actual_fichas() if not url_prefix else {}
+    mis_permisos = (usuario_actual.get('permisos') or []) if not url_prefix else session.get('permisos', [])
+    rol_actual = usuario_actual.get('rol') if not url_prefix else session.get('rol')
+    puede_ver_fichas = permisos_fichas()[0] if not url_prefix else False
+    reportes_completos = rol_actual in ('supremo', 'reportes') or 'ver_reportes' in mis_permisos
+    if not reportes_completos and not puede_ver_fichas:
+        abort(403)
+    if not url_prefix and usuario_actual.get('estado', 'Activo') != 'Activo':
+        abort(403)
 
     regs = db_registros()
     users = db_usuarios()
@@ -3420,7 +3634,18 @@ def vista_reportes(url_prefix=''):
     lista_estados = sorted(list(set(r['estado'] for r in regs if r.get('estado'))))
     lista_sucursales = sorted(list(set(r['banco'] for r in regs if r.get('banco'))))
     
-    vista = request.args.get('vista', 'completados')
+    vista = request.args.get('vista', 'completados' if reportes_completos else 'usuario')
+    if not reportes_completos and vista != 'usuario':
+        return redirect(url_for('vista_reportes', vista='usuario'))
+
+    fichas_por_registro, fichas_pendientes, contactos = {}, {}, {}
+    if vista == 'usuario' and puede_ver_fichas:
+        _, fichas_por_registro, fichas_pendientes = crear_catalogo(regs, enlaces_db)
+        try:
+            contactos = almacen_fichas().contactos()
+        except Exception:
+            app.logger.exception('No se pudieron consultar los contactos')
+            return 'No se pudo cargar la búsqueda de contactos. Intenta nuevamente.', 503
     
     filtro_cobrador = request.args.get('cobrador', '')
     filtro_valor = request.args.get('valor', '')
@@ -3443,7 +3668,11 @@ def vista_reportes(url_prefix=''):
     def pasa_filtros_basicos(r):
         # 1. Filtro por cliente (Para Completados, Historial y Por Usuario)
         if vista in ['completados', 'historial', 'usuario'] and filtro_cliente:
-            if r.get('usuario') != filtro_cliente: return False
+            if vista == 'usuario':
+                if not coincide_busqueda(r, filtro_cliente, fichas_por_registro.get(str(r.get('id')), []), contactos):
+                    return False
+            elif r.get('usuario') != filtro_cliente:
+                return False
             
         # 2. Filtro por cobrador
         if vista == 'cobradores' and filtro_cobrador:
@@ -3563,6 +3792,9 @@ def vista_reportes(url_prefix=''):
                 stats_cobradores[asignado]['expirados'].append(r)
     
     return render_template('reportes.html', 
+                           fichas_por_registro=fichas_por_registro,
+                           fichas_pendientes=fichas_pendientes,
+                           reportes_completos=reportes_completos,
                            vista=vista,
                            exitosos=exitosos, 
                            no_exitosos=no_exitosos_raw, 
@@ -3583,7 +3815,7 @@ def vista_reportes(url_prefix=''):
                            filtro_sucursal=filtro_sucursal,
                            filtro_fecha_desde=filtro_fecha_desde,
                            filtro_fecha_hasta=filtro_fecha_hasta,
-                           rol=session.get('rol'),
+                           rol=rol_actual,
                            mi_usuario=session['usuario'],
                            url_prefix=url_prefix,
                            entorno_staging=bool(url_prefix))

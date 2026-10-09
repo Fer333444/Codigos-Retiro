@@ -57,6 +57,7 @@ class Registro(Base):
     cedula = Column(String(30), nullable=True)
     monto = Column(String(30), nullable=True)
     usuario = Column(String(255), nullable=True)
+    clientes_ficha = Column(JSON, nullable=True)
     hora_limite = Column(String(30), nullable=True)
     expira_timestamp = Column(Float, nullable=True)
     timestamp_creacion = Column(Float, nullable=True)
@@ -173,6 +174,7 @@ def migrar_registros(session, registros):
             cedula=r.get('cedula'),
             monto=r.get('monto'),
             usuario=r.get('usuario'),
+            clientes_ficha=r.get('clientes_ficha'),
             hora_limite=r.get('hora_limite'),
             expira_timestamp=r.get('expira_timestamp'),
             timestamp_creacion=r.get('timestamp_creacion'),

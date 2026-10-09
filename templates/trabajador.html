@@ -61,6 +61,7 @@
         </div>
         
         <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            {% include '_acceso_fichas.html' %}
             {% if rol == 'supremo' or 'crear_links' in mis_permisos %}
                 <a href="/" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"><i class="fas fa-link w-5"></i> Links de Clientes</a>
             {% endif %}

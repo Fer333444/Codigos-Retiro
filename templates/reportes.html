@@ -108,8 +108,8 @@
                     
                     {% if vista not in ['metricas'] %}
                     <div class="flex gap-2 w-full sm:w-auto">
-                        <button onclick="exportarExcel('Reporte_{{ vista|capitalize }}')" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"><i class="fas fa-file-excel"></i> Excel</button>
-                        <button onclick="exportarPDF('Reporte_{{ vista|capitalize }}')" class="flex-1 sm:flex-none bg-rose-600 hover:bg-rose-700 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"><i class="fas fa-file-pdf"></i> PDF</button>
+                        <button data-exportar-reporte title="Exportar todos los resultados filtrados" onclick="exportarExcel('Reporte_{{ vista|capitalize }}')" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"><i class="fas fa-file-excel"></i> Excel</button>
+                        <button data-exportar-reporte title="Exportar todos los resultados filtrados" onclick="exportarPDF('Reporte_{{ vista|capitalize }}')" class="flex-1 sm:flex-none bg-rose-600 hover:bg-rose-700 text-white text-xs font-black px-4 py-2 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"><i class="fas fa-file-pdf"></i> PDF</button>
                     </div>
                     {% endif %}
                 </div>
@@ -752,9 +752,10 @@
                         </form>
                     </div>
 
+                    {% if vista == 'usuario' %}{% include '_paginacion_usuarios.html' %}{% endif %}
                     <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                         <div class="overflow-x-auto w-full custom-scroll">
-                            <table id="tablaExportar" class="w-full text-left text-sm text-slate-600 border-collapse whitespace-nowrap">
+                            <table id="tablaExportar" {% if vista == 'usuario' %}data-exportar-completo="true"{% endif %} class="w-full text-left text-sm text-slate-600 border-collapse whitespace-nowrap">
                                 <thead class="bg-slate-50 border-b border-slate-200">
                                     <tr class="text-[10px] uppercase text-slate-500 tracking-widest">
                                         <th class="py-4 px-5 font-bold w-12 text-center">Foto</th>
@@ -774,7 +775,7 @@
                                         {% set suma_general = namespace(valor=0) %}
                                         {% for r in registros_tabla_dinamica %}
                                         {% set suma_general.valor = suma_general.valor + r.monto|float %}
-                                        <tr class="hover:bg-slate-50 transition-colors">
+                                        <tr class="hover:bg-slate-50 transition-colors" data-reporte-usuario="{{ r.usuario }}">
                                             <td class="py-3 px-5 text-center">
                                                 {% if r.imagen %}
                                                     {% set img_url = url_for('ver_imagen', filename=r.imagen.split(',')[0]) %}
@@ -795,7 +796,7 @@
                                                         {% for identidad in identidades %}
                                                         <span class="inline-flex items-center gap-2 mr-2">
                                                             <span>{{ r.usuario if identidades|length == 1 else identidad.usuario }}</span>
-                                                            <a href="{{ url_for('ficha_cliente', ficha_id=identidad.id, cliente=filtro_cliente, fecha_desde=filtro_fecha_desde, fecha_hasta=filtro_fecha_hasta) }}" class="inline-flex w-8 h-8 items-center justify-center rounded-md bg-purple-600 hover:bg-purple-700 text-white shadow-sm focus:ring-2 focus:ring-purple-400" title="Abrir ficha de {{ identidad.usuario }} · {{ identidad.origen_nombre }}" aria-label="Abrir ficha de {{ identidad.usuario }}" data-ficha-id="{{ identidad.id }}"><i class="fas fa-address-card" aria-hidden="true"></i></a>
+                                                            <a href="{{ url_for('ficha_cliente', ficha_id=identidad.id, cliente=filtro_cliente, fecha_desde=filtro_fecha_desde, fecha_hasta=filtro_fecha_hasta, pagina=paginacion_usuarios.pagina if paginacion_usuarios else 1) }}" class="inline-flex w-8 h-8 items-center justify-center rounded-md bg-purple-600 hover:bg-purple-700 text-white shadow-sm focus:ring-2 focus:ring-purple-400" title="Abrir ficha de {{ identidad.usuario }} · {{ identidad.origen_nombre }}" aria-label="Abrir ficha de {{ identidad.usuario }}" data-ficha-id="{{ identidad.id }}"><i class="fas fa-address-card" aria-hidden="true"></i></a>
                                                         </span>
                                                         {% endfor %}
                                                     {% else %}
@@ -845,11 +846,13 @@
                     </div>
                     
                     {% if registros_tabla_dinamica %}
-                    <div class="mt-6 bg-indigo-50 border border-indigo-200 rounded-xl p-5 flex justify-between items-center shadow-sm">
-                        <span class="text-sm font-black text-indigo-800 uppercase tracking-widest"><i class="fas fa-calculator mr-2"></i> Total de esta tabla</span>
+                    <div class="mt-6 bg-indigo-50 border border-indigo-200 rounded-xl p-5 flex flex-wrap gap-3 justify-between items-center shadow-sm">
+                        <div><span class="text-sm font-black text-indigo-800 uppercase tracking-widest"><i class="fas fa-calculator mr-2"></i> {{ 'Total de esta página' if paginacion_usuarios else 'Total de esta tabla' }}</span>{% if paginacion_usuarios %}<p class="text-xs text-indigo-700 mt-1">Total de todos los resultados filtrados: ${{ '%.2f'|format(paginacion_usuarios.total_monto) }}</p>{% endif %}</div>
                         <span class="text-3xl font-black text-indigo-600">${{ "%.2f"|format(suma_general.valor) }}</span>
                     </div>
                     {% endif %}
+
+                    {% if vista == 'usuario' %}{% include '_paginacion_usuarios.html' %}{% endif %}
 
                 {% endif %}
 
@@ -957,42 +960,8 @@
         document.addEventListener('DOMContentLoaded', inicializarPaginacion);
     </script>
 
+    <script src="{{ url_for('static', filename='reportes_exportar.js', v='usuarios-10-20261009') }}"></script>
     <script>
-        function exportarExcel(nombreArchivo) {
-            let tabla = document.getElementById("tablaExportar");
-            if(!tabla || tabla.rows.length <= 1) {
-                alert("No hay datos en la tabla para exportar."); 
-                return;
-            }
-            let wb = XLSX.utils.table_to_book(tabla, {sheet: "Reporte"});
-            let fecha = new Date().toISOString().split('T')[0];
-            XLSX.writeFile(wb, `${nombreArchivo}_${fecha}.xlsx`);
-        }
-
-        function exportarPDF(nombreReporte) {
-            let tabla = document.getElementById("tablaExportar");
-            if(!tabla || tabla.rows.length <= 1) {
-                alert("No hay datos en la tabla para exportar."); 
-                return;
-            }
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('landscape');
-            doc.setFontSize(16);
-            doc.text(`Reporte: ${nombreReporte.replace(/_/g, ' ')}`, 14, 15);
-            let fecha = new Date().toLocaleString();
-            doc.setFontSize(10);
-            doc.text(`Generado el: ${fecha}`, 14, 22);
-            doc.autoTable({
-                html: '#tablaExportar',
-                startY: 28,
-                theme: 'grid',
-                styles: { fontSize: 8, cellPadding: 2 },
-                headStyles: { fillColor: [22, 163, 74] } 
-            });
-            let fechaCorta = new Date().toISOString().split('T')[0];
-            doc.save(`${nombreReporte}_${fechaCorta}.pdf`);
-        }
-
         function abrirModalPago(id, monto) {
             document.getElementById('input_id_deuda').value = id;
             document.getElementById('input_valor_pagado').value = monto;

@@ -22,6 +22,8 @@ from fichas_clientes import (AlmacenFichas, ConflictoFicha, PERMISO_FICHAS,
                             crear_catalogo, identidades_nuevas, coincide_busqueda)
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
+from urllib.parse import urlencode
 from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy import create_engine, Column, String, BigInteger, Boolean, JSON, Text, Float
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -3500,7 +3502,7 @@ def permisos_fichas():
 
 def contexto_regreso_ficha():
     # Construye un destino local, nunca redirige a una URL recibida del navegador.
-    return {k: request.values.get(k, '') for k in ('cliente', 'fecha_desde', 'fecha_hasta')}
+    return {k: request.values.get(k, '') for k in ('cliente', 'fecha_desde', 'fecha_hasta', 'pagina')}
 
 
 def registros_de_ficha(ficha_id):
@@ -3796,6 +3798,48 @@ def vista_reportes(url_prefix=''):
                 stats_cobradores[asignado]['fallidos'].append(r)
             elif r['estado'] == 'expirado':
                 stats_cobradores[asignado]['expirados'].append(r)
+
+    paginacion_usuarios = None
+    if vista == 'usuario':
+        # Cada usuario conserva todos sus registros filtrados dentro de una sola página.
+        usuarios_ordenados = list(dict.fromkeys(r.get('usuario') for r in registros_tabla_dinamica))
+        total_usuarios = len(usuarios_ordenados)
+        paginas = max(1, (total_usuarios + 9) // 10)
+        try:
+            pagina = max(1, int(request.args.get('pagina', '1')))
+        except (TypeError, ValueError):
+            pagina = 1
+        pagina = min(pagina, paginas)
+        inicio = (pagina - 1) * 10
+        total_monto = Decimal('0')
+        for r in registros_tabla_dinamica:
+            try:
+                monto = Decimal(str(r.get('monto', 0)))
+                if monto.is_finite():
+                    total_monto += monto
+            except (InvalidOperation, ValueError):
+                pass
+
+        def url_pagina(numero):
+            return request.path + '?' + urlencode(dict(
+                vista='usuario', cliente=filtro_cliente,
+                fecha_desde=filtro_fecha_desde, fecha_hasta=filtro_fecha_hasta,
+                pagina=numero))
+
+        numeros_visibles = (range(1, paginas + 1) if paginas <= 7 else
+                            sorted({1, paginas, *range(max(1, pagina - 2), min(paginas, pagina + 2) + 1)}))
+        paginacion_usuarios = dict(
+            pagina=pagina, paginas=paginas, total_usuarios=total_usuarios,
+            desde=inicio + 1 if total_usuarios else 0,
+            hasta=min(inicio + 10, total_usuarios),
+            total_registros=len(registros_tabla_dinamica), total_monto=total_monto,
+            paginas_visibles=[dict(numero=n, url=url_pagina(n)) for n in numeros_visibles],
+            anterior_url=url_pagina(pagina - 1) if pagina > 1 else None,
+            siguiente_url=url_pagina(pagina + 1) if pagina < paginas else None)
+        if request.args.get('exportar') != '1':
+            usuarios_pagina = set(usuarios_ordenados[inicio:inicio + 10])
+            registros_tabla_dinamica = [r for r in registros_tabla_dinamica
+                                       if r.get('usuario') in usuarios_pagina]
     
     return render_template('reportes.html', 
                            fichas_por_registro=fichas_por_registro,
@@ -3807,6 +3851,7 @@ def vista_reportes(url_prefix=''):
                            deudas_agrupadas=deudas_agrupadas, 
                            stats_cobradores=stats_cobradores,
                            registros_tabla_dinamica=registros_tabla_dinamica,
+                           paginacion_usuarios=paginacion_usuarios,
                            cobradores=cobradores_mostrar,
                            metricas=metricas_cobradores,
                            datos_grafico=datos_grafico,

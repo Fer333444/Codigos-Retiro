@@ -14,7 +14,7 @@ from sqlalchemy import event, select
 
 import test_fichas_clientes as base
 from reportes_caidos import (AlmacenReportes, AuditoriaReporte, AvisoVisto, SolicitudReporte,
-                             ZONA, catalogo_caidos, fecha_caida, filtrar_agrupar)
+                             ZONA, catalogo_caidos, fecha_caida, filtrar_agrupar, saldo_para_cruce)
 
 
 def registro(rid, usuario, **extra):
@@ -81,9 +81,9 @@ class ReportesCaidosTest(unittest.TestCase):
 
     def test_rol_recaudador_ve_todos_sin_permiso_cobrar(self):
         texto = self.client.get('/reportes-caidos').get_data(as_text=True)
-        for rid in (1, 2, 3, 9):
+        for rid in (1, 2, 3, 8, 9):
             self.assertIn(f'data-codigo="{rid}"', texto)
-        for rid in (4, 5, 6, 7, 8):
+        for rid in (4, 5, 6, 7):
             self.assertNotIn(f'data-codigo="{rid}"', texto)
         self.assertIn('Vencido', texto)
         self.assertIn('ERP · Widget', texto)
@@ -101,6 +101,112 @@ class ReportesCaidosTest(unittest.TestCase):
         with self.client.session_transaction() as ses:
             ses.clear()
         self.assertEqual(self.client.get('/reportes-caidos').status_code, 403)
+
+    def test_deudas_auditadas_siguen_visibles_y_reportables(self):
+        self.erp.registros = [
+            registro(21, 'DANNYH12', estado='fallido', liquidado=True, historial=[
+                '[02/10/2026 10:27] Marcado como NO SALIÓ (Deuda) por Guillermo.',
+                '[06/10/2026 11:19] Auditado y cerrado por Guillermo.']),
+            registro(22, 'WIDGET - 26019GL', estado='expirado', liquidado=True, origen_socio='alex',
+                historial=['[03/10/2026 04:49] Expirado automáticamente (Tiempo agotado)']),
+            registro(23, 'cruce', estado='pendiente_de_cruce'),
+            registro(24, 'saldada', estado='saldado'),
+            registro(25, 'fusionada', estado='fusionado'),
+        ]
+        self.erp.guardar_datos()
+        anterior = Path(self.erp.DATA_FILE).read_bytes()
+        texto = self.client.get('/reportes-caidos').get_data(as_text=True)
+        for rid in (21, 22):
+            self.assertIn(f'data-codigo="{rid}"', texto)
+        for rid in (23, 24, 25):
+            self.assertNotIn(f'data-codigo="{rid}"', texto)
+        self.assertIn('02/10/2026', texto)
+        for rid in (21, 22):
+            self.assertEqual(self.solicitar(f'busqueda=RET-{rid}').status_code, 302)
+        self.assertEqual(len(self.almacen.solicitudes()), 2)
+        self.login('reportes')
+        aviso = self.client.get('/reportes-caidos/aviso-diario').json
+        self.assertIn('DANNYH12', aviso['html'])
+        self.assertIn('26019GL', aviso['html'])
+        self.assertEqual(Path(self.erp.DATA_FILE).read_bytes(), anterior)
+
+    def test_solicitud_que_pasa_a_cruce_sale_de_pendientes_y_aviso(self):
+        self.solicitar('busqueda=RET-1')
+        clave = next(iter(self.almacen.solicitudes()))
+        self.erp.registros[0]['estado'] = 'pendiente_de_cruce'
+        self.erp.guardar_datos()
+        anterior = Path(self.erp.DATA_FILE).read_bytes()
+        self.assertNotIn('data-codigo="1"', self.client.get('/reportes-caidos').get_data(as_text=True))
+        self.login('reportes')
+        self.assertNotIn('RET-1', self.client.get('/reportes-caidos/aviso-diario').json['html'])
+        self.assertNotIn('RET-1', self.client.get('/reportes-caidos/solicitudes').get_data(as_text=True))
+        historial = self.client.get('/reportes-caidos/solicitudes?estado=todas').get_data(as_text=True)
+        self.assertIn('RET-1', historial)
+        self.assertIn('Fuera del reporte actual', historial)
+        detalle = self.client.get('/reportes-caidos/codigo/' + clave).get_data(as_text=True)
+        self.assertNotIn('Ya atendido</button>', detalle)
+        self.assertEqual(self.client.post('/reportes-caidos/atender/' + clave,
+            data=dict(csrf_token=self.token_csrf(), desde_aviso='1')).status_code, 409)
+        self.assertIsNone(self.almacen.solicitudes()[clave]['atendido_en'])
+        self.assertEqual(Path(self.erp.DATA_FILE).read_bytes(), anterior)
+
+    def test_codigo_que_pasa_a_cruce_antes_de_confirmar_no_se_solicita(self):
+        enlace = self.seleccion('busqueda=RET-1')
+        token = parse_qs(urlparse(enlace).query)['seleccion'][0]
+        self.erp.registros[0]['estado'] = 'pendiente_de_cruce'
+        self.erp.guardar_datos()
+        respuesta = self.client.post('/reportes-caidos/confirmar', data=dict(
+            seleccion=token, csrf_token=self.token_csrf()))
+        self.assertEqual(respuesta.status_code, 409)
+        self.assertFalse(self.almacen.solicitudes())
+
+    def test_pago_disponible_excluye_solo_deudas_anteriores_del_mismo_usuario(self):
+        deuda = registro(100, 'ana', estado='expirado', liquidado=True)
+        pago = registro(200, 'ana', estado='retirado', celular='0990000000',
+                        monto='50', asignado_a='otro_cobrador')
+        casos = [({}, False), ({'saldo_disponible': '0.01'}, False),
+                 ({'saldo_disponible': 0}, True), ({'saldo_disponible': -1}, True),
+                 ({'saldo_disponible': 'invalido'}, True), ({'saldo_disponible': 'NaN'}, True),
+                 ({'id': 99}, True), ({'usuario': 'anabel'}, True),
+                 ({'usuario': 'Ana'}, True), ({'estado': 'activo'}, True),
+                 ({'estado': 'saldado'}, True), ({'es_prueba': True}, True),
+                 ({'celular': 'Pago Manual'}, True)]
+        for cambios, visible in casos:
+            with self.subTest(cambios=cambios):
+                datos = [deuda, dict(pago, **cambios)]
+                anterior = copy.deepcopy(datos)
+                self.assertEqual(bool(catalogo_caidos(datos, {}, True)), visible)
+                self.assertEqual(datos, anterior)
+        # Un pago anterior no oculta una deuda nueva del mismo cliente.
+        datos = [deuda, pago, registro(300, 'ana', estado='fallido')]
+        self.assertEqual([c['registro_id'] for c in catalogo_caidos(datos, {}, True).values()], ['300'])
+
+    def test_pago_utilizado_no_se_cuenta_dos_veces_si_no_tenia_saldo_persistido(self):
+        pago = registro(200, 'ana', estado='retirado', monto='50', celular='0990000000')
+        eventos = [
+            '[09/10/2026 12:00] 🔄 Se destinaron $20 para saldar la deuda #1.',
+            '[09/10/2026 12:01] 🔄 Se destinaron $30 para abonar a la deuda TOTAL del cliente.']
+        self.assertEqual(saldo_para_cruce(dict(pago, historial=eventos[:1])), 30)
+        self.assertEqual(saldo_para_cruce(dict(pago, historial=eventos)), 0)
+        self.assertEqual(saldo_para_cruce(dict(pago, saldo_disponible=30, historial=eventos[:1])), 30)
+        self.assertEqual(saldo_para_cruce(dict(pago, historial=[
+            '[09/10/2026 12:00] 🔄 Todo el dinero de este pago se usó para abonar a la deuda #1.'])), 0)
+
+    def test_pago_nuevo_retira_solicitud_del_aviso_y_reaparece_si_se_agota(self):
+        self.solicitar('busqueda=RET-1')
+        clave = next(iter(self.almacen.solicitudes()))
+        pago = registro(200, 'ana', estado='retirado', celular='0990000000', saldo_disponible=50)
+        self.erp.registros.append(pago)
+        self.erp.guardar_datos()
+        self.assertNotIn('data-codigo="1"', self.client.get('/reportes-caidos').get_data(as_text=True))
+        self.login('reportes')
+        self.assertNotIn('RET-1', self.client.get('/reportes-caidos/aviso-diario').json['html'])
+        self.assertNotIn('RET-1', self.client.get('/reportes-caidos/solicitudes').get_data(as_text=True))
+        self.assertIsNone(self.almacen.solicitudes()[clave]['atendido_en'])
+        pago['saldo_disponible'] = 0
+        self.erp.guardar_datos()
+        self.assertIn('RET-1', self.client.get('/reportes-caidos/aviso-diario').json['html'])
+        self.assertIn('RET-1', self.client.get('/reportes-caidos/solicitudes').get_data(as_text=True))
 
     def test_filtro_usuario_codigo_fecha_y_sin_fecha(self):
         respuesta = self.client.get('/reportes-caidos?busqueda=RET-1&desde=2026-10-09&hasta=2026-10-09')

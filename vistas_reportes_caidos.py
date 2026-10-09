@@ -146,8 +146,11 @@ def registrar_reportes_caidos(app, servicios):
         estado = request.args.get('estado', 'pendientes')
         if estado not in ('pendientes', 'atendidas', 'todas'):
             abort(400, description='Selecciona un estado válido.')
-        valores = list(almacen().solicitudes().values())
-        valores = [s for s in valores if estado == 'todas' or bool(s['atendido_en']) == (estado == 'atendidas')]
+        actuales = catalogo()
+        valores = [dict(s, vigente=s['clave'] in actuales) for s in almacen().solicitudes().values()]
+        valores = [s for s in valores if estado == 'todas' or
+                   (estado == 'atendidas' and s['atendido_en']) or
+                   (estado == 'pendientes' and not s['atendido_en'] and s['vigente'])]
         valores.sort(key=lambda s: s['solicitado_en'], reverse=True)
         return render_template('caidos_solicitudes.html', **contexto(solicitudes=valores,
             estado=estado, vista='solicitudes'))
@@ -155,25 +158,26 @@ def registrar_reportes_caidos(app, servicios):
     def obtener_codigo(clave):
         solicitud = almacen().solicitudes().get(clave)
         codigo = catalogo().get(clave)
+        vigente = codigo is not None
         if not codigo and solicitud:
             codigo = solicitud['datos']
         if not codigo:
             abort(404)
-        return codigo, solicitud
+        return codigo, solicitud, vigente
 
     @bp.route('/codigo/<clave>')
     def detalle(clave):
         comprobar()
-        codigo, solicitud = obtener_codigo(clave)
+        codigo, solicitud, vigente = obtener_codigo(clave)
         return render_template('caidos_detalle.html', **contexto(codigo=codigo, solicitud=solicitud,
             volver=url_for('caidos.listado', **filtros()) if permisos()[0] else url_for('caidos.solicitudes'),
-            filtros=filtros()))
+            filtros=filtros(), vigente=vigente))
 
     @bp.route('/codigo/<clave>/comprobante/<filename>')
     def comprobante(clave, filename):
         from flask import send_from_directory
         comprobar()
-        codigo, _ = obtener_codigo(clave)
+        codigo, _, _ = obtener_codigo(clave)
         if filename not in codigo['archivos']:
             abort(404)
         return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
@@ -182,8 +186,11 @@ def registrar_reportes_caidos(app, servicios):
     def atender(clave):
         comprobar('atender')
         comprobar_csrf()
-        if clave not in almacen().solicitudes():
+        solicitud = almacen().solicitudes().get(clave)
+        if not solicitud:
             abort(404)
+        if not solicitud['atendido_en'] and clave not in catalogo():
+            abort(409, description='Este código ya no necesita volver a reportarse: cambió de estado o tiene un pago disponible para cruzar. Su solicitud se conserva en el historial.')
         nota = request.form.get('nota', '').strip() or 'Confirmado como atendido por el rol Reportes.'
         try:
             cambiado = almacen().atender(clave, session['usuario'], nota)
@@ -202,7 +209,7 @@ def registrar_reportes_caidos(app, servicios):
         if almacen().aviso_visto(session['usuario'], hoy):
             return jsonify(mostrar=False)
         codigos = catalogo()
-        solicitudes = [s for s in almacen().solicitudes().values() if not s['atendido_en']]
+        solicitudes = [s for s in almacen().solicitudes().values() if not s['atendido_en'] and s['clave'] in codigos]
         solicitudes.sort(key=lambda s: s['solicitado_en'])
         caidos = sum(c['estado'] in ('fallido', 'fallido_revision') for c in codigos.values())
         vencidos = sum(c['estado'] == 'expirado' for c in codigos.values())

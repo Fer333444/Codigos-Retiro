@@ -5,6 +5,7 @@ import json
 import re
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import Column, Integer, JSON, String, Text, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -51,18 +52,66 @@ def es_prueba(registro):
         registro.get('usuario') or '').startswith('🔴 [PRUEBA]')
 
 
+def saldo_para_cruce(pago):
+    """Consulta el saldo sin cambiar pagos, incluyendo historiales anteriores a su persistencia."""
+    try:
+        explicito = pago.get('saldo_disponible')
+        saldo = Decimal(str(explicito if explicito is not None else pago.get('monto', 0)))
+        if not saldo.is_finite():
+            return Decimal(0)
+        if explicito is None:
+            # Los pagos alternativos ya abonaron la deuda al crearse.
+            if pago.get('celular') == 'Pago Manual':
+                return Decimal(0)
+            for evento in pago.get('historial') or []:
+                texto = str(evento)
+                if re.search(r'\] 🔄 Todo el dinero de este pago se usó para abonar a la deuda #\d+\.$', texto):
+                    return Decimal(0)
+                usado = re.search(r'\] 🔄 Se destinaron \$([0-9]+(?:\.[0-9]+)?) para '
+                    r'(?:abonar a la deuda TOTAL del cliente|saldar la deuda #\d+)\.$', texto)
+                if usado:
+                    saldo -= Decimal(usado.group(1))
+        return max(saldo, Decimal(0))
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal(0)
+
+
+def pagos_disponibles_por_usuario(registros):
+    """Un pago posterior con saldo permite cruzar las deudas previas del mismo usuario exacto."""
+    ultimos = {}
+    for pago in registros:
+        if pago.get('estado') != 'retirado' or es_prueba(pago) or saldo_para_cruce(pago) <= 0:
+            continue
+        usuario = pago.get('usuario')
+        try:
+            identificador = int(pago['id'])
+        except (KeyError, ValueError, TypeError, OverflowError):
+            continue
+        if usuario:
+            ultimos[usuario] = max(identificador, ultimos.get(usuario, identificador))
+    return ultimos
+
+
 def catalogo_caidos(registros, enlaces, incluir_vencidos=False):
     """Las identidades ambiguas se muestran por registro, sin fusionarlas ni ocultarlas."""
     _, por_registro, pendientes = crear_catalogo(registros, enlaces)
     repetidos = Counter(str(r.get('id') or '') for r in registros)
+    pagos_disponibles = pagos_disponibles_por_usuario(registros)
     resultado = {}
     for registro in registros:
         rid = str(registro.get('id') or '')
         estado = registro.get('estado')
         if estado not in ESTADOS_CAIDOS and not (incluir_vencidos and estado == 'expirado'):
             continue
-        if es_prueba(registro) or registro.get('liquidado'):
+        # «Liquidado» solo cierra la bandeja del cobrador; la deuda puede seguir activa.
+        # El estado actual decide si necesita volver a reportarse (no pendiente_de_cruce).
+        if es_prueba(registro):
             continue
+        try:
+            if pagos_disponibles.get(registro.get('usuario'), -1) > int(rid):
+                continue
+        except (ValueError, TypeError, OverflowError):
+            pass
         caida = fecha_caida(registro)
         # El número de caídas también distingue recaídas ocurridas en el mismo minuto.
         episodios = sum(bool(re.search(r'NO SALI[ÓO]|marcado como FALLIDO|Expirado automáticamente',

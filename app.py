@@ -192,6 +192,7 @@ class DBRegistro(Base):
     celular = Column(String(50), nullable=True)
     cedula = Column(String(30), nullable=True)
     monto = Column(String(30), nullable=True)
+    saldo_disponible = Column(Float, nullable=True)
     usuario = Column(String(255), nullable=True)
     hora_limite = Column(String(30), nullable=True)
     expira_timestamp = Column(Float, nullable=True)
@@ -248,6 +249,7 @@ if engine is not None:
             existentes = {col['name'] for col in inspector.get_columns('registros')}
             pendientes = {
                 'clientes_ficha': 'JSON',
+                'saldo_disponible': 'DOUBLE PRECISION',
                 'minutos_demora': 'DOUBLE PRECISION DEFAULT 0.0',
                 'banco_real_retiro': 'VARCHAR',
                 'motivo_fallo': 'VARCHAR',
@@ -361,6 +363,9 @@ def _registro_modelo_a_dict(r):
         d['rescate_45m_activado'] = r.rescate_45m_activado
     if r.clientes_ficha is not None:
         d['clientes_ficha'] = r.clientes_ficha
+    # NULL distingue pagos antiguos sin saldo registrado de un saldo ya agotado.
+    if r.saldo_disponible is not None:
+        d['saldo_disponible'] = r.saldo_disponible
     return d
 
 
@@ -398,6 +403,7 @@ def _registro_dict_a_orm(r):
         celular=r.get('celular'),
         cedula=r.get('cedula'),
         monto=r.get('monto'),
+        saldo_disponible=r.get('saldo_disponible'),
         usuario=r.get('usuario'),
         hora_limite=r.get('hora_limite'),
         expira_timestamp=r.get('expira_timestamp'),

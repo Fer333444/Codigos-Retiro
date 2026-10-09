@@ -1,1 +1,127 @@
-#aviso-caidos-diario{padding:0;border:1px solid #dfe7f1;border-radius:18px;width:min(660px,calc(100% - 28px));max-height:88dvh;color:#152b46;background:#fff;box-shadow:0 24px 100px #12274555;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;box-sizing:border-box}#aviso-caidos-diario::backdrop{background:#10203888}#aviso-caidos-diario *{box-sizing:border-box}#aviso-caidos-diario [hidden]{display:none!important}.avc-cabecera{display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid #e4ebf4;background:#f8faff;position:sticky;top:0;z-index:1}.avc-cabecera h2{font:750 22px/1.3 system-ui;margin:0}.avc-cabecera button{font-size:28px;line-height:1;background:none;border:0;color:#6e7b8f;cursor:pointer;min-width:40px;min-height:40px}.avc-contenido{padding:20px 22px}.avc-resumen{display:flex;gap:12px;flex-wrap:wrap}.avc-resumen span{border:1px solid #e0e6f0;border-radius:9px;padding:10px 12px;background:#f8faff}.avc-explicacion{font-size:13px;color:#62728c}.avc-grupo{margin-top:22px}.avc-grupo h3{font-size:18px;margin:0 0 8px;overflow-wrap:anywhere}.avc-codigo{border:1px solid #e0e7f1;padding:14px;border-radius:11px;margin-bottom:10px}.avc-linea{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.avc-codigo p{margin:8px 0;font-size:13px}.avc-nota{font-size:11px!important;color:#77859b}.avc-acciones{display:flex;justify-content:space-between;align-items:center;gap:12px}.avc-acciones a,.avc-pie a{color:#5141eb;text-decoration:underline;font-size:13px}#aviso-caidos-diario button{font-family:inherit}#aviso-caidos-diario button:disabled{opacity:.65;cursor:wait}.avc-atender,.avc-confirmar,#avc-entendido{background:#5141eb;border:0;border-radius:8px;padding:10px 14px;min-height:40px;color:white;font-weight:650;cursor:pointer}.avc-confirmacion{background:#f4f2ff;padding:12px;margin-top:10px;border-radius:8px}.avc-cancelar{border:1px solid #bdb5ff;padding:9px 12px;border-radius:8px;color:#5141eb;background:white;cursor:pointer;margin:5px 0 0 6px}.avc-resultado{color:#177649;font-weight:600}.avc-pie{display:flex;gap:20px;flex-wrap:wrap;margin-top:18px}.avc-inferior{padding:16px 22px;border-top:1px solid #e4ebf4;display:flex;justify-content:space-between;align-items:center;gap:15px;position:sticky;bottom:0;background:white}.avc-inferior span{font-size:11px;color:#7b8698}.avc-error{color:#b82c40;padding:10px 22px;font-size:12px;margin:0}#aviso-caidos-diario :focus-visible{outline:3px solid #a79cff;outline-offset:3px}@media(max-width:500px){.avc-cabecera,.avc-contenido{padding:15px}.avc-cabecera h2{font-size:20px}.avc-inferior{padding:14px}.avc-resumen{gap:8px;font-size:12px}.avc-codigo{padding:12px}.avc-linea{font-size:13px}}
+#aviso-caidos-diario{--avc-tinta:#102442;--avc-suave:#687992;--avc-linea:#e3e9f2;--avc-morado:#6045ed;--avc-fondo:#f5f7fc;padding:0;border:1px solid #fff;border-radius:24px;width:min(900px,calc(100% - 40px));max-height:90dvh;color:var(--avc-tinta);background:var(--avc-fondo);box-shadow:0 32px 110px #0e1d3b55;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;box-sizing:border-box;overflow:hidden}
+#aviso-caidos-diario[open]{display:flex;flex-direction:column}
+#aviso-caidos-diario::backdrop{background:#0e1e3c8c;backdrop-filter:blur(4px)}
+#aviso-caidos-diario *,#aviso-caidos-diario *::before,#aviso-caidos-diario *::after{box-sizing:border-box}
+#aviso-caidos-diario [hidden]{display:none!important}
+#aviso-caidos-diario svg{display:block;flex-shrink:0;width:20px;height:20px}
+#aviso-caidos-diario button,#aviso-caidos-diario input{font:inherit}
+#aviso-caidos-diario button{cursor:pointer}
+#aviso-caidos-diario button:disabled{opacity:.6;cursor:wait}
+#aviso-caidos-diario :focus-visible{outline:3px solid #a89afa;outline-offset:3px}
+.avc-cabecera{display:flex;align-items:center;gap:17px;padding:25px 28px 23px;background:linear-gradient(120deg,#fff 36%,#f4f1ff);border-bottom:1px solid var(--avc-linea);flex-shrink:0;position:relative}
+.avc-icono-cabecera{height:57px;width:57px;flex-shrink:0;display:grid;place-items:center;background:#ebe6ff;border:1px solid #ded4ff;border-radius:17px;color:var(--avc-morado);box-shadow:0 4px 12px #7659d90b}
+#aviso-caidos-diario .avc-icono-cabecera svg{width:29px;height:29px}
+.avc-titulo-contenedor{min-width:0;flex:1}
+.avc-sobretitulo{display:block;color:#7b66b1;font-size:10px;font-weight:750;letter-spacing:1.3px;margin-bottom:3px}
+.avc-cabecera h2{font-size:26px;font-weight:780;letter-spacing:-.7px;line-height:1.25;margin:0;color:var(--avc-tinta)}
+.avc-cabecera p{margin:5px 0 0;color:var(--avc-suave);font-size:13px}
+#avc-cerrar{display:grid;place-items:center;align-self:flex-start;flex-shrink:0;min-width:38px;min-height:38px;margin:-4px -6px 0 0;background:#ffffffaa;border:1px solid #e4e5ef;border-radius:12px;color:#69738c;transition:background .15s,color .15s}
+#avc-cerrar:hover{background:#fff;color:var(--avc-tinta)}
+.avc-contenido{padding:23px 28px 26px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;min-height:0}
+.avc-resumen{display:grid;grid-template-columns:1.12fr .8fr 1.1fr;gap:12px}
+.avc-indicador{background:#fff;border:1px solid var(--avc-linea);border-radius:15px;padding:16px 15px;display:flex;align-items:center;gap:12px;box-shadow:0 3px 10px #172c4803;min-width:0}
+.avc-indicador>div{min-width:0}
+.avc-indicador-icono{height:42px;width:42px;border-radius:12px;background:#ede9ff;color:#7156d5;display:grid;place-items:center;flex-shrink:0}
+.avc-indicador-usuarios .avc-indicador-icono{background:#eaf2ff;color:#4781c6}
+.avc-indicador-importe .avc-indicador-icono{background:#e7f7ef;color:#15845d}
+.avc-indicador-etiqueta{display:block;font-size:11px;color:var(--avc-suave);font-weight:550;line-height:1.3;margin-bottom:3px}
+.avc-indicador strong{font-size:25px;line-height:1.2;letter-spacing:-.75px;font-weight:750;overflow-wrap:anywhere}
+.avc-indicador-importe strong{color:#17825e}
+.avc-herramientas{margin-top:20px;display:flex;flex-direction:column;gap:12px}
+.avc-buscador{position:relative;display:flex;align-items:center;gap:11px;padding:0 15px;background:#fff;border:1px solid #dce4ef;border-radius:12px;min-height:48px;color:#8490a4;transition:border-color .15s,box-shadow .15s}
+.avc-buscador:focus-within{border-color:#9e8fee;box-shadow:0 0 0 3px #6045ed0e}
+#avc-buscar{min-width:0;width:100%;padding:11px 0;background:transparent;border:0;outline:none!important;color:var(--avc-tinta);font-size:13px}
+#avc-buscar::placeholder{color:#8a94a8;opacity:1}
+.avc-solo-lectores{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.avc-filtros{display:flex;flex-wrap:wrap;gap:8px}
+.avc-filtros button{display:flex;align-items:center;justify-content:center;gap:7px;border:1px solid #e2e6ef;background:#fff;border-radius:999px;min-height:34px;padding:6px 13px;font-size:11px!important;font-weight:600!important;color:#71809a;transition:background .15s,border-color .15s,color .15s}
+.avc-filtros button:hover{border-color:#bdb2f4;color:var(--avc-morado)}
+.avc-filtros button[aria-pressed="true"]{background:#eae5ff;border-color:#d8ceff;color:#5c3fcb}
+.avc-punto{height:6px;width:6px;border-radius:50%;flex-shrink:0;background:#ed5f75}
+.avc-punto-revision{background:#d69529}.avc-punto-vencido{background:#ee9048}
+.avc-listado-cabecera{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:23px 0 12px}
+.avc-listado-cabecera h3{font-size:13px;font-weight:700;margin:0;color:#374965}
+#avc-visible{font-size:11px;color:#8792a6;text-align:right}
+.avc-listado{display:grid;gap:17px}
+.avc-grupo{background:#fff;border:1px solid var(--avc-linea);border-radius:17px;overflow:hidden;box-shadow:0 4px 12px #192d4f03;min-width:0}
+.avc-grupo-cabecera{display:flex;align-items:center;gap:11px;padding:16px 18px;background:linear-gradient(110deg,#fff,#fafbff);border-bottom:1px solid #edf0f6}
+.avc-avatar{display:grid;place-items:center;width:39px;height:39px;flex-shrink:0;border-radius:12px;color:#6751a5;background:#eee9fa;font-weight:750;font-size:17px;border:1px solid #e6dff7}
+.avc-grupo-nombre{min-width:0;flex:1}
+.avc-grupo-nombre h4{font-size:15px;line-height:1.2;font-weight:750;margin:0;overflow-wrap:anywhere;letter-spacing:-.25px}
+.avc-grupo-nombre>span{display:block;font-size:10px;color:#8a95a7;margin-top:4px}
+.avc-grupo-cantidad{display:grid;place-items:center;min-width:28px;min-height:28px;border-radius:9px;background:#edf1fb;color:#607392;font-size:12px;font-weight:750;padding:2px 7px}
+.avc-grupo-codigos{padding:0 18px}
+.avc-codigo{padding:18px 0;min-width:0}
+.avc-codigo+.avc-codigo{border-top:1px dashed #dce3ef}
+.avc-codigo-principal{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
+.avc-identificacion{display:flex;align-items:center;flex-wrap:wrap;gap:5px 10px;min-width:0}
+.avc-identificacion-etiqueta{flex:0 0 100%;font-size:8px;letter-spacing:1.15px;color:#97a0b0;font-weight:700}
+.avc-codigo-numero{font-size:14px;line-height:1.5;color:#233953;overflow-wrap:anywhere;max-width:100%;letter-spacing:-.1px}
+.avc-estado{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;line-height:1.4;white-space:nowrap;border-radius:6px;background:#fff0f2;color:#cc4058;font-size:10px;font-weight:650}
+.avc-estado>span{height:5px;width:5px;border-radius:50%;background:currentColor}
+.avc-estado-fallido_revision{background:#fff6e4;color:#ad761b}.avc-estado-expirado{background:#fff0e5;color:#bf752d}
+.avc-valor{text-align:right;flex-shrink:0;padding-top:1px;max-width:44%}
+.avc-valor strong{display:block;font-size:22px;font-weight:750;line-height:1.2;letter-spacing:-.55px;overflow-wrap:anywhere}
+.avc-valor>span{display:block;font-size:9px;color:#75859c;margin-top:4px;letter-spacing:.25px;overflow-wrap:anywhere}
+.avc-datos{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;padding:12px 0;margin:14px 0 10px;background:#f8f9fd;border:1px solid #eef1f7;border-radius:10px}
+.avc-datos>div{min-width:0;position:relative;padding:0 12px 0 35px}
+.avc-datos>div+div{border-left:1px solid #e6eaf3}
+#aviso-caidos-diario .avc-datos svg{width:13px;height:13px;color:#8c9bb1;position:absolute;left:13px;top:1px}
+.avc-datos dt{font-size:9px;color:#8b97aa;line-height:1.3;margin-bottom:5px}
+.avc-datos dd{font-size:11px;color:#4d607d;line-height:1.4;margin:0;overflow-wrap:anywhere;font-weight:550}
+.avc-solicitante{display:flex;align-items:flex-start;gap:7px;color:#9a8cbd;padding:0 1px}
+#aviso-caidos-diario .avc-solicitante svg{width:12px;height:12px;margin-top:2px}
+.avc-solicitante p{margin:0;color:#909bae;font-size:10px;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 4px}
+.avc-solicitante strong{font-weight:600;color:#74829a;overflow-wrap:anywhere}
+.avc-solicitante p>span{margin-left:2px}.avc-solicitante p>span::before{content:"·";margin-right:6px;color:#abb2c0}
+.avc-acciones{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px}
+.avc-acciones a,.avc-bandeja{display:inline-flex;align-items:center;justify-content:center;gap:6px;color:#654adc;font-weight:650;font-size:11px;text-decoration:none;min-height:36px;line-height:1.4}
+.avc-acciones a:hover,.avc-bandeja:hover{color:#4324b7;text-decoration:underline}
+#aviso-caidos-diario .avc-acciones a svg{width:15px;height:15px}
+.avc-atender,.avc-confirmar{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 13px;border:1px solid #4c37ce;border-radius:9px;background:linear-gradient(120deg,#6a4eef,#5840d7);box-shadow:0 3px 6px #654add1c;color:#fff;font-size:11px!important;font-weight:650!important;min-height:37px}
+.avc-atender:hover,.avc-confirmar:hover{background:#5134cb}
+#aviso-caidos-diario .avc-atender svg,#aviso-caidos-diario .avc-confirmar svg{width:14px;height:14px;stroke-width:2.2}
+.avc-espera{display:flex;align-items:center;gap:5px;color:#8c98ac;font-size:10px}
+#aviso-caidos-diario .avc-espera svg{width:12px;height:12px}
+.avc-confirmacion{margin-top:13px;padding:13px;border-radius:11px;background:#f5f2ff;border:1px solid #e4dbff}
+.avc-confirmacion-texto{display:flex;align-items:flex-start;gap:9px;color:#7860ba}
+#aviso-caidos-diario .avc-confirmacion-texto svg{width:16px;height:16px;margin-top:2px}
+.avc-confirmacion-texto p{font-size:11px;color:#786a92;margin:0;overflow-wrap:anywhere}
+.avc-confirmacion-texto strong{display:block;color:#5d478a;font-size:12px;margin-bottom:3px}
+.avc-confirmacion-botones{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:11px}
+.avc-cancelar{min-height:37px;border:1px solid #d9d2eb;border-radius:9px;padding:7px 13px;background:#fff;color:#7c6f92;font-size:11px!important;font-weight:600!important}
+.avc-resultado{margin:12px 0 0;background:#eaf8f0;border:1px solid #cfeada;color:#21734e;border-radius:10px;padding:10px 12px;font-size:11px;font-weight:600;overflow-wrap:anywhere}
+.avc-sin-coincidencias{padding:35px 16px;text-align:center;border:1px dashed #dbe2ef;border-radius:16px;background:#fff;color:#8e99ad;display:flex;flex-direction:column;align-items:center;gap:8px}
+#aviso-caidos-diario .avc-sin-coincidencias svg{height:30px;width:30px;color:#b6aacd;margin-bottom:4px}
+.avc-sin-coincidencias strong{font-size:14px;color:#60708b}.avc-sin-coincidencias p{font-size:12px;margin:0}
+.avc-limite{display:flex;align-items:flex-start;gap:8px;padding:12px 0 0;margin:0;font-size:11px;color:#8a95a8}
+#aviso-caidos-diario .avc-limite svg{width:14px;height:14px;margin-top:1px}
+.avc-inferior{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:17px 28px;border-top:1px solid var(--avc-linea);background:#fff;flex-shrink:0}
+.avc-pie-informacion{display:flex;gap:8px;align-items:center;max-width:250px}
+.avc-pie-punto{height:6px;width:6px;border-radius:50%;background:#c7bbeb;flex-shrink:0}
+.avc-pie-informacion p{font-size:10px;color:#959db0;line-height:1.5;margin:0}
+.avc-pie-botones{display:flex;align-items:center;gap:17px;flex-shrink:0}
+#aviso-caidos-diario .avc-bandeja svg{height:14px;width:14px}
+#avc-entendido{min-height:39px;padding:9px 18px;background:#fff;border:1px solid #dae1eb;border-radius:10px;color:#63738d;font-size:12px;font-weight:650;box-shadow:0 1px 2px #15345104}
+#avc-entendido:hover{background:#f4f6fb;border-color:#c2cbda}
+.avc-error{flex-shrink:0;background:#fff3f4;border-top:1px solid #f3d5dc;color:#b0445b;padding:10px 28px;font-size:12px;margin:0}
+@media(min-width:760px) and (max-height:760px){.avc-cabecera{padding-top:19px;padding-bottom:18px}.avc-contenido{padding-top:18px}.avc-indicador{padding:12px 15px}.avc-indicador strong{font-size:23px}.avc-herramientas{margin-top:15px}.avc-listado-cabecera{margin-top:18px}}
+@media(max-width:640px){
+#aviso-caidos-diario{width:calc(100% - 22px);max-height:94dvh;border-radius:20px}.avc-cabecera{padding:21px 18px 18px;gap:11px}.avc-icono-cabecera{width:45px;height:45px;border-radius:13px}#aviso-caidos-diario .avc-icono-cabecera svg{width:24px;height:24px}.avc-sobretitulo{font-size:8px;letter-spacing:.9px;margin-bottom:4px}.avc-cabecera h2{font-size:21px;letter-spacing:-.5px}.avc-cabecera p{font-size:10px;max-width:205px;margin-top:4px}.avc-cabecera #avc-cerrar{min-width:29px;min-height:29px;border-radius:9px;margin:-6px -5px 0 0}#aviso-caidos-diario #avc-cerrar svg{width:17px;height:17px}
+.avc-contenido{padding:17px 15px 20px;scrollbar-gutter:auto}.avc-resumen{gap:7px;grid-template-columns:1.05fr .75fr 1.1fr}.avc-indicador{padding:11px 9px;gap:0;display:block;border-radius:12px}.avc-indicador-icono{width:28px;height:28px;border-radius:8px;margin-bottom:8px}#aviso-caidos-diario .avc-indicador-icono svg{height:16px;width:16px}.avc-indicador-etiqueta{font-size:9px;min-height:24px;line-height:1.25;margin-bottom:4px}.avc-indicador strong{font-size:21px;letter-spacing:-.6px}.avc-indicador-importe strong{font-size:20px}
+.avc-herramientas{margin-top:15px;gap:10px}.avc-buscador{padding:0 11px;gap:8px;min-height:43px}#avc-buscar{font-size:11px;padding:10px 0}#aviso-caidos-diario .avc-buscador svg{width:17px;height:17px}.avc-filtros{gap:5px}.avc-filtros button{font-size:9px!important;padding:6px 9px;gap:5px;min-height:32px}.avc-punto{height:5px;width:5px}.avc-listado-cabecera{margin:19px 0 10px}.avc-listado-cabecera h3{font-size:12px}#avc-visible{font-size:9px}
+.avc-listado{gap:13px}.avc-grupo{border-radius:14px}.avc-grupo-cabecera{padding:13px;gap:9px}.avc-avatar{width:33px;height:33px;font-size:15px;border-radius:10px}.avc-grupo-nombre h4{font-size:14px}.avc-grupo-nombre>span{font-size:8px;line-height:1.4;margin-top:3px}.avc-grupo-cantidad{min-width:25px;min-height:25px;font-size:10px;border-radius:8px}.avc-grupo-codigos{padding:0 13px}.avc-codigo{padding:15px 0}.avc-codigo-principal{gap:10px}.avc-identificacion{gap:5px 7px}.avc-identificacion-etiqueta{font-size:7px;letter-spacing:.8px}.avc-codigo-numero{font-size:12px}.avc-estado{font-size:8px;padding:3px 6px;gap:4px}.avc-valor strong{font-size:19px}.avc-valor>span{font-size:8px}.avc-valor{max-width:38%}
+.avc-datos{grid-template-columns:1fr 1fr;padding:11px 0;margin:13px 0 10px;row-gap:10px}.avc-datos>div{padding:0 9px 0 28px}.avc-datos>div:last-child{grid-column:1/-1;border-left:0;border-top:1px solid #e7ebf3;padding-top:10px;margin:0 10px;padding-left:18px;display:flex;align-items:baseline;gap:7px}#aviso-caidos-diario .avc-datos svg{left:9px;width:12px;height:12px}#aviso-caidos-diario .avc-datos>div:last-child svg{left:0;top:11px}.avc-datos dt{font-size:8px;margin-bottom:4px}.avc-datos dd{font-size:9px}.avc-datos>div:last-child dt{margin:0}.avc-solicitante p{font-size:9px;gap:1px 3px}.avc-solicitante p>span{width:100%;margin:0}.avc-solicitante p>span::before{content:none}
+.avc-acciones{margin-top:12px;gap:8px}.avc-acciones a{font-size:10px;min-height:38px}.avc-atender,.avc-confirmar{font-size:10px!important;padding:8px 11px;min-height:38px}.avc-espera{font-size:8px;gap:4px}.avc-confirmacion{padding:11px}.avc-confirmacion-texto p{font-size:10px}.avc-confirmacion-texto strong{font-size:11px}.avc-inferior{padding:13px 16px;flex-direction:column-reverse;align-items:stretch;gap:9px}.avc-pie-botones{justify-content:space-between;gap:10px}.avc-bandeja{font-size:11px}.avc-pie-informacion{max-width:none;justify-content:center;gap:5px}.avc-pie-informacion p{font-size:8px}.avc-pie-punto{height:4px;width:4px}#avc-entendido{min-height:37px;font-size:11px;padding:8px 17px}.avc-error{font-size:10px;padding:9px 16px}
+}
+@media(prefers-reduced-motion:reduce){#aviso-caidos-diario *{transition:none!important;scroll-behavior:auto!important}}
+.avc-codigo.avc-atendido .avc-codigo-numero{color:#668378}.avc-codigo.avc-atendido .avc-valor{color:#6b8e7d}.avc-codigo.avc-atendido .avc-datos{background:#f4faf7;border-color:#e7f1eb}.avc-resultado.avc-fallo{background:#fff0f2;border-color:#efcdd5;color:#b33f55}
+.avc-indicador-etiqueta{color:#64748b}.avc-listado-cabecera #avc-visible{color:#718096}.avc-grupo-nombre>span{color:#758297}.avc-identificacion-etiqueta{font-size:9px;color:#748196}.avc-datos dt{font-size:10px;color:#738199}.avc-datos dd{font-size:12px}.avc-solicitante p{font-size:11px;color:#718096}.avc-espera{font-size:11px;color:#718096}.avc-pie-informacion p{color:#758297}.avc-valor>span{font-size:10px}.avc-filtros button{min-height:36px}
+@media(max-width:640px){.avc-cabecera #avc-cerrar{min-width:36px;min-height:36px}.avc-indicador-etiqueta{font-size:10px;min-height:26px}.avc-grupo-nombre>span{font-size:9px}.avc-identificacion-etiqueta{font-size:8px}.avc-estado{font-size:9px}.avc-valor>span{font-size:9px}.avc-datos dt{font-size:9px}.avc-datos dd{font-size:11px}.avc-solicitante p{font-size:10px}.avc-espera{font-size:9px}.avc-atender,.avc-confirmar,.avc-cancelar{min-height:42px}.avc-acciones a{min-height:42px}.avc-filtros button{min-height:36px}.avc-pie-informacion p{font-size:9px}#avc-entendido{min-height:42px}}
+.erp-resumen-original.swal2-popup{border-radius:16px}
+.erp-resumen-original .swal2-title{font-size:18px;font-weight:900}
+.erp-resumen-original .swal2-html-container>div{font-size:14px;line-height:1.5;text-align:left;font-weight:700;color:#334155;margin-top:8px}
+.erp-resumen-original .swal2-html-container>div>p{display:flex;align-items:center;gap:8px;margin:0}
+.erp-resumen-original .swal2-html-container>div>p+p{margin-top:12px}
+.erp-resumen-original .swal2-html-container>div>p:last-child{font-size:12px;line-height:1.5;font-weight:500;font-style:italic;color:#64748b;border-top:1px solid #e2e8f0;padding-top:8px}
+.erp-resumen-original .swal2-actions button{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;padding:12px 20px}

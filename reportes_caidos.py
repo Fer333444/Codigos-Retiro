@@ -257,12 +257,12 @@ class AlmacenReportes:
 
     def aviso_visto(self, usuario, dia):
         with self.sesiones() as db:
-            return db.get(AvisoVisto, clave_estable([usuario, dia])) is not None
+            return db.get(AvisoVisto, clave_estable(['codigos-solicitados', usuario, dia])) is not None
 
     def marcar_aviso_visto(self, usuario, ahora=None):
         ahora = ahora or ahora_local()
         with self.sesiones.begin() as db:
-            self.insertar_unico(db, AvisoVisto, dict(clave=clave_estable([usuario, ahora.date().isoformat()]),
+            self.insertar_unico(db, AvisoVisto, dict(clave=clave_estable(['codigos-solicitados', usuario, ahora.date().isoformat()]),
                 usuario=usuario, dia=ahora.date().isoformat(), visto_en=ahora.isoformat(timespec='seconds')))
 
 

@@ -1,9 +1,18 @@
 {% if recibe_aviso_caidos %}
-<link rel="stylesheet" href="{{ url_for('static', filename='aviso_caidos.css') }}">
-<dialog id="aviso-caidos-diario" aria-labelledby="aviso-caidos-titulo" data-consulta="{{ url_for('caidos.aviso_diario') }}" data-visto="{{ url_for('caidos.aviso_visto') }}">
-<div class="avc-cabecera"><h2 id="aviso-caidos-titulo">Resumen de Pendientes</h2><button type="button" id="avc-cerrar" aria-label="Cerrar aviso">×</button></div>
-<div class="avc-contenido" id="avc-contenido"></div><p class="avc-error" id="avc-error" role="status" hidden></p>
-<div class="avc-inferior"><span>Una vez al día · Ecuador / Colombia</span><button type="button" id="avc-entendido">Entendido</button></div>
+<link rel="stylesheet" href="{{ url_for('static', filename='aviso_caidos.css', v='avisos-separados-20261009') }}">
+<dialog id="aviso-caidos-diario" aria-labelledby="aviso-caidos-titulo" aria-describedby="avc-descripcion" data-consulta="{{ url_for('caidos.aviso_diario') }}" data-visto="{{ url_for('caidos.aviso_visto') }}" data-resumen="{{ url_for('caidos.resumen_pendientes') }}">
+  <header class="avc-cabecera">
+    <span class="avc-icono-cabecera" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><rect x="8" y="2" width="8" height="4" rx="1.5"/><path d="m8 13 2.5 2.5L16 10M8 19h8"/></svg></span>
+    <div class="avc-titulo-contenedor"><span class="avc-sobretitulo">SOLICITUDES DE RECAUDADORES</span><h2 id="aviso-caidos-titulo">Códigos solicitados</h2><p id="avc-descripcion">Códigos que solicitaron volver a reportar.</p></div>
+    <button type="button" id="avc-cerrar" aria-label="Cerrar códigos solicitados"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+  </header>
+  <div class="avc-contenido" id="avc-contenido"></div>
+  <p class="avc-error" id="avc-error" role="status" hidden></p>
+  <footer class="avc-inferior">
+    <div class="avc-pie-informacion"><span class="avc-pie-punto" aria-hidden="true"></span><p>La solicitud sigue pendiente hasta marcarla como atendida.</p></div>
+    <div class="avc-pie-botones"><a class="avc-bandeja" href="{{ url_for('caidos.solicitudes') }}">Abrir bandeja completa <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a><button type="button" id="avc-entendido">Cerrar</button></div>
+  </footer>
 </dialog>
-<script src="{{ url_for('static', filename='aviso_caidos.js') }}" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
+<script src="{{ url_for('static', filename='aviso_caidos.js', v='avisos-separados-20261009') }}" defer></script>
 {% endif %}

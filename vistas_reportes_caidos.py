@@ -2,12 +2,13 @@
 
 import os
 import secrets
+from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, session, url_for
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import create_engine
 
-from reportes_caidos import AlmacenReportes, ahora_local, catalogo_caidos, clave_estable, filtrar_agrupar, texto_fecha
+from reportes_caidos import AlmacenReportes, ahora_local, catalogo_caidos, clave_estable, es_prueba, filtrar_agrupar, texto_fecha
 
 
 def registrar_reportes_caidos(app, servicios):
@@ -134,7 +135,7 @@ def registrar_reportes_caidos(app, servicios):
         volver = url_for('caidos.listado', **seleccion.get('filtros', {}))
         if request.method == 'POST' and request.form.get('accion') != 'previsualizar':
             cantidad = almacen().solicitar(nuevos, session['usuario'])
-            flash(f'Solicitud guardada: {cantidad} código(s). Aparecerán en el aviso diario de Reportes.'
+            flash(f'Solicitud guardada: {cantidad} código(s). Aparecerán en la ventana Códigos solicitados.'
                   if cantidad else 'Estos códigos ya tienen una solicitud registrada. No se duplicaron.', 'success')
             return redirect(volver)
         return render_template('caidos_confirmar.html', **contexto(codigos=nuevos, seleccion=token,
@@ -202,22 +203,40 @@ def registrar_reportes_caidos(app, servicios):
               'La solicitud ya estaba atendida.', 'success')
         return redirect(url_for('caidos.detalle', clave=clave))
 
+    @bp.route('/resumen-pendientes')
+    def resumen_pendientes():
+        """El resumen original conserva sus contadores generales, sin solicitudes ni filtros de cruce."""
+        comprobar('aviso')
+        registros, _ = servicios['datos']()
+        caidos = sum(r.get('estado') in ('fallido', 'fallido_revision') for r in registros if not es_prueba(r))
+        vencidos = sum(r.get('estado') == 'expirado' for r in registros if not es_prueba(r))
+        return jsonify(mostrar=bool(caidos or vencidos), cantidad_caidos=caidos, cantidad_expirados=vencidos,
+                       historial=url_for('vista_reportes', vista='historial'))
+
     @bp.route('/aviso-diario')
     def aviso_diario():
+        """Ventana independiente: solo códigos que un recaudador solicitó y aún requieren reporte."""
         comprobar('aviso')
-        hoy = ahora_local().date().isoformat()
-        if almacen().aviso_visto(session['usuario'], hoy):
-            return jsonify(mostrar=False)
         codigos = catalogo()
         solicitudes = [s for s in almacen().solicitudes().values() if not s['atendido_en'] and s['clave'] in codigos]
         solicitudes.sort(key=lambda s: s['solicitado_en'])
-        caidos = sum(c['estado'] in ('fallido', 'fallido_revision') for c in codigos.values())
-        vencidos = sum(c['estado'] == 'expirado' for c in codigos.values())
-        if not solicitudes and not caidos and not vencidos:
-            return jsonify(mostrar=False)
-        return jsonify(mostrar=True, csrf_token=csrf(), html=render_template('_contenido_aviso_caidos.html',
-            solicitudes=solicitudes[:30], total_solicitudes=len(solicitudes), cantidad_caidos=caidos,
-            cantidad_expirados=vencidos, puede_atender=permisos()[1]))
+        importe = Decimal(0)
+        for solicitud in solicitudes:
+            try:
+                monto = Decimal(str(solicitud['datos'].get('monto', 0)))
+                if monto.is_finite() and monto > 0:
+                    importe += monto
+            except (InvalidOperation, ValueError, TypeError):
+                pass
+        totales = dict(total_solicitudes=len(solicitudes),
+                       total_usuarios=len({s['datos']['usuario_original'] for s in solicitudes}),
+                       total_monto=format(importe, '.2f'))
+        hoy = ahora_local().date().isoformat()
+        if not solicitudes or (request.args.get('abrir') != '1' and almacen().aviso_visto(session['usuario'], hoy)):
+            return jsonify(mostrar=False, html='', **totales)
+        return jsonify(mostrar=True, csrf_token=csrf(), **totales,
+            html=render_template('_contenido_aviso_caidos.html', solicitudes=solicitudes[:30],
+                                 puede_atender=permisos()[1], **totales))
 
     @bp.route('/aviso-visto', methods=['POST'])
     def aviso_visto():

@@ -1,13 +1,46 @@
-<div class="avc-resumen"><span><b>{{ cantidad_caidos }}</b> códigos no salieron / caídos</span><span><b>{{ cantidad_expirados }}</b> códigos vencidos</span></div>
-<p class="avc-explicacion">Hay <strong>{{ total_solicitudes }}</strong> solicitud(es) pendiente(s) de volver a reportar. Cerrar este aviso no las marca como atendidas.</p>
+{% macro avc_icono(nombre) -%}
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{% if nombre == 'solicitudes' %}<path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><rect x="8" y="2" width="8" height="4" rx="1.5"/><path d="M8 11h8M8 15h8M8 19h5"/>
+{% elif nombre == 'usuarios' %}<circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6m3 10v-3a6 6 0 0 0-3-5"/>
+{% elif nombre == 'dinero' %}<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18m-4 5h1"/>
+{% elif nombre == 'buscar' %}<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>
+{% elif nombre == 'reloj' %}<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+{% elif nombre == 'calendario' %}<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-13 5h2m4 0h2"/>
+{% elif nombre == 'persona' %}<circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>
+{% elif nombre == 'check' %}<path d="m5 12 4 4L19 6"/>
+{% elif nombre == 'detalle' %}<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 12h8M8 16h5"/>
+{% elif nombre == 'enviar' %}<path d="m22 2-7 20-4-9-9-4ZM22 2 11 13"/>
+{% elif nombre == 'info' %}<circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-9h.01"/>
+{% endif %}</svg>
+{%- endmacro %}
+<div class="avc-resumen" aria-label="Resumen de solicitudes pendientes">
+  <div class="avc-indicador avc-indicador-pendientes"><span class="avc-indicador-icono">{{ avc_icono('solicitudes') }}</span><div><span class="avc-indicador-etiqueta">Solicitudes pendientes</span><strong id="avc-total">{{ total_solicitudes }}</strong></div></div>
+  <div class="avc-indicador avc-indicador-usuarios"><span class="avc-indicador-icono">{{ avc_icono('usuarios') }}</span><div><span class="avc-indicador-etiqueta">Usuarios</span><strong id="avc-usuarios">{{ total_usuarios }}</strong></div></div>
+  <div class="avc-indicador avc-indicador-importe"><span class="avc-indicador-icono">{{ avc_icono('dinero') }}</span><div><span class="avc-indicador-etiqueta">Importe solicitado</span><strong id="avc-monto">${{ '%.2f'|format(total_monto|float) }}</strong></div></div>
+</div>
+<div class="avc-herramientas">
+  <label class="avc-buscador" for="avc-buscar">{{ avc_icono('buscar') }}<span class="avc-solo-lectores">Buscar usuario, código o cobrador</span><input type="search" id="avc-buscar" placeholder="Buscar usuario, código o cobrador…" autocomplete="off" spellcheck="false"></label>
+  <div class="avc-filtros" role="group" aria-label="Filtrar solicitudes por estado"><button type="button" data-avc-filtro="todos" aria-pressed="true">Todos</button><button type="button" data-avc-filtro="fallido" aria-pressed="false"><span class="avc-punto avc-punto-fallido" aria-hidden="true"></span>No salió</button><button type="button" data-avc-filtro="fallido_revision" aria-pressed="false"><span class="avc-punto avc-punto-revision" aria-hidden="true"></span>En revisión</button><button type="button" data-avc-filtro="expirado" aria-pressed="false"><span class="avc-punto avc-punto-vencido" aria-hidden="true"></span>Vencidos</button></div>
+</div>
+<div class="avc-listado-cabecera"><h3>Por usuario</h3><span id="avc-visible" role="status" aria-live="polite">{{ solicitudes|length }} solicitud{% if solicitudes|length != 1 %}es{% endif %} en esta ventana</span></div>
+<div class="avc-listado">
 {% for grupo in solicitudes|groupby('datos.usuario_original') %}
-<section class="avc-grupo"><h3>{{ grupo.grouper }}</h3>
-{% for s in grupo.list %}<article class="avc-codigo" data-avc-clave="{{ s.clave }}"><div class="avc-linea"><strong>{{ s.datos.codigo }}</strong><span>${{ s.datos.monto }} · {{ s.datos.banco }}</span></div>
-<p>{{ s.datos.estado_nombre }} · Cobrador: {{ s.datos.cobrador }}<br>Creado: {{ s.datos.creado }}<br>Caído / vencido: {{ s.datos.caido }}</p>
-<p class="avc-nota">Solicitado por {{ s.solicitado_por }} · {{ s.solicitado_en|fecha_solicitud }}</p>
-<div class="avc-acciones"><a href="{{ url_for('caidos.detalle', clave=s.clave) }}">Ver detalle</a>{% if puede_atender %}<button type="button" class="avc-atender" data-url="{{ url_for('caidos.atender', clave=s.clave) }}">Ya atendido</button>{% else %}<span class="avc-nota">Pendiente de atención por Reportes</span>{% endif %}</div>
-{% if puede_atender %}<div class="avc-confirmacion" hidden><p>¿Confirmas que ya atendiste {{ s.datos.codigo }}?</p><button type="button" class="avc-confirmar">Confirmar atención</button><button type="button" class="avc-cancelar">Cancelar</button></div>{% endif %}
-<p class="avc-resultado" role="status" hidden></p></article>{% endfor %}</section>
+  <section class="avc-grupo" aria-label="Solicitudes de {{ grupo.grouper }}">
+    <header class="avc-grupo-cabecera"><span class="avc-avatar" aria-hidden="true">{{ (grupo.grouper|string)[:1]|upper }}</span><div class="avc-grupo-nombre"><h4>{{ grupo.grouper }}</h4><span>Códigos pendientes de volver a reportar</span></div><span class="avc-grupo-cantidad">{{ grupo.list|length }}</span></header>
+    <div class="avc-grupo-codigos">
+    {% for s in grupo.list %}
+      <article class="avc-codigo" data-avc-clave="{{ s.clave }}" data-avc-estado="{{ s.datos.estado }}" data-avc-usuario="{{ s.datos.cliente_id or s.datos.usuario_original }}" data-avc-monto="{{ s.datos.monto|float }}" data-avc-busqueda="{{ (s.datos.usuario_original ~ ' ' ~ s.datos.codigo ~ ' ' ~ s.datos.cobrador ~ ' ' ~ s.solicitado_por ~ ' ' ~ s.datos.banco)|lower }}">
+        <div class="avc-codigo-principal"><div class="avc-identificacion"><span class="avc-identificacion-etiqueta">CÓDIGO DE RETIRO</span><strong class="avc-codigo-numero">{{ s.datos.codigo }}</strong><span class="avc-estado avc-estado-{{ s.datos.estado }}"><span aria-hidden="true"></span>{{ s.datos.estado_nombre }}</span></div><div class="avc-valor"><strong>${{ '%.2f'|format(s.datos.monto|float) }}</strong><span>{{ s.datos.banco or 'Banco sin información' }}</span></div></div>
+        <dl class="avc-datos"><div>{{ avc_icono('calendario') }}<dt>Creado</dt><dd>{{ s.datos.creado or 'Sin información' }}</dd></div><div>{{ avc_icono('reloj') }}<dt>{{ 'Vencido' if s.datos.estado == 'expirado' else 'Caído' }}</dt><dd>{{ s.datos.caido or 'Sin información' }}</dd></div><div>{{ avc_icono('persona') }}<dt>Cobrador</dt><dd>{{ s.datos.cobrador }}</dd></div></dl>
+        <div class="avc-solicitante">{{ avc_icono('enviar') }}<p>Solicitado por <strong>{{ s.solicitado_por }}</strong><span>{{ s.solicitado_en|fecha_solicitud }}</span></p></div>
+        <div class="avc-acciones"><a href="{{ url_for('caidos.detalle', clave=s.clave) }}">{{ avc_icono('detalle') }}Ver detalle</a>{% if puede_atender %}<button type="button" class="avc-atender" data-url="{{ url_for('caidos.atender', clave=s.clave) }}">{{ avc_icono('check') }}Ya atendido</button>{% else %}<span class="avc-espera">{{ avc_icono('reloj') }}En espera de Reportes</span>{% endif %}</div>
+        {% if puede_atender %}<div class="avc-confirmacion" hidden><div class="avc-confirmacion-texto">{{ avc_icono('info') }}<p><strong>Confirmar atención</strong>¿Ya atendiste el código {{ s.datos.codigo }}? Dejará de aparecer entre las solicitudes pendientes.</p></div><div class="avc-confirmacion-botones"><button type="button" class="avc-cancelar">Volver</button><button type="button" class="avc-confirmar">{{ avc_icono('check') }}Confirmar atención</button></div></div>{% endif %}
+        <p class="avc-resultado" role="status" hidden></p>
+      </article>
+    {% endfor %}
+    </div>
+  </section>
 {% endfor %}
-{% if total_solicitudes > solicitudes|length %}<p class="avc-nota">Mostrando {{ solicitudes|length }} de {{ total_solicitudes }} solicitudes. Abre la lista completa para consultar las restantes.</p>{% endif %}
-<div class="avc-pie"><a href="{{ url_for('caidos.solicitudes') }}">Ver todas las solicitudes</a><a href="{{ url_for('vista_reportes', vista='historial') }}">Historial y Deudas</a></div>
+</div>
+<div class="avc-sin-coincidencias" id="avc-sin-coincidencias" hidden>{{ avc_icono('buscar') }}<strong>No hay solicitudes que coincidan</strong><p>Prueba con otro usuario, código o estado.</p></div>
+{% if total_solicitudes > solicitudes|length %}<p class="avc-limite">{{ avc_icono('info') }}Esta ventana muestra {{ solicitudes|length }} de {{ total_solicitudes }} solicitudes. En la bandeja completa puedes consultar las demás.</p>{% endif %}

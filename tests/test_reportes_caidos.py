@@ -14,7 +14,7 @@ from sqlalchemy import event, select
 
 import test_fichas_clientes as base
 from reportes_caidos import (AlmacenReportes, AuditoriaReporte, AvisoVisto, SolicitudReporte,
-                             ZONA, catalogo_caidos, fecha_caida, filtrar_agrupar, saldo_para_cruce)
+                             ZONA, catalogo_caidos, clave_estable, fecha_caida, filtrar_agrupar, saldo_para_cruce)
 
 
 def registro(rid, usuario, **extra):
@@ -295,10 +295,14 @@ class ReportesCaidosTest(unittest.TestCase):
         with patch('vistas_reportes_caidos.ahora_local', return_value=datetime(2026,10,9,14,tzinfo=ZONA)), patch('reportes_caidos.ahora_local', return_value=datetime(2026,10,9,14,tzinfo=ZONA)):
             datos = self.client.get('/reportes-caidos/aviso-diario').json
             self.assertTrue(datos['mostrar'])
+            self.assertNotIn('cantidad_caidos', datos)
+            self.assertNotIn('cantidad_expirados', datos)
             self.assertIn('Ya atendido', datos['html'])
             self.assertIn('RET-1', datos['html'])
             self.assertEqual(self.client.post('/reportes-caidos/aviso-visto', data={'csrf_token':datos['csrf_token']}).status_code, 200)
-            self.assertFalse(self.client.get('/reportes-caidos/aviso-diario').json['mostrar'])
+            leido = self.client.get('/reportes-caidos/aviso-diario').json
+            self.assertFalse(leido['mostrar'])
+            self.assertEqual(leido['html'], '')
             self.assertFalse(next(iter(self.almacen.solicitudes().values()))['atendido_en'])
             self.login('supremo')
             aviso = self.client.get('/reportes-caidos/aviso-diario').json
@@ -314,8 +318,166 @@ class ReportesCaidosTest(unittest.TestCase):
         self.almacen.atender(clave, 'reportes', 'Nuevo reporte confirmado')
         self.login('reportes')
         aviso = self.client.get('/reportes-caidos/aviso-diario').json
+        self.assertFalse(aviso['mostrar'])
         self.assertNotIn('RET-1', aviso['html'])
-        self.assertIn('0</strong> solicitud', aviso['html'])
+        self.assertEqual(aviso['html'], '')
+
+    def test_sin_solicitudes_solo_se_muestra_resumen_original(self):
+        self.login('reportes')
+        resumen = self.client.get('/reportes-caidos/resumen-pendientes').json
+        self.assertTrue(resumen['mostrar'])
+        self.assertEqual(resumen['cantidad_caidos'], 4)
+        self.assertEqual(resumen['cantidad_expirados'], 1)
+        nuevo = self.client.get('/reportes-caidos/aviso-diario').json
+        self.assertFalse(nuevo['mostrar'])
+        self.assertEqual(nuevo['html'], '')
+        self.assertNotIn('solicitudes', resumen)
+        self.assertNotIn('html', resumen)
+
+    def test_resumen_cuenta_auditados_y_con_pago_pero_no_pruebas_ni_cruces(self):
+        self.erp.registros = [
+            registro(100, 'ana', estado='fallido', liquidado=True),
+            registro(101, 'ana', estado='fallido_revision'),
+            registro(102, 'anabel', estado='expirado', liquidado=True),
+            registro(200, 'ana', estado='retirado', celular='0990000000', saldo_disponible=50),
+            registro(201, 'ana', estado='pendiente_de_cruce'),
+            registro(202, 'ana', estado='fallido', es_prueba=True),
+            registro(203, 'ana', estado='expirado', es_prueba=True),
+            registro(204, '🔴 [PRUEBA] ERP - ana', estado='fallido'),
+            registro(205, 'ana', estado='papelera'),
+        ]
+        self.erp.guardar_datos()
+        self.login('supremo')
+        resumen = self.client.get('/reportes-caidos/resumen-pendientes').json
+        self.assertTrue(resumen['mostrar'])
+        self.assertEqual(resumen['cantidad_caidos'], 2)
+        self.assertEqual(resumen['cantidad_expirados'], 1)
+        self.assertFalse(self.client.get('/reportes-caidos/aviso-diario').json['mostrar'])
+
+    def test_ambos_avisos_son_independientes_y_leer_solicitudes_no_oculta_resumen(self):
+        self.solicitar('busqueda=RET-1')
+        self.login('reportes')
+        resumen = self.client.get('/reportes-caidos/resumen-pendientes').json
+        nuevo = self.client.get('/reportes-caidos/aviso-diario').json
+        self.assertTrue(resumen['mostrar'])
+        self.assertTrue(nuevo['mostrar'])
+        self.assertIn('ana', nuevo['html'])
+        self.assertIn('RET-1', nuevo['html'])
+        self.assertNotIn('RET-2', nuevo['html'])
+        self.assertNotIn('RET-3', nuevo['html'])
+        self.assertNotIn('cantidad_caidos', nuevo)
+        self.assertNotIn('cantidad_expirados', nuevo)
+        # Consultar el resumen original no registra lectura de la ventana nueva.
+        with self.almacen.sesiones() as db:
+            self.assertEqual(list(db.scalars(select(AvisoVisto))), [])
+        self.assertEqual(self.client.post('/reportes-caidos/aviso-visto',
+            data={'csrf_token': nuevo['csrf_token']}).status_code, 200)
+        self.assertFalse(self.client.get('/reportes-caidos/aviso-diario').json['mostrar'])
+        self.assertEqual(self.client.get('/reportes-caidos/resumen-pendientes').json, resumen)
+        self.assertIsNone(next(iter(self.almacen.solicitudes().values()))['atendido_en'])
+
+    def test_solicitudes_excluidas_por_pago_o_cruce_no_abren_ventana_nueva(self):
+        for exclusion in ('pago', 'cruce'):
+            with self.subTest(exclusion=exclusion):
+                self.erp.registros = [registro(100, 'ana', estado='fallido')]
+                self.erp.guardar_datos()
+                self.login('guillermo')
+                self.almacen.solicitar(list(self.catalogo().values()), 'guillermo')
+                if exclusion == 'pago':
+                    self.erp.registros.append(registro(200, 'ana', estado='retirado',
+                        celular='0990000000', saldo_disponible=50))
+                else:
+                    self.erp.registros[0]['estado'] = 'pendiente_de_cruce'
+                self.erp.guardar_datos()
+                self.login('reportes')
+                nuevo = self.client.get('/reportes-caidos/aviso-diario').json
+                self.assertFalse(nuevo['mostrar'])
+                self.assertEqual(nuevo['html'], '')
+                resumen = self.client.get('/reportes-caidos/resumen-pendientes').json
+                self.assertEqual(resumen['mostrar'], exclusion == 'pago')
+                self.assertEqual(resumen['cantidad_caidos'], int(exclusion == 'pago'))
+
+    def test_resumen_sin_caidos_no_muestra_ninguna_ventana(self):
+        self.erp.registros = [registro(1, 'ana', estado='retirado'),
+                              registro(2, 'ana', estado='pendiente_de_cruce')]
+        self.erp.guardar_datos()
+        self.login('reportes')
+        resumen = self.client.get('/reportes-caidos/resumen-pendientes').json
+        self.assertFalse(resumen['mostrar'])
+        self.assertEqual(resumen['cantidad_caidos'], 0)
+        self.assertEqual(resumen['cantidad_expirados'], 0)
+        self.assertFalse(self.client.get('/reportes-caidos/aviso-diario').json['mostrar'])
+
+    def test_ventana_se_puede_reabrir_tras_lectura_solo_si_hay_solicitudes(self):
+        self.solicitar('busqueda=RET-1')
+        self.login('reportes')
+        aviso = self.client.get('/reportes-caidos/aviso-diario').json
+        self.client.post('/reportes-caidos/aviso-visto', data={'csrf_token': aviso['csrf_token']})
+        self.assertFalse(self.client.get('/reportes-caidos/aviso-diario').json['mostrar'])
+        reabierto = self.client.get('/reportes-caidos/aviso-diario?abrir=1').json
+        self.assertTrue(reabierto['mostrar'])
+        self.assertIn('RET-1', reabierto['html'])
+        clave = next(iter(self.almacen.solicitudes()))
+        self.almacen.atender(clave, 'reportes', 'Atendido desde la prueba')
+        sin_pendientes = self.client.get('/reportes-caidos/aviso-diario?abrir=1').json
+        self.assertFalse(sin_pendientes['mostrar'])
+        self.assertEqual(sin_pendientes['html'], '')
+
+    def test_lectura_del_antiguo_aviso_combinado_no_oculta_nueva_ventana(self):
+        self.solicitar('busqueda=RET-1')
+        self.login('reportes')
+        ahora = datetime(2026, 10, 9, 14, tzinfo=ZONA)
+        with self.almacen.sesiones.begin() as db:
+            db.add(AvisoVisto(clave=clave_estable(['reportes', '2026-10-09']),
+                usuario='reportes', dia='2026-10-09', visto_en=ahora.isoformat()))
+        with patch('vistas_reportes_caidos.ahora_local', return_value=ahora):
+            self.assertFalse(self.almacen.aviso_visto('reportes', '2026-10-09'))
+            self.assertTrue(self.client.get('/reportes-caidos/aviso-diario').json['mostrar'])
+
+    def test_estadisticas_cuentan_todas_las_solicitudes_aunque_el_detalle_se_limite(self):
+        self.erp.registros = [registro(i, 'ana' if i % 2 else 'anabel', estado='fallido',
+                                      monto='12.50') for i in range(1, 32)]
+        self.erp.guardar_datos()
+        self.almacen.solicitar(list(self.catalogo().values()), 'guillermo')
+        self.login('reportes')
+        aviso = self.client.get('/reportes-caidos/aviso-diario').json
+        self.assertTrue(aviso['mostrar'])
+        self.assertEqual(aviso['total_solicitudes'], 31)
+        self.assertEqual(aviso['total_usuarios'], 2)
+        self.assertEqual(aviso['total_monto'], '387.50')
+
+    def test_resumen_y_ventana_solicitudes_respetan_permisos_actuales(self):
+        for usuario, acceso in [('supremo', 200), ('reportes', 200), ('guillermo', 403),
+                                ('cobrador', 403), ('editor', 403)]:
+            self.login(usuario)
+            for ruta in ('resumen-pendientes', 'aviso-diario'):
+                with self.subTest(usuario=usuario, ruta=ruta):
+                    self.assertEqual(self.client.get('/reportes-caidos/' + ruta).status_code, acceso)
+        self.login('reportes', entorno='pruebas')
+        self.assertEqual(self.client.get('/reportes-caidos/resumen-pendientes').status_code, 403)
+        self.login('reportes')
+        self.erp.usuarios_db['reportes']['rol'] = 'cobrador'
+        self.erp.guardar_datos()
+        self.assertEqual(self.client.get('/reportes-caidos/resumen-pendientes').status_code, 403)
+        with self.client.session_transaction() as ses:
+            ses.clear()
+        self.assertEqual(self.client.get('/reportes-caidos/resumen-pendientes').status_code, 403)
+
+    def test_consultar_resumen_no_modifica_finanzas_ni_lectura(self):
+        self.login('supremo')
+        anterior = copy.deepcopy(self.erp.registros)
+        archivo = Path(self.erp.DATA_FILE).read_bytes()
+        hooks = self.erp.app.before_request_funcs[None] + [self.erp.mantenimiento_datos]
+        with patch.dict(self.erp.app.before_request_funcs, {None: hooks}), patch.object(self.erp, 'guardar_datos') as guardar:
+            respuesta = self.client.get('/reportes-caidos/resumen-pendientes')
+            self.assertEqual(respuesta.status_code, 200)
+            guardar.assert_not_called()
+        self.assertEqual(self.erp.registros, anterior)
+        self.assertEqual(Path(self.erp.DATA_FILE).read_bytes(), archivo)
+        with self.almacen.sesiones() as db:
+            self.assertEqual(list(db.scalars(select(AvisoVisto))), [])
+            self.assertEqual(list(db.scalars(select(AuditoriaReporte))), [])
+        self.assertEqual(self.almacen.solicitudes(), {})
 
     def test_comprobantes_no_permiten_archivos_ajenos(self):
         self.erp.registros[0]['imagen'] = 'comprobante.png'
@@ -329,7 +491,7 @@ class ReportesCaidosTest(unittest.TestCase):
         self.login('cobrador')
         self.assertEqual(self.client.get(ruta + 'comprobante.png').status_code, 403)
 
-    def test_detalle_resuelto_sigue_consultable_para_atender(self):
+    def test_detalle_resuelto_sigue_consultable_en_historial(self):
         self.solicitar('busqueda=RET-1')
         clave = next(iter(self.almacen.solicitudes()))
         self.erp.registros[0]['estado'] = 'fusionado'

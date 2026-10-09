@@ -1,7 +1,7 @@
 {% extends 'caidos_base.html' %}
 {% block contenido %}
 <h1>{{ titulo }}</h1><p class="subtitulo">{{ subtitulo }}</p>
-<div class="aviso-informativo">{{ icono('campana') }}<span>Los códigos solicitados se incluirán en el aviso diario en pantalla del rol Reportes.</span></div>
+<div class="aviso-informativo">{{ icono('campana') }}<span>Al reportar, los códigos aparecerán en la ventana «Códigos solicitados» del rol Reportes.</span></div>
 <form class="filtros-caidos" method="get">
 <label class="campo">Buscar usuario o código<span class="con-icono">{{ icono('buscar') }}<input type="search" name="busqueda" value="{{ filtros.busqueda }}" placeholder="Buscar usuario o código…" maxlength="160"></span></label>
 <label class="campo">Desde<input type="date" name="desde" value="{{ filtros.desde }}" aria-label="Fecha de caída desde"></label>

@@ -1695,7 +1695,47 @@ def index():
     # Cargar el estado de los bancos (si no existe, por defecto todos activos)
     bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
     
-    return render_template('index.html', enlaces=enlaces_db, mi_usuario=session['usuario'], rol=session.get('rol'), base_url=request.host_url, grupos=grupos_creados, horario_activo=horario, bancos_activos=bancos_activos)
+    # La exportación conserva la base completa, sin limitarse a la página visible.
+    if request.args.get('exportar') == '1':
+        return jsonify(filas=[
+            [data.get('usuario', ''), request.host_url + 'retiro/' + token,
+             data.get('grupo', ''), data.get('fecha', '')]
+            for token, data in enlaces_db.items()
+        ])
+
+    filtro_cliente = request.args.get('cliente', '').strip()
+    busqueda = filtro_cliente.casefold()
+    enlaces_filtrados = [
+        (token, data) for token, data in enlaces_db.items()
+        if not busqueda or busqueda in ' '.join(str(valor or '') for valor in (
+            data.get('usuario'), request.host_url + 'retiro/' + token,
+            data.get('grupo'), data.get('fecha'))).casefold()
+    ]
+    total_usuarios = len(enlaces_filtrados)
+    paginas = max(1, (total_usuarios + 9) // 10)
+    try:
+        pagina = max(1, int(request.args.get('pagina', '1')))
+    except (TypeError, ValueError):
+        pagina = 1
+    pagina = min(pagina, paginas)
+    inicio = (pagina - 1) * 10
+
+    def url_pagina(numero):
+        return request.path + '?' + urlencode(dict(cliente=filtro_cliente, pagina=numero))
+
+    numeros_visibles = (range(1, paginas + 1) if paginas <= 7 else
+                        sorted({1, paginas, *range(max(1, pagina - 2), min(paginas, pagina + 2) + 1)}))
+    paginacion_usuarios = dict(
+        pagina=pagina, paginas=paginas, total_usuarios=total_usuarios,
+        desde=inicio + 1 if total_usuarios else 0, hasta=min(inicio + 10, total_usuarios),
+        paginas_visibles=[dict(numero=n, url=url_pagina(n)) for n in numeros_visibles],
+        anterior_url=url_pagina(pagina - 1) if pagina > 1 else None,
+        siguiente_url=url_pagina(pagina + 1) if pagina < paginas else None)
+
+    return render_template('index.html', enlaces=dict(enlaces_filtrados[inicio:inicio + 10]),
+                           filtro_cliente=filtro_cliente, paginacion_usuarios=paginacion_usuarios,
+                           mi_usuario=session['usuario'], rol=session.get('rol'), base_url=request.host_url,
+                           grupos=grupos_creados, horario_activo=horario, bancos_activos=bancos_activos)
 
 @app.route('/api/historial_cliente/<path:usuario>')
 def api_historial_cliente(usuario):

@@ -206,12 +206,16 @@
 
                 <div class="p-4 sm:p-6 border-b border-slate-100 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white">
                     
-                    <div class="relative w-full lg:w-72">
+                    <form action="{{ request.path }}" method="GET" class="flex items-center gap-2 w-full lg:w-auto">
+                    <div class="relative flex-1 lg:w-64">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fas fa-search text-slate-400"></i>
                         </div>
-                        <input type="text" id="buscadorLinks" placeholder="Buscar por usuario..." class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 text-slate-600 font-medium shadow-sm transition-colors bg-slate-50 focus:bg-white">
+                        <input type="search" id="buscadorLinks" name="cliente" value="{{ filtro_cliente }}" aria-label="Buscar clientes" placeholder="Buscar por usuario..." class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 text-slate-600 font-medium shadow-sm transition-colors bg-slate-50 focus:bg-white">
                     </div>
+                    <button type="submit" class="min-h-[40px] px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold focus:ring-2 focus:ring-indigo-400">Buscar</button>
+                    {% if filtro_cliente %}<a href="{{ request.path }}" class="text-xs font-bold text-slate-500 hover:text-indigo-600">Limpiar</a>{% endif %}
+                    </form>
 
                     <div class="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto justify-end">
                         
@@ -270,7 +274,7 @@
                             <i class="fas fa-file-import sm:mr-1.5"></i> <span class="hidden sm:inline">Importar</span>
                         </button>
                         
-                        <button onclick="exportarPDF()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm text-xs flex items-center transition-colors">
+                        <button type="button" onclick="exportarPDF(this)" title="Exportar todos los clientes" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm text-xs flex items-center transition-colors">
                             <i class="fas fa-file-export sm:mr-1.5"></i> <span class="hidden sm:inline">Exportar</span>
                         </button>
                         
@@ -281,6 +285,7 @@
                 </div>
 
                 <div class="p-4 md:p-6 pt-4">
+                    {% include '_paginacion_usuarios.html' %}
                     <form action="/agrupar_bulk" method="POST" id="formBulk">
                         
                         <div id="bulkBar" class="hidden bg-indigo-50 border border-indigo-200 p-4 rounded-xl mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 transition-all shadow-sm">
@@ -302,7 +307,7 @@
                             <table class="w-full text-left text-sm text-slate-600 border-collapse whitespace-nowrap" id="tablaLinks">
                                 <thead>
                                     <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 tracking-wider">
-                                        <th class="py-4 px-4 w-10 text-center"><input type="checkbox" id="selectAll" class="w-4 h-4 text-green-600 rounded cursor-pointer"></th>
+                                        <th class="py-4 px-4 w-10 text-center"><input type="checkbox" id="selectAll" aria-label="Seleccionar los clientes de esta página" title="Seleccionar los clientes de esta página" class="w-4 h-4 text-green-600 rounded cursor-pointer"></th>
                                         <th class="py-4 px-4 font-bold">Usuario (Cliente)</th>
                                         <th class="py-4 px-4 font-bold">Enlace Único</th>
                                         <th class="py-4 px-4 font-bold text-center">Grupo</th>
@@ -312,14 +317,14 @@
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 bg-white">
                                     {% if not enlaces %}
-                                        <tr><td colspan="6" class="py-10 text-center text-slate-400 italic font-medium">No has creado ningún link todavía.</td></tr>
+                                        <tr><td colspan="6" class="py-10 text-center text-slate-400 italic font-medium">{{ 'No se encontraron clientes para esta búsqueda.' if filtro_cliente else 'No has creado ningún link todavía.' }}</td></tr>
                                     {% endif %}
                                     
                                     {% for token, data in enlaces.items() %}
                                     {% set usuario_js = data.usuario | replace("\\", "\\\\") | replace("'", "\\'") %}
                                     <tr class="hover:bg-slate-50 group fila-link transition-colors">
                                         <td class="py-4 px-4 text-center">
-                                            <input type="checkbox" name="tokens" value="{{ token }}" class="chk-link w-4 h-4 text-green-600 rounded cursor-pointer">
+                                            <input type="checkbox" name="tokens" value="{{ token }}" form="formBulk" aria-label="Seleccionar a {{ data.usuario }}" class="chk-link w-4 h-4 text-green-600 rounded cursor-pointer">
                                         </td>
                                         <td class="py-4 px-4 font-black text-slate-800 text-base min-w-[150px]"><i class="fas fa-user-circle text-slate-300 mr-2 text-lg align-middle"></i>{{ data.usuario }}</td>
                                         <td class="py-4 px-4 font-mono text-[11px] text-blue-600">{{ base_url }}retiro/{{ token }}</td>
@@ -342,12 +347,9 @@
                                                     <i class="fas fa-pen"></i>
                                                 </button>
 
-                                                <form action="/eliminar_link" method="POST" class="m-0" onsubmit="return confirm('⚠️ ¡ATENCIÓN!\n\n¿Estás absolutamente seguro de que deseas eliminar a este cliente?\n\nSi lo borras, su enlace dejará de funcionar inmediatamente y no podrá enviarte más retiros a menos que lo vuelvas a crear.');">
-                                                    <input type="hidden" name="token" value="{{ token }}">
-                                                    <button type="submit" title="Eliminar" class="w-8 h-8 flex items-center justify-center border border-red-200 text-red-600 bg-red-50 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm">
+                                                    <button type="submit" form="eliminar-link-{{ loop.index }}" title="Eliminar" class="w-8 h-8 flex items-center justify-center border border-red-200 text-red-600 bg-red-50 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
-                                                </form>
                                             </div>
                                         </td>
                                     </tr>
@@ -356,6 +358,12 @@
                             </table>
                         </div>
                     </form>
+                    {% for token, data in enlaces.items() %}
+                    <form id="eliminar-link-{{ loop.index }}" action="/eliminar_link" method="POST" class="hidden" onsubmit="return confirm('⚠️ ¡ATENCIÓN!\n\n¿Estás absolutamente seguro de que deseas eliminar a este cliente?\n\nSi lo borras, su enlace dejará de funcionar inmediatamente y no podrá enviarte más retiros a menos que lo vuelvas a crear.');">
+                        <input type="hidden" name="token" value="{{ token }}">
+                    </form>
+                    {% endfor %}
+                    {% include '_paginacion_usuarios.html' %}
                 </div>
             </div>
         </div>
@@ -419,6 +427,10 @@
 
         function updateBulkBar() {
             const checked = document.querySelectorAll('.chk-link:checked').length;
+            if (selectAll) {
+                selectAll.checked = checkboxes.length > 0 && checked === checkboxes.length;
+                selectAll.indeterminate = checked > 0 && checked < checkboxes.length;
+            }
             countSelected.innerText = checked;
             if(checked > 0) {
                 bulkBar.classList.remove('hidden');
@@ -440,26 +452,6 @@
         checkboxes.forEach(chk => {
             chk.addEventListener('change', updateBulkBar);
         });
-
-        const elBuscadorLinks = document.getElementById('buscadorLinks');
-        if (elBuscadorLinks) {
-            elBuscadorLinks.addEventListener('keyup', function() {
-            let filter = this.value.toLowerCase();
-            let rows = document.querySelectorAll('.fila-link');
-            
-            rows.forEach(row => {
-                let text = row.textContent.toLowerCase();
-                if(text.includes(filter)) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                    let chk = row.querySelector('.chk-link');
-                    if(chk) chk.checked = false;
-                }
-            });
-            updateBulkBar();
-        });
-        }
 
         function copiarLink(url) {
             navigator.clipboard.writeText(url).then(() => {
@@ -623,7 +615,16 @@
             }
         }
 
-        function exportarPDF() {
+        async function exportarPDF(boton) {
+            boton.disabled = true;
+            boton.setAttribute('aria-busy', 'true');
+            try {
+            const respuesta = await fetch({{ (request.path + '?exportar=1') | tojson }}, {
+                headers: {'Accept': 'application/json'}, cache: 'no-store'
+            });
+            if (!respuesta.ok) throw new Error('No se pudo cargar la exportación.');
+            const { filas } = await respuesta.json();
+            if (!filas.length) { alert('⚠️ No hay clientes para exportar.'); return; }
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
 
@@ -633,18 +634,6 @@
             doc.setFontSize(10);
             doc.setTextColor(100, 100, 100);
             doc.text("Flujo ERP | Generado el: " + new Date().toLocaleString(), 14, 30);
-
-            const filas = [];
-            const trs = document.querySelectorAll('.fila-link');
-            if(trs.length === 0) { alert("⚠️ No hay clientes en la tabla."); return; }
-
-            trs.forEach(tr => {
-                const usuario = tr.cells[1].innerText.trim();
-                const enlace = tr.cells[2].innerText.trim();
-                const grupo = tr.cells[3].innerText.trim();
-                const fecha = tr.cells[4].innerText.trim();
-                filas.push([usuario, enlace, grupo, fecha]);
-            });
 
             doc.autoTable({
                 startY: 40,
@@ -661,6 +650,12 @@
                 }
             });
             doc.save('Base_Datos_Links_FlujoERP.pdf');
+            } catch (error) {
+                alert('No se pudo exportar la lista. Actualiza la página e inténtalo de nuevo.');
+            } finally {
+                boton.disabled = false;
+                boton.removeAttribute('aria-busy');
+            }
         }
     </script>
 {% include '_aviso_reportes_caidos.html' %}

@@ -3,3 +3,4 @@ __pycache__/
 static/uploads/
 .env
 fichas_clientes.sqlite3*
+reportes_caidos.sqlite3*

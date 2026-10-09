@@ -1,0 +1,31 @@
+{% extends 'caidos_base.html' %}
+{% block contenido %}
+<h1>{{ titulo }}</h1><p class="subtitulo">{{ subtitulo }}</p>
+<div class="aviso-informativo">{{ icono('campana') }}<span>Los códigos solicitados se incluirán en el aviso diario en pantalla del rol Reportes.</span></div>
+<form class="filtros-caidos" method="get">
+<label class="campo">Buscar usuario o código<span class="con-icono">{{ icono('buscar') }}<input type="search" name="busqueda" value="{{ filtros.busqueda }}" placeholder="Buscar usuario o código…" maxlength="160"></span></label>
+<label class="campo">Desde<input type="date" name="desde" value="{{ filtros.desde }}" aria-label="Fecha de caída desde"></label>
+<label class="campo">Hasta<input type="date" name="hasta" value="{{ filtros.hasta }}" aria-label="Fecha de caída hasta"></label>
+<button class="boton" type="submit" aria-label="Buscar">{{ icono('buscar') }}<span class="texto-boton">Buscar</span></button>
+</form>
+<div class="pie-filtros"><span>Filtra por fecha de caída o vencimiento · Hora de Ecuador / Colombia</span><a href="{{ url_for('caidos.listado') }}">Limpiar filtros</a><a href="{{ url_for('caidos.solicitudes') }}">Ver solicitudes</a></div>
+{% for grupo in grupos %}
+<details class="grupo-cliente" open data-grupo="{{ grupo.id }}">
+<summary>{{ icono('usuario') }}<div class="cliente-cabecera"><div><span class="cliente-nombre">{{ grupo.usuario }}</span><div class="origen">{{ grupo.origen_nombre }}</div></div><span class="cantidad">{{ grupo.codigos|length }} código{{ 's' if grupo.codigos|length != 1 }} caído{{ 's' if grupo.codigos|length != 1 }} / vencido{{ 's' if grupo.codigos|length != 1 }}</span></div>
+{% if grupo.token %}<form method="post" action="{{ url_for('caidos.confirmar') }}"><input type="hidden" name="seleccion" value="{{ grupo.token }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="accion" value="previsualizar"><button type="submit" class="boton" aria-label="Reportar códigos de {{ grupo.usuario }}">{{ icono('enviar') }} Reportar</button></form>
+{% elif grupo.codigos|selectattr('solicitable')|list|length == 0 %}<span class="estado-solicitud">Por revisar</span>
+{% else %}<span class="estado-solicitud {{ 'atendida' if grupo.todas_atendidas else '' }}">{{ icono('check') }} {{ 'Atendido' if grupo.todas_atendidas else 'Solicitado' }}</span>{% endif %}{{ icono('chevron','chevron') }}</summary>
+<div class="tabla-envoltura"><table class="tabla-caidos"><thead><tr><th>CÓDIGO</th><th>CREADO</th><th>CAÍDO / VENCIDO</th><th>MONTO / BANCO</th><th>COBRADOR</th><th>ESTADO</th><th>DETALLE</th></tr></thead><tbody>
+{% for codigo in grupo.codigos %}<tr data-codigo="{{ codigo.registro_id }}">
+<td data-col="codigo"><strong>{{ codigo.codigo }}</strong>{% if codigo.advertencia %}<span class="advertencia">{{ codigo.advertencia }}</span>{% endif %}</td>
+<td data-col="creado">{{ codigo.creado.split(' ')[0] }}<span class="dato-secundario">{{ codigo.creado.split(' ')[1:]|join(' ') }}</span></td>
+<td data-col="caido">{{ codigo.caido.split(' ')[0] }}<span class="dato-secundario">{{ codigo.caido.split(' ')[1:]|join(' ') }}</span></td>
+<td data-col="monto"><strong>${{ codigo.monto }}</strong><span class="dato-secundario">{{ codigo.banco }}</span></td>
+<td data-col="cobrador">{{ codigo.cobrador|upper }}</td>
+<td data-col="estado"><span class="estado-caido {{ codigo.estado }}">{{ codigo.estado_nombre }}</span>{% if codigo.solicitud %}<div class="solicitud-linea">{{ 'Gestión atendida' if codigo.solicitud.atendido_en else 'Solicitado · Pendiente' }}</div>{% endif %}</td>
+<td data-col="detalle"><a class="enlace-detalle" href="{{ url_for('caidos.detalle', clave=codigo.clave, **filtros) }}" aria-label="Ver detalle de {{ codigo.codigo }}">{{ icono('documento') }}<span class="texto-movil">Ver detalle</span></a></td>
+</tr>{% endfor %}
+</tbody></table>{% if grupo.pendientes|length > 200 %}<p class="muted">Reportar seleccionará los primeros 200 códigos pendientes mostrados. Podrás solicitar los restantes después.</p>{% endif %}</div>
+</details>
+{% else %}<div class="sin-resultados"><h2>No hay códigos que coincidan</h2><p>Revisa los filtros o vuelve al listado completo. Los códigos sin fecha de caída se consultan sin filtro de fechas.</p></div>{% endfor %}
+{% endblock %}

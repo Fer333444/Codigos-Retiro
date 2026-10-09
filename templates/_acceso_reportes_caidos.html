@@ -1,0 +1,5 @@
+{% if puede_ver_caidos %}
+<a href="{{ url_for('caidos.listado') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-purple-700 rounded-lg hover:bg-purple-50 transition-colors" data-menu-caidos><i class="fas fa-chart-bar w-5" aria-hidden="true"></i> {{ 'Reportes · Caídos' if rol == 'supremo' or 'ver_reportes' in session.get('permisos', []) else 'Reportes' }}</a>
+{% elif puede_atender_caidos %}
+<a href="{{ url_for('caidos.solicitudes') }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-purple-700 rounded-lg hover:bg-purple-50 transition-colors" data-menu-caidos><i class="fas fa-bell w-5" aria-hidden="true"></i> Solicitudes de Reporte</a>
+{% endif %}

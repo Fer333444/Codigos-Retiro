@@ -1,0 +1,13 @@
+<div class="avc-resumen"><span><b>{{ cantidad_caidos }}</b> códigos no salieron / caídos</span><span><b>{{ cantidad_expirados }}</b> códigos vencidos</span></div>
+<p class="avc-explicacion">Hay <strong>{{ total_solicitudes }}</strong> solicitud(es) pendiente(s) de volver a reportar. Cerrar este aviso no las marca como atendidas.</p>
+{% for grupo in solicitudes|groupby('datos.usuario_original') %}
+<section class="avc-grupo"><h3>{{ grupo.grouper }}</h3>
+{% for s in grupo.list %}<article class="avc-codigo" data-avc-clave="{{ s.clave }}"><div class="avc-linea"><strong>{{ s.datos.codigo }}</strong><span>${{ s.datos.monto }} · {{ s.datos.banco }}</span></div>
+<p>{{ s.datos.estado_nombre }} · Cobrador: {{ s.datos.cobrador }}<br>Creado: {{ s.datos.creado }}<br>Caído / vencido: {{ s.datos.caido }}</p>
+<p class="avc-nota">Solicitado por {{ s.solicitado_por }} · {{ s.solicitado_en|fecha_solicitud }}</p>
+<div class="avc-acciones"><a href="{{ url_for('caidos.detalle', clave=s.clave) }}">Ver detalle</a>{% if puede_atender %}<button type="button" class="avc-atender" data-url="{{ url_for('caidos.atender', clave=s.clave) }}">Ya atendido</button>{% else %}<span class="avc-nota">Pendiente de atención por Reportes</span>{% endif %}</div>
+{% if puede_atender %}<div class="avc-confirmacion" hidden><p>¿Confirmas que ya atendiste {{ s.datos.codigo }}?</p><button type="button" class="avc-confirmar">Confirmar atención</button><button type="button" class="avc-cancelar">Cancelar</button></div>{% endif %}
+<p class="avc-resultado" role="status" hidden></p></article>{% endfor %}</section>
+{% endfor %}
+{% if total_solicitudes > solicitudes|length %}<p class="avc-nota">Mostrando {{ solicitudes|length }} de {{ total_solicitudes }} solicitudes. Abre la lista completa para consultar las restantes.</p>{% endif %}
+<div class="avc-pie"><a href="{{ url_for('caidos.solicitudes') }}">Ver todas las solicitudes</a><a href="{{ url_for('vista_reportes', vista='historial') }}">Historial y Deudas</a></div>

@@ -1,0 +1,7 @@
+{% extends 'caidos_base.html' %}
+{% block contenido %}<a class="enlace-volver" href="{{ volver }}">← Volver al listado</a><h1>Confirmar reporte</h1>
+<p class="subtitulo">Revisa los {{ codigos|length }} códigos que se incluirán en el aviso diario.</p>
+<div class="panel-simple"><ul class="lista-confirmacion">{% for c in codigos %}<li><strong>{{ c.usuario_original }} · {{ c.codigo }}</strong>${{ c.monto }} · {{ c.banco }} · {{ c.estado_nombre }}<br>Creado: {{ c.creado }} · Caído / vencido: {{ c.caido }}<br>Cobrador: {{ c.cobrador }}</li>{% endfor %}</ul>
+{% if ya_solicitados %}<p>{{ ya_solicitados }} código(s) ya tenían solicitud y no se repetirán.</p>{% endif %}
+<p class="muted">Solo se registra la solicitud. Los pagos, saldos y deudas se conservan.</p>
+<form method="post" data-guardar><input type="hidden" name="seleccion" value="{{ seleccion }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div class="acciones">{% if codigos %}<button type="submit" class="boton">{{ icono('enviar') }} Confirmar reporte</button>{% endif %}<a class="boton secundario" href="{{ volver }}">Volver</a></div></form></div>{% endblock %}

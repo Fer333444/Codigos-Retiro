@@ -167,6 +167,7 @@
                 <i class="fas fa-shield-alt w-5"></i> Centro de Seguridad
             </a>
             {% endif %}
+            {% include '_acceso_reportes_caidos.html' %}
         </nav>
 
         <div class="p-4 border-t border-slate-200">
@@ -662,5 +663,6 @@
             doc.save('Base_Datos_Links_FlujoERP.pdf');
         }
     </script>
+{% include '_aviso_reportes_caidos.html' %}
 </body>
 </html>

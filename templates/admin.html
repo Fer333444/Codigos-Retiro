@@ -88,6 +88,7 @@
             {% if rol == 'cobrador' or 'procesar_retiros' in mis_permisos %}
                 <a href="{{ '/pruebas' if entorno_staging else '' }}/trabajador/{{ mi_usuario }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-blue-600 rounded-lg hover:bg-blue-50 mt-4 border border-transparent hover:border-blue-200 transition-colors"><i class="fas fa-briefcase w-5"></i> Mi Bandeja (Cobrar)</a>
             {% endif %}
+            {% include '_acceso_reportes_caidos.html' %}
 
             {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
                 <a href="{{ '/pruebas' if entorno_staging else '' }}/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 rounded-lg hover:bg-rose-50 mt-2 border border-transparent hover:border-rose-200 transition-colors"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
@@ -1311,45 +1312,7 @@
         if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
     </script>
 
-    {% if rol in ['supremo', 'reportes'] and (cantidad_caidos + cantidad_expirados) > 0 %}
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const hoy = new Date().toLocaleDateString();
-            if (localStorage.getItem('alerta_pendientes_fecha') === hoy) return;
-            localStorage.setItem('alerta_pendientes_fecha', hoy);
 
-            const urlHistorial = '{{ (url_prefix ~ "/reportes?vista=historial") if url_prefix else url_for("vista_reportes", vista="historial") }}';
-
-            Swal.fire({
-                icon: 'warning',
-                title: '⚠️ Resumen de Pendientes ⚠️',
-                html: `
-                    <div class="text-left text-sm space-y-3 mt-2 font-bold text-slate-700">
-                        <p class="flex items-center gap-2"><span>🔴</span> <span><b>{{ cantidad_caidos }}</b> Código(s) No Salieron / Caídos</span></p>
-                        <p class="flex items-center gap-2"><span>⏱️</span> <span><b>{{ cantidad_expirados }}</b> Código(s) Expirados</span></p>
-                        <p class="text-xs font-medium text-slate-500 pt-2 border-t border-slate-200 italic">Por favor, revisa el Historial y Deudas para mantener el sistema al día.</p>
-                    </div>
-                `,
-                confirmButtonText: '<i class="fas fa-history mr-1"></i> Ir a Historial',
-                showCancelButton: true,
-                cancelButtonText: 'Entendido',
-                confirmButtonColor: '#4f46e5',
-                cancelButtonColor: '#64748b',
-                allowOutsideClick: true,
-                customClass: {
-                    popup: 'rounded-2xl',
-                    title: 'text-lg font-black',
-                    confirmButton: 'font-black uppercase tracking-wider text-xs px-5 py-3',
-                    cancelButton: 'font-black uppercase tracking-wider text-xs px-5 py-3'
-                }
-            }).then(function(result) {
-                if (result.isConfirmed) {
-                    window.location.href = urlHistorial;
-                }
-            });
-        });
-    </script>
-    {% endif %}
+{% include '_aviso_reportes_caidos.html' %}
 </body>
 </html>

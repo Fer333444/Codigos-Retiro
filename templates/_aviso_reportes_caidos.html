@@ -1,0 +1,9 @@
+{% if recibe_aviso_caidos %}
+<link rel="stylesheet" href="{{ url_for('static', filename='aviso_caidos.css') }}">
+<dialog id="aviso-caidos-diario" aria-labelledby="aviso-caidos-titulo" data-consulta="{{ url_for('caidos.aviso_diario') }}" data-visto="{{ url_for('caidos.aviso_visto') }}">
+<div class="avc-cabecera"><h2 id="aviso-caidos-titulo">Resumen de Pendientes</h2><button type="button" id="avc-cerrar" aria-label="Cerrar aviso">×</button></div>
+<div class="avc-contenido" id="avc-contenido"></div><p class="avc-error" id="avc-error" role="status" hidden></p>
+<div class="avc-inferior"><span>Una vez al día · Ecuador / Colombia</span><button type="button" id="avc-entendido">Entendido</button></div>
+</dialog>
+<script src="{{ url_for('static', filename='aviso_caidos.js') }}" defer></script>
+{% endif %}

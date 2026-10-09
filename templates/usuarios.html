@@ -72,6 +72,7 @@
             {% if rol == 'cobrador' or 'procesar_retiros' in mis_permisos %}
                 <a href="{{ '/pruebas' if entorno_staging else '' }}/trabajador/{{ mi_usuario }}" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-blue-600 rounded-lg hover:bg-blue-50 mt-4 border border-transparent hover:border-blue-200 transition-colors"><i class="fas fa-briefcase w-5"></i> Mi Bandeja (Cobrar)</a>
             {% endif %}
+            {% include '_acceso_reportes_caidos.html' %}
 
             {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}
                 <a href="{{ '/pruebas' if entorno_staging else '' }}/papelera" class="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-rose-600 rounded-lg hover:bg-rose-50 mt-2 border border-transparent hover:border-rose-200 transition-colors"><i class="fas fa-trash-alt w-5"></i> Papelera</a>
@@ -400,5 +401,6 @@
         if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
         if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
     </script>
+{% include '_aviso_reportes_caidos.html' %}
 </body>
 </html>

@@ -80,6 +80,7 @@
                 </div>
             </div>
             {% endif %}
+            {% include '_acceso_reportes_caidos.html' %}
         </nav>
 
         <div class="p-4 border-t border-slate-200 shrink-0">
@@ -332,5 +333,6 @@
         if(btnCerrarMenu) btnCerrarMenu.addEventListener('click', toggleMenu);
         if(overlayMenu) overlayMenu.addEventListener('click', toggleMenu);
     </script>
+{% include '_aviso_reportes_caidos.html' %}
 </body>
 </html>

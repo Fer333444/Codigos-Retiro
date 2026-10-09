@@ -1,0 +1,43 @@
+{% macro icono(nombre, clase='') -%}
+<svg class="icono {{ clase }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{% if nombre == 'usuario' %}<circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2z"/>
+{% elif nombre == 'enviar' %}<path d="m22 2-7 20-4-9-9-4 20-7zM22 2 11 13"/>
+{% elif nombre == 'documento' %}<path d="M14 2H5v20h14V7l-5-5zM14 2v5h5M8 12h8M8 16h8"/>
+{% elif nombre == 'buscar' %}<circle cx="10" cy="10" r="7"/><path d="m16 16 5 5"/>
+{% elif nombre == 'campana' %}<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>
+{% elif nombre == 'bandeja' %}<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V3h8v4M3 13h18M10 13v3h4v-3"/>
+{% elif nombre == 'grafico' %}<path d="M4 21V11h3v10M11 21V3h3v18M18 21V7h3v14"/>
+{% elif nombre == 'menu' %}<path d="M3 6h18M3 12h18M3 18h18"/>
+{% elif nombre == 'check' %}<path d="m4 12 5 5L20 6"/>
+{% elif nombre == 'salir' %}<path d="M9 3H3v18h6M10 12h11m-4-4 4 4-4 4"/>
+{% else %}<path d="m6 9 6 6 6-6"/>{% endif %}</svg>
+{%- endmacro %}
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titulo %}Reportes de caídos{% endblock %} | Flujo ERP</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='reportes_caidos.css') }}">
+</head><body class="caidos-app">
+<button class="fondo-menu" id="fondo-menu" aria-label="Cerrar menú" hidden></button>
+<aside class="menu-lateral" id="menu-lateral" aria-label="Navegación principal">
+<a href="{{ url_for('caidos.listado') if puede_ver_caidos else url_for('caidos.solicitudes') }}" class="marca">FLUJO<span>ERP</span></a>
+<button class="cerrar-menu" id="cerrar-menu" aria-label="Cerrar menú">×</button>
+<nav>
+{% if rol in ['supremo', 'recaudador'] or 'ver_retiros' in mis_permisos %}<a href="/admin">{{ icono('documento') }} Retiros Activos</a>{% endif %}
+{% if rol == 'supremo' %}<a href="/">{{ icono('documento') }} Links de Clientes</a><a href="/usuarios">{{ icono('usuario') }} Administrar usuarios</a>{% endif %}
+{% if rol == 'cobrador' or 'procesar_retiros' in mis_permisos %}<a href="/trabajador/{{ mi_usuario }}">{{ icono('bandeja') }} Mi Bandeja (Cobrar)</a>{% endif %}
+{% if puede_ver_caidos %}<a class="{{ 'seleccionado' if vista|default('') == 'listado' else '' }}" href="{{ url_for('caidos.listado') }}">{{ icono('grafico') }} Reportes</a>{% endif %}
+<a class="{{ 'seleccionado' if vista|default('') == 'solicitudes' else '' }}" href="{{ url_for('caidos.solicitudes') }}">{{ icono('campana') }} Solicitudes de Reporte</a>
+{% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}<a href="/reportes?vista=historial">{{ icono('documento') }} Historial y Deudas</a>{% endif %}
+</nav></aside>
+<div class="contenido-app">
+<header class="cabecera-app"><button class="abrir-menu" id="abrir-menu" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu-lateral">{{ icono('menu') }}</button>
+<span class="nombre-negocio">Negocios Online</span><span class="marca marca-movil">FLUJO<span>ERP</span></span>
+<div class="sesion">{{ icono('usuario') }} <span><strong>{{ mi_usuario|upper }}</strong><small>{{ 'Reportes' if rol == 'reportes' else rol|capitalize }}</small></span></div>
+<a class="salir" href="/logout">{{ icono('salir') }} <span>Cerrar sesión</span></a></header>
+<main id="contenido">
+{% with mensajes = get_flashed_messages(with_categories=true) %}{% for tipo, mensaje in mensajes %}<div class="mensaje {{ tipo }}" role="status">{{ mensaje }}</div>{% endfor %}{% endwith %}
+{% block contenido %}{% endblock %}
+</main></div>
+<script src="{{ url_for('static', filename='reportes_caidos.js') }}" defer></script>
+{% include '_aviso_reportes_caidos.html' %}
+</body></html>

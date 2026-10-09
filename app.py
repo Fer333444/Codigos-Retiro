@@ -1098,7 +1098,7 @@ def rastreador_clics():
 @app.after_request
 def auditar_movimientos_sistema(response):
     # La edición de fichas tiene auditoría transaccional propia, sin registrar el formulario/CSRF.
-    if request.endpoint in ('ficha_cliente', 'comprobante_ficha'):
+    if request.blueprint == 'caidos' or request.endpoint in ('ficha_cliente', 'comprobante_ficha'):
         return response
     rutas_ignoradas = ['/static/', '/centro_seguridad', '/obtener_ubicaciones', '/sw.js', '/api/', '/ver_imagen/', '/favicon.ico']
     if any(request.path.startswith(ruta) for ruta in rutas_ignoradas):
@@ -1481,7 +1481,7 @@ def api_saldar_deuda():
 @app.before_request
 def mantenimiento_datos():
     # Consultar/editar contactos nunca ejecuta mantenimiento de retiros o deudas.
-    if request.endpoint in ('ficha_cliente', 'comprobante_ficha'):
+    if request.blueprint == 'caidos' or request.endpoint in ('ficha_cliente', 'comprobante_ficha'):
         return
     realizar_respaldo_diario()
     cambios_realizados = False
@@ -4501,6 +4501,28 @@ def descargar_archivo(nombre_archivo):
         return send_from_directory(directorio_datos, nombre_archivo, as_attachment=True)
     except FileNotFoundError:
         return f"El archivo '{nombre_archivo}' no existe en el servidor.", 404
+
+def datos_para_reportes_caidos():
+    """Lectura fresca sin recargar ni guardar los objetos financieros globales."""
+    if SessionLocal:
+        with SessionLocal() as db:
+            return ([_registro_modelo_a_dict(r) for r in db.query(DBRegistro).all()],
+                    {e.token: {'usuario': e.usuario, 'grupo': e.grupo} for e in db.query(DBEnlace).all()})
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, encoding='utf-8') as archivo:
+            datos = json.load(archivo)
+        return datos.get('registros', []), datos.get('enlaces_db', {})
+    return copy.deepcopy(registros), copy.deepcopy(enlaces_db)
+
+
+from vistas_reportes_caidos import registrar_reportes_caidos
+almacen_reportes_caidos = registrar_reportes_caidos(app, {
+    'motor': lambda: engine,
+    'archivo': lambda: DATA_FILE,
+    'usuario': usuario_actual_fichas,
+    'datos': datos_para_reportes_caidos,
+})
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

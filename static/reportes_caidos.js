@@ -1,4 +1,12 @@
 (() => {
+  const volver = document.querySelector('[data-volver-panel]');
+  if (volver && document.referrer) {
+    const anterior = new URL(document.referrer);
+    if (anterior.origin === location.origin &&
+        (['/', '/admin', '/reportes'].includes(anterior.pathname) || anterior.pathname.startsWith('/trabajador/'))) {
+      volver.href = anterior.pathname + anterior.search + anterior.hash;
+    }
+  }
   const abrir = document.getElementById('abrir-menu');
   const lateral = document.getElementById('menu-lateral');
   const fondo = document.getElementById('fondo-menu');

@@ -9,14 +9,16 @@
 {% elif nombre == 'grafico' %}<path d="M4 21V11h3v10M11 21V3h3v18M18 21V7h3v14"/>
 {% elif nombre == 'menu' %}<path d="M3 6h18M3 12h18M3 18h18"/>
 {% elif nombre == 'check' %}<path d="m4 12 5 5L20 6"/>
+{% elif nombre == 'atras' %}<path d="m12 5-7 7 7 7M5 12h14"/>
 {% elif nombre == 'salir' %}<path d="M9 3H3v18h6M10 12h11m-4-4 4 4-4 4"/>
 {% else %}<path d="m6 9 6 6 6-6"/>{% endif %}</svg>
 {%- endmacro %}
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block titulo %}Reportes de caídos{% endblock %} | Flujo ERP</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='reportes_caidos.css') }}">
-</head><body class="caidos-app">
+<link rel="stylesheet" href="{{ url_for('static', filename='reportes_caidos.css', v='2') }}">
+</head><body class="caidos-app{{ ' listado-sin-menu' if vista|default('') == 'listado' else '' }}">
+{% if vista|default('') != 'listado' %}
 <button class="fondo-menu" id="fondo-menu" aria-label="Cerrar menú" hidden></button>
 <aside class="menu-lateral" id="menu-lateral" aria-label="Navegación principal">
 <a href="{{ url_for('caidos.listado') if puede_ver_caidos else url_for('caidos.solicitudes') }}" class="marca">FLUJO<span>ERP</span></a>
@@ -29,15 +31,20 @@
 <a class="{{ 'seleccionado' if vista|default('') == 'solicitudes' else '' }}" href="{{ url_for('caidos.solicitudes') }}">{{ icono('campana') }} Solicitudes de Reporte</a>
 {% if rol in ['supremo', 'reportes'] or 'ver_reportes' in mis_permisos %}<a href="/reportes?vista=historial">{{ icono('documento') }} Historial y Deudas</a>{% endif %}
 </nav></aside>
+{% endif %}
 <div class="contenido-app">
+{% if vista|default('') == 'listado' %}
+<header class="cabecera-volver"><a class="boton-volver" href="/admin" data-volver-panel>{{ icono('atras') }}<span>Atrás</span></a></header>
+{% else %}
 <header class="cabecera-app"><button class="abrir-menu" id="abrir-menu" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu-lateral">{{ icono('menu') }}</button>
 <span class="nombre-negocio">Negocios Online</span><span class="marca marca-movil">FLUJO<span>ERP</span></span>
 <div class="sesion">{{ icono('usuario') }} <span><strong>{{ mi_usuario|upper }}</strong><small>{{ 'Reportes' if rol == 'reportes' else rol|capitalize }}</small></span></div>
 <a class="salir" href="/logout">{{ icono('salir') }} <span>Cerrar sesión</span></a></header>
+{% endif %}
 <main id="contenido">
 {% with mensajes = get_flashed_messages(with_categories=true) %}{% for tipo, mensaje in mensajes %}<div class="mensaje {{ tipo }}" role="status">{{ mensaje }}</div>{% endfor %}{% endwith %}
 {% block contenido %}{% endblock %}
 </main></div>
-<script src="{{ url_for('static', filename='reportes_caidos.js') }}" defer></script>
+<script src="{{ url_for('static', filename='reportes_caidos.js', v='2') }}" defer></script>
 {% include '_aviso_reportes_caidos.html' %}
 </body></html>

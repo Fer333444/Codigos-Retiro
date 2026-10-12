@@ -8,6 +8,7 @@ import json
 import html as html_lib
 import base64
 import time
+import math
 import threading
 import traceback
 import shutil
@@ -1190,6 +1191,25 @@ def esta_expirado(hora_limite_str, fecha_creacion_str):
     except Exception as e:
         return False
 
+def vencimiento_codigo_asignado(registro):
+    """Plazo de lectura para la tarjeta; nunca reinicia ni modifica el retiro."""
+    if 'expira_timestamp' in registro:
+        try:
+            vencimiento = float(registro['expira_timestamp'])
+            if math.isfinite(vencimiento) and vencimiento > 0:
+                return vencimiento
+        except (TypeError, ValueError, OverflowError):
+            pass
+    try:
+        creacion = datetime.strptime(registro.get('fecha', ''), '%d/%m/%Y %H:%M')
+        horas, minutos = map(int, registro.get('hora_limite', '').split(':'))
+        vencimiento = creacion.replace(hour=horas, minute=minutos, second=0, microsecond=0)
+        if vencimiento < creacion and creacion.hour - vencimiento.hour > 12:
+            vencimiento += timedelta(days=1)
+        return vencimiento.replace(tzinfo=timezone(timedelta(hours=-5))).timestamp()
+    except (TypeError, ValueError, AttributeError, OverflowError):
+        return None
+
 ESTADOS_DEUDA_CERRABLE_ERP = ['fallido', 'expirado', 'fallido_revision', 'pendiente_de_cruce']
 ESTADOS_CAIDOS_TARJETA = ('fallido', 'fallido_revision', 'expirado')
 ESTADO_PENDIENTE_CRUCE = 'pendiente_de_cruce'
@@ -1509,8 +1529,9 @@ def mantenimiento_datos():
     
     for r in regs:
         if r['estado'] == 'activo':
-            if 'expira_timestamp' in r:
-                tiempo_restante = r['expira_timestamp'] - tiempo_ahora
+            vencimiento = vencimiento_codigo_asignado({'expira_timestamp': r.get('expira_timestamp')})
+            if vencimiento is not None:
+                tiempo_restante = vencimiento - tiempo_ahora
 
                 # === ESCUADRÓN DE RESCATE (45 minutos) ===
                 if (
@@ -1564,7 +1585,7 @@ def mantenimiento_datos():
                         mensaje_tg = f"⚠️ <b>¡CÓDIGO POR EXPIRAR! (10 min)</b> ⚠️\n\n💰 <b>Monto:</b> ${r.get('monto')}\n🏦 <b>Banco:</b> {str(r.get('banco')).upper()}\n👤 <b>Cliente:</b> {r.get('usuario')}\n\n<i>¡Corran, el tiempo se agota!</i>"
                         disparar_alerta_telegram(destinatario, mensaje_tg)
 
-                if tiempo_ahora >= r['expira_timestamp']:
+                if tiempo_ahora >= vencimiento:
                     r['estado'] = 'expirado'
                     r['historial'].append(f"[{hora_actual}] ❌ Expirado automáticamente (Tiempo agotado)")
                     # NUEVO: DETECTOR DE EXPIRACIONES FANTASMA
@@ -2640,6 +2661,7 @@ def vista_admin(url_prefix=''):
             'total_acumulado': 0.0, 
             'desglose_fechas': {}, 
             'fallidos': [], 
+            'asignados': [],
             'asignados_count': 0, 
             'asignados_valor': 0.0
         }
@@ -2649,6 +2671,8 @@ def vista_admin(url_prefix=''):
         if asignado in stats_cobradores:
             if url_prefix or not r.get('es_prueba', False):
                 if r['estado'] == 'activo':
+                    stats_cobradores[asignado]['asignados'].append(dict(
+                        r, vence_en=vencimiento_codigo_asignado(r)))
                     stats_cobradores[asignado]['asignados_count'] += 1
                     try: stats_cobradores[asignado]['asignados_valor'] += float(r['monto'])
                     except: pass
@@ -2673,6 +2697,9 @@ def vista_admin(url_prefix=''):
                 if r['estado'] in ESTADOS_CAIDOS_TARJETA:
                     stats_cobradores[asignado]['fallidos'].append(r)
 
+    for stats in stats_cobradores.values():
+        stats['asignados'].sort(key=lambda r: r['vence_en'] if r['vence_en'] is not None else float('inf'))
+
     cantidad_caidos = 0
     cantidad_expirados = 0
     rol_sesion = session.get('rol')
@@ -2684,6 +2711,7 @@ def vista_admin(url_prefix=''):
                            activos_todos=activos_todos,
                            cobradores=cobradores, # Ahora es una lista de diccionarios
                            stats_cobradores=stats_cobradores, 
+                           ahora_servidor=time.time(),
                            mi_usuario=session['usuario'], 
                            rol=rol_sesion,
                            auto_asignar=sistema_config['auto_asignar'],

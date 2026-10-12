@@ -6,11 +6,17 @@
     <title>Retiros Activos | Flujo ERP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="{{ url_for('static', filename='contadores_asignados.js', v='1') }}" defer></script>
     <style>
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .tiempo-asignado { background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0; }
+        .asignado-normal .tiempo-asignado { background:#ecfdf5;color:#047857;border-color:#a7f3d0; }
+        .asignado-alerta .tiempo-asignado { background:#fffbeb;color:#b45309;border-color:#fde68a; }
+        .asignado-urgente .tiempo-asignado { background:#fff1f2;color:#be123c;border-color:#fecdd3; }
+        .asignado-urgente { border-left:3px solid #f43f5e; }
     </style>
 </head>
 <body class="bg-slate-50 flex h-screen text-slate-800 font-sans overflow-hidden">
@@ -135,7 +141,7 @@
               {% endif %}
             {% endwith %}
 
-            <div class="max-w-6xl mx-auto" id="contenidoDinamico">
+            <div class="max-w-6xl mx-auto" id="contenidoDinamico" data-ahora-servidor="{{ ahora_servidor }}">
                 
                 <div class="mb-4">
                     <h2 class="text-2xl font-black text-slate-800 tracking-tight uppercase"><i class="fas fa-chart-pie text-blue-500 mr-2"></i> Resumen de Cajas en Vivo</h2>
@@ -189,10 +195,10 @@
                         <div class="bg-blue-50/50 p-4 border-b border-blue-100 flex justify-between items-center">
                             <div>
                                 <h4 class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Asignados (Pendientes)</h4>
-                                <p class="text-xl font-black text-blue-800">${{ "%.2f"|format(stats.asignados_valor) }}</p>
+                                <p data-asignados-valor class="text-xl font-black text-blue-800">${{ "%.2f"|format(stats.asignados_valor) }}</p>
                             </div>
                             <div class="text-right flex flex-col gap-1.5 items-end">
-                                <span class="bg-blue-200 text-blue-800 text-[10px] font-black px-3 py-1 rounded-full uppercase shadow-sm">{{ stats.asignados_count }} Códigos</span>
+                                <span data-asignados-count class="bg-blue-200 text-blue-800 text-[10px] font-black px-3 py-1 rounded-full uppercase shadow-sm">{{ stats.asignados_count }} Códigos</span>
                                 
                                 {% set vistos = namespace(count=0) %}
                                 {% for r in activos_todos %}
@@ -202,10 +208,39 @@
                                 {% endfor %}
                                 
                                 <span class="bg-emerald-100 text-emerald-700 text-[10px] font-black px-3 py-1 rounded-full uppercase shadow-sm border border-emerald-200 flex items-center justify-center" title="Códigos marcados como vistos por el cobrador">
-                                    <i class="fas fa-eye mr-1"></i> {{ vistos.count }} Vistos
+                                    <i class="fas fa-eye mr-1"></i> <span data-asignados-vistos>{{ vistos.count }} Vistos</span>
                                 </span>
                             </div>
                         </div>
+
+                        <section class="p-4 border-b border-slate-200 bg-white" aria-label="Códigos asignados a {{ nombre_mostrar }}">
+                            <div class="flex items-center justify-between gap-2 mb-3">
+                                <h4 class="text-[10px] font-black text-slate-600 uppercase tracking-wider"><i class="fas fa-stopwatch text-indigo-500 mr-1.5" aria-hidden="true"></i>Tiempo de los códigos</h4>
+                                <span class="text-[9px] text-slate-400">Próximos a vencer primero</span>
+                            </div>
+                            <div data-lista-asignados class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+                                {% for r in stats.asignados %}
+                                {% set segundos = r.vence_en - ahora_servidor if r.vence_en is not none else none %}
+                                <div data-asignado-id="{{ r.id }}" data-monto="{{ r.monto }}" data-visto="{{ 'true' if r.visto_por_cobrador else 'false' }}" {% if r.vence_en is not none %}data-vence-en="{{ r.vence_en }}"{% endif %} class="rounded-lg border border-slate-200 p-3 {{ 'asignado-urgente' if segundos is not none and segundos <= 600 else ('asignado-alerta' if segundos is not none and segundos <= 1800 else ('asignado-normal' if segundos is not none else '')) }}">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div class="min-w-0"><p class="text-xs font-bold text-slate-800 break-words">{{ r.usuario }}</p><p class="text-[10px] text-slate-500 break-all">RET-{{ r.id }}</p></div>
+                                        <span class="text-sm font-black text-slate-800 shrink-0">${{ '%.2f'|format(r.monto|float) }}</span>
+                                    </div>
+                                    <div class="flex flex-wrap items-center justify-between gap-2 mt-2">
+                                        <span class="text-[9px] font-bold text-slate-500 uppercase">{{ r.banco }}</span>
+                                        <div class="tiempo-asignado rounded-md px-2 py-1 text-right">
+                                            {% if segundos is not none %}
+                                            <span data-urgencia-asignado class="block text-[9px] font-bold">{{ 'Por vencer' if segundos <= 600 else ('Menos de 30 min' if segundos <= 1800 else 'Tiempo restante') }}</span>
+                                            {% set restante = [0, segundos|int]|max %}
+                                            <span data-tiempo-asignado class="font-mono font-black text-sm tabular-nums">{{ '%02d:%02d:%02d'|format(restante // 3600, (restante % 3600) // 60, restante % 60) }}</span>
+                                            {% else %}<span class="text-[10px] font-medium">Sin vencimiento registrado</span>{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <p data-sin-asignados class="text-xs text-slate-400 text-center italic py-2 {{ 'hidden' if stats.asignados else '' }}">Sin códigos asignados</p>
+                        </section>
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer list-none p-4 bg-slate-50 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors [&::-webkit-details-marker]:hidden">
@@ -1195,7 +1230,9 @@
                         const mainScroll = document.getElementById('mainScroll');
                         const scrollActual = mainScroll ? mainScroll.scrollTop : 0; 
                         const deudasAbiertas = new Map();
+                        const scrollAsignados = new Map();
                         document.querySelectorAll('[data-tarjeta-cobrador]').forEach(tarjeta => {
+                            scrollAsignados.set(tarjeta.dataset.tarjetaCobrador, tarjeta.querySelector('[data-lista-asignados]')?.scrollTop || 0);
                             if (tarjeta.querySelector('details')?.open) {
                                 deudasAbiertas.set(tarjeta.dataset.tarjetaCobrador,
                                     tarjeta.querySelector('[data-lista-deudas]')?.scrollTop || 0);
@@ -1203,7 +1240,10 @@
                         });
                         
                         document.getElementById('contenidoDinamico').innerHTML = nuevoContenido.innerHTML;
+                        document.getElementById('contenidoDinamico').dataset.ahoraServidor = nuevoContenido.dataset.ahoraServidor;
                         document.querySelectorAll('[data-tarjeta-cobrador]').forEach(tarjeta => {
+                            const listaAsignados = tarjeta.querySelector('[data-lista-asignados]');
+                            if (listaAsignados) listaAsignados.scrollTop = scrollAsignados.get(tarjeta.dataset.tarjetaCobrador) || 0;
                             if (deudasAbiertas.has(tarjeta.dataset.tarjetaCobrador)) {
                                 tarjeta.querySelector('details').open = true;
                                 tarjeta.querySelector('[data-lista-deudas]').scrollTop = deudasAbiertas.get(tarjeta.dataset.tarjetaCobrador);
@@ -1250,6 +1290,7 @@
         setInterval(refrescarPanelSilencioso, 10000);
 
         function actualizarCronometros() {
+            if (typeof actualizarContadoresAsignados === 'function') actualizarContadoresAsignados();
             const timers = document.querySelectorAll('.cronometro-retiro');
             const ahora = Date.now() / 1000; 
 

@@ -1,0 +1,17 @@
+.ayuda-codigo-manual { display: block; margin-top: .4rem; color: #94a3b8; font-size: .75rem; line-height: 1.4; }
+.ayuda-codigo-manual[hidden] { display: none; }
+.confirmacion-retiro { box-sizing: border-box; width: min(28rem, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); margin: auto; padding: 1.5rem; border: 1px solid #475569; border-radius: 1rem; background: #1e293b; color: #f8fafc; font-family: system-ui, sans-serif; box-shadow: 0 20px 60px #0006; overflow-y: auto; }
+.confirmacion-retiro::backdrop { background: #020617cc; }
+.confirmacion-retiro h2 { margin: .4rem 0 .75rem; font-size: 1.3rem; font-weight: 800; line-height: 1.3; }
+.confirmacion-retiro .paso-confirmacion { margin: 0; color: #93c5fd; font-size: .8rem; font-weight: 700; }
+.confirmacion-retiro .mensaje-confirmacion { margin: 0 0 1rem; color: #cbd5e1; font-size: .9rem; }
+.confirmacion-retiro dl { background: #0f172a; padding: 1rem; border-radius: .75rem; margin: 0 0 1.25rem; }
+.confirmacion-retiro dl div + div { margin-top: .75rem; }
+.confirmacion-retiro dt { color: #94a3b8; font-size: .8rem; }
+.confirmacion-retiro dd { margin: .25rem 0 0; font-size: 1.2rem; font-weight: 800; overflow-wrap: anywhere; }
+.confirmacion-retiro [data-monto] { color: #6ee7b7; font-size: 2rem; }
+.acciones-confirmacion { display: grid; gap: .65rem; }
+.acciones-confirmacion button { padding: .85rem; border: 1px solid #64748b; border-radius: .6rem; background: #334155; color: white; font-weight: 700; font-size: .9rem; cursor: pointer; }
+.acciones-confirmacion [data-confirmar] { background: #2563eb; border-color: #3b82f6; }
+.acciones-confirmacion button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+.acciones-confirmacion button:disabled { opacity: .5; cursor: wait; }

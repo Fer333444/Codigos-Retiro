@@ -17,6 +17,8 @@
         #formularioCompleto { transition: all 0.5s ease-in-out; opacity: 0; max-height: 0; overflow: hidden; }
         #formularioCompleto.visible { opacity: 1; max-height: 2500px; overflow: visible; }
     </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='retiros_manuales.css', v='1') }}">
+    <script src="{{ url_for('static', filename='retiros_manuales.js', v='1') }}"></script>
 </head>
 <body class="bg-[#0f172a] min-h-screen flex items-center justify-center p-4 font-sans relative">
 
@@ -329,6 +331,7 @@
         const inputClaveGenerica = document.getElementById('inputClaveGenerica');
 
         const btnSubmit = document.getElementById('btnSubmit');
+        let controlRetiroManual = null;
 
         const checkboxesUsuarios = document.querySelectorAll('.checkbox-usuario');
         const desgloseContainer = document.getElementById('desgloseMontosContainer');
@@ -554,6 +557,8 @@
                 }
             }
 
+            if (controlRetiroManual) controlRetiroManual.actualizar();
+            if (!RetirosManuales.codigosValidos(select.value, { unico: inputClaveUnica, envio: inputClaveEnvio, retiro: inputClaveRetiro })) esValido = false;
             btnSubmit.disabled = !esValido;
             return esValido;
         }
@@ -679,6 +684,10 @@
             setTimeout(() => { document.getElementById('btnSubmit').disabled = true; }, 100);
             return true;
         }
+        controlRetiroManual = RetirosManuales.configurar({
+            form: formCompleto, banco: select, monto: inputMonto,
+            campos: { unico: inputClaveUnica, envio: inputClaveEnvio, retiro: inputClaveRetiro }, validar: validarFormularioLive
+        });
     </script>
     {% endif %}
 </body>

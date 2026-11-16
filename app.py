@@ -2415,6 +2415,23 @@ def _rechazar_procesar_formulario_retiro(req, mensaje, modo_widget=False, modo_p
     return redirect(req.url)
 
 
+def validar_codigos_manuales_retiro(req, banco):
+    """Valida los campos editables; conserva los códigos extraídos de una foto."""
+    campos = {
+        'pichincha': [('codigo_recibido', 'El código de Pichincha')],
+        'guayaquil': [('clave_envio', 'El código de envío de Guayaquil'),
+                      ('clave_retiro', 'El código de retiro de Guayaquil')],
+    }.get(banco, [])
+    hay_foto = any(img and img.filename for img in req.files.getlist('comprobante'))
+    declarados = req.form.get('campos_manuales')
+    manuales = set(declarados.split(',')) if declarados is not None else None
+    for campo, etiqueta in campos:
+        if not hay_foto or manuales is None or campo in manuales:
+            if not re.fullmatch(r'[0-9]{4}', req.form.get(campo, '')):
+                return f'{etiqueta} debe tener exactamente 4 dígitos, sin letras ni espacios.'
+    return None
+
+
 def procesar_formulario_retiro(req, usuarios, modo_widget=False, origen_historial=None, es_prueba=False, modo_prueba='real', form_action=None):
     referencia_externa = (req.form.get('referencia_externa') or req.args.get('referencia_externa') or '').strip() or None
     if origen_historial is None:
@@ -2429,6 +2446,13 @@ def procesar_formulario_retiro(req, usuarios, modo_widget=False, origen_historia
     clave_retiro = req.form.get('clave_retiro', '')
     clave_envio = req.form.get('clave_envio', '')
     codigo_seguridad = req.form.get('codigo_seguridad', '')
+
+    error_codigo = validar_codigos_manuales_retiro(req, banco)
+    if error_codigo:
+        return _rechazar_procesar_formulario_retiro(
+            req, error_codigo, modo_widget=modo_widget,
+            modo_prueba=modo_prueba, form_action=form_action,
+        )
 
     is_split = len(usuarios) > 1
     if is_split:

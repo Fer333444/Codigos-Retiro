@@ -172,6 +172,8 @@
             font-weight: 700;
         }
     </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='retiros_manuales.css', v='1') }}">
+    <script src="{{ url_for('static', filename='retiros_manuales.js', v='1') }}"></script>
 </head>
 <body>
 
@@ -294,6 +296,7 @@
         const btnEnviar = document.getElementById('btnEnviar');
         const errorCelular = document.getElementById('errorCelular');
         const errorCedula = document.getElementById('errorCedula');
+        let controlRetiroManual = null;
 
         if (!comprobanteInput) {
             // Horario cerrado: sin formulario
@@ -368,6 +371,8 @@
                     codigosOk = !!banco;
                 }
 
+                if (controlRetiroManual) controlRetiroManual.actualizar();
+                codigosOk = codigosOk && RetirosManuales.codigosValidos(banco, { unico: inputClaveUnica, envio: inputClaveEnvio, retiro: inputClaveRetiro });
                 const esValido = banco && !isNaN(monto) && monto > 0 && celularOk && cedulaOk && codigosOk;
                 btnEnviar.disabled = !esValido;
                 return esValido;
@@ -464,6 +469,11 @@
             });
 
             select.addEventListener('change', function() {
+                [inputClaveUnica, inputClaveRetiro, inputClaveEnvio].forEach(input => {
+                    input.value = '';
+                    input.readOnly = false;
+                    input.classList.remove('readonly-ocr');
+                });
                 actualizarCamposBanco(this.value);
             });
 
@@ -480,6 +490,10 @@
                 formVerificacion.classList.add('hidden');
                 loadingEnvio.classList.remove('hidden');
                 subtituloWidget.textContent = 'Procesando envío…';
+            });
+            controlRetiroManual = RetirosManuales.configurar({
+                form: formVerificacion, banco: select, monto: inputMonto,
+                campos: { unico: inputClaveUnica, envio: inputClaveEnvio, retiro: inputClaveRetiro }, validar: validarFormulario
             });
         }
     </script>

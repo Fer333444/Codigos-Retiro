@@ -4,3 +4,4 @@ static/uploads/
 .env
 fichas_clientes.sqlite3*
 reportes_caidos.sqlite3*
+informes_telegram/

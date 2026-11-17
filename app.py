@@ -840,6 +840,9 @@ def descargar_imagen_desde_url(url):
 
 @app.route('/api/v1/recibir_ticket_socio', methods=['POST'])
 def recibir_ticket_socio():
+    if not recepcion_codigos_abierta():
+        return jsonify({'error': 'Sistema fuera de horario'}), 403
+
     data = request.get_json(silent=True)
     if not data:
         return jsonify({'error': 'JSON inválido'}), 400
@@ -891,6 +894,27 @@ def recibir_ticket_socio():
 
 def hora_ecuador():
     return datetime.utcnow() - timedelta(hours=5)
+
+
+def dentro_horario_atencion(ahora=None):
+    """Horario de recepción en Ecuador, independiente del huso horario del servidor."""
+    ahora = ahora if ahora is not None else hora_ecuador()
+    if ahora.weekday() == 6:
+        return False
+    hora_cierre = 18 if ahora.weekday() == 5 else 20
+    return 9 <= ahora.hour < hora_cierre
+
+
+def recepcion_codigos_abierta(ahora=None):
+    """El calendario manda; un cierre manual solo afecta al día en que se hizo."""
+    ahora = ahora if ahora is not None else hora_ecuador()
+    if not dentro_horario_atencion(ahora):
+        return False
+    cierre_manual_hoy = (
+        sistema_config.get('horario_cierre_manual_fecha') == ahora.strftime('%Y-%m-%d')
+        and not sistema_config.get('horario_activo', True)
+    )
+    return not cierre_manual_hoy
 
 # --- DEFENSA ACTIVA Y RESPALDOS ---
 bloqueos_ip = {}  # { '192.168.1.1': {'fallos': 3, 'bloqueado_hasta': None} }
@@ -1712,7 +1736,7 @@ def index():
         flash('No tienes permiso para ver los links.', 'error')
         return redirect(ruta_por_rol(session.get('rol'), session.get('usuario')))
         
-    horario = sistema_config.get('horario_activo', True)
+    horario = recepcion_codigos_abierta()
     # Cargar el estado de los bancos (si no existe, por defecto todos activos)
     bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
     
@@ -1800,8 +1824,22 @@ def toggle_horario():
     if session.get('rol') != 'supremo' and 'crear_links' not in mis_permisos: 
         return redirect(url_for('login'))
         
-    sistema_config['horario_activo'] = not sistema_config.get('horario_activo', True)
-    guardar_datos()
+    ahora = hora_ecuador()
+    if not dentro_horario_atencion(ahora):
+        flash('🔴 Horario CERRADO automáticamente. Lunes a viernes de 09:00 a 20:00; sábado de 09:00 a 18:00. Domingo cerrado (hora de Ecuador).', 'error')
+        return redirect(url_for('index'))
+
+    config_anterior = sistema_config.copy()
+    sistema_config['horario_activo'] = not recepcion_codigos_abierta(ahora)
+    if sistema_config['horario_activo']:
+        sistema_config.pop('horario_cierre_manual_fecha', None)
+    else:
+        sistema_config['horario_cierre_manual_fecha'] = ahora.strftime('%Y-%m-%d')
+    if not guardar_datos():
+        sistema_config.clear()
+        sistema_config.update(config_anterior)
+        flash('No se pudo guardar el cambio de horario. Intenta de nuevo.', 'error')
+        return redirect(url_for('index'))
     
     if sistema_config['horario_activo']:
         flash('🟢 Horario ABIERTO. Los clientes ya pueden enviar códigos.', 'success')
@@ -2088,27 +2126,25 @@ def retiro(token):
     link_data = enlaces_db.get(token)
     if not link_data: return "Enlace Inválido", 404
     
-    horario = sistema_config.get('horario_activo', True)
+    horario = recepcion_codigos_abierta()
     bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
     
-    if request.method == 'POST':
-        if not horario: return "Sistema fuera de horario", 403
+    if request.method == 'POST' and horario:
         banco_seleccionado = request.form.get('banco')
         if banco_seleccionado and not bancos_activos.get(banco_seleccionado, True):
             return f"El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.", 403
         return procesar_formulario_retiro(request, [link_data['usuario']])
         
-    return render_template('formulario.html', usuario_pre=link_data['usuario'], es_grupo=False, form_action=url_for('retiro', token=token), recibo=session.pop('recibo_retiro', None), horario_activo=horario, bancos_activos=bancos_activos)
+    return render_template('formulario.html', usuario_pre=link_data['usuario'], es_grupo=False, form_action=url_for('retiro', token=token), recibo=session.pop('recibo_retiro', None), horario_activo=horario, bancos_activos=bancos_activos), (403 if request.method == 'POST' else 200)
 @app.route('/retiro_grupo/<grupo>', methods=['GET', 'POST'])
 def retiro_grupo(grupo):
     if grupo == 'General' or grupo not in grupos_creados: return "Grupo Inválido", 404
     usuarios_del_grupo = [data['usuario'] for data in enlaces_db.values() if data.get('grupo') == grupo]
     
-    horario = sistema_config.get('horario_activo', True)
+    horario = recepcion_codigos_abierta()
     bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
     
-    if request.method == 'POST':
-        if not horario: return "Sistema fuera de horario", 403
+    if request.method == 'POST' and horario:
         banco_seleccionado = request.form.get('banco')
         if banco_seleccionado and not bancos_activos.get(banco_seleccionado, True):
             return f"El banco {banco_seleccionado.capitalize()} se encuentra temporalmente fuera de servicio.", 403
@@ -2117,7 +2153,7 @@ def retiro_grupo(grupo):
             return 'Selecciona clientes válidos del grupo.', 400
         return procesar_formulario_retiro(request, seleccionados)
         
-    return render_template('formulario.html', es_grupo=True, nombre_grupo=grupo, usuarios_grupo=usuarios_del_grupo, form_action=url_for('retiro_grupo', grupo=grupo), recibo=session.pop('recibo_retiro', None), horario_activo=horario, bancos_activos=bancos_activos)
+    return render_template('formulario.html', es_grupo=True, nombre_grupo=grupo, usuarios_grupo=usuarios_del_grupo, form_action=url_for('retiro_grupo', grupo=grupo), recibo=session.pop('recibo_retiro', None), horario_activo=horario, bancos_activos=bancos_activos), (403 if request.method == 'POST' else 200)
 
 def mapear_banco_desde_ocr(banco_raw):
     b = (banco_raw or '').lower()
@@ -2335,7 +2371,7 @@ def widget_retiro_pruebas():
     )
 
 def vista_widget_retiro(form_action=None, forzar_codigo_prueba=False):
-    horario = sistema_config.get('horario_activo', True)
+    horario = recepcion_codigos_abierta()
     bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
 
     token = request.args.get('token', request.form.get('token', '')).strip()
@@ -2393,7 +2429,7 @@ def _extension_comprobante_valida(filename):
 
 def _rechazar_procesar_formulario_retiro(req, mensaje, modo_widget=False, modo_prueba='real', form_action=None):
     if modo_widget:
-        horario = sistema_config.get('horario_activo', True)
+        horario = recepcion_codigos_abierta()
         bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
         token = req.form.get('token', '').strip()
         usuario_widget = req.form.get('usuario', 'Widget-Externo')
@@ -2521,7 +2557,7 @@ def procesar_formulario_retiro(req, usuarios, modo_widget=False, origen_historia
 
     if error == 'duplicado':
         if modo_widget:
-            horario = sistema_config.get('horario_activo', True)
+            horario = recepcion_codigos_abierta()
             bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
             token = req.form.get('token', '').strip()
             usuario_widget = req.form.get('usuario', 'Widget-Externo')
@@ -2533,7 +2569,7 @@ def procesar_formulario_retiro(req, usuarios, modo_widget=False, origen_historia
 
     if modo_widget:
         if not transaccion_id:
-            horario = sistema_config.get('horario_activo', True)
+            horario = recepcion_codigos_abierta()
             bancos_activos = sistema_config.get('bancos_activos', {'pichincha': True, 'guayaquil': True, 'produbanco': True})
             token = req.form.get('token', '').strip()
             usuario_widget = req.form.get('usuario', 'Widget-Externo')
@@ -4665,6 +4701,8 @@ almacen_reportes_caidos = registrar_reportes_caidos(app, {
     'datos': datos_para_reportes_caidos,
 })
 
+from reportes_diarios import iniciar_programador
+programador_informes_diarios = iniciar_programador(app.config['UPLOAD_FOLDER'])
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
